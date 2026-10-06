@@ -1,0 +1,26 @@
+extends Node
+## Registers the default keyboard bindings at startup.
+##
+## Actions that already exist (for example ones defined in Project Settings >
+## Input Map) are left untouched, so bindings can be overridden in the editor.
+
+const KEY_BINDINGS := {
+	"camera_forward": [KEY_W, KEY_UP],
+	"camera_back": [KEY_S, KEY_DOWN],
+	"camera_left": [KEY_A, KEY_LEFT],
+	"camera_right": [KEY_D, KEY_RIGHT],
+	"camera_rotate_left": [KEY_Q],
+	"camera_rotate_right": [KEY_E],
+	"deselect": [KEY_ESCAPE],
+}
+
+
+func _enter_tree() -> void:
+	for action: String in KEY_BINDINGS:
+		if InputMap.has_action(action):
+			continue
+		InputMap.add_action(action)
+		for key: Key in KEY_BINDINGS[action]:
+			var event := InputEventKey.new()
+			event.physical_keycode = key
+			InputMap.action_add_event(action, event)
