@@ -4,14 +4,14 @@ extends Node3D
 ## If the target dies mid-flight the projectile carries on to the last known
 ## position and fizzles.
 
-var _target: Creature
+var _target: Node3D
 var _source: Creature
 var _damage := 0.0
 var _speed := 20.0
 var _aim_point := Vector3.ZERO
 
 
-func launch(from: Vector3, target: Creature, damage: float, source: Creature, speed: float) -> void:
+func launch(from: Vector3, target: Node3D, damage: float, source: Creature, speed: float) -> void:
 	global_position = from
 	_target = target
 	_source = source

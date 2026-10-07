@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://scripts/buildings/unit_recipe.gd" id="2_recipe"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Electrical Generator"
+max_health = 600.0
+armor = 4.0
+cost_coal = 150
+cost_electricity = 0
+build_time = 18.0
+size = Vector3(3, 4, 3)
+color = Color(0.25, 0.32, 0.45, 1)
+is_drop_off = false
+electricity_per_second = 2.0
+production = Array[ExtResource("2_recipe")]([])

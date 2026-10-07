@@ -1,0 +1,59 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/building.gd" id="1_building"]
+
+[sub_resource type="TorusMesh" id="TorusMesh_ring"]
+inner_radius = 0.7
+outer_radius = 0.8
+rings = 48
+ring_segments = 4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ring"]
+shading_mode = 0
+albedo_color = Color(0.35, 1, 0.4, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pole"]
+top_radius = 0.05
+bottom_radius = 0.05
+height = 2.0
+radial_segments = 6
+
+[sub_resource type="BoxMesh" id="BoxMesh_flag"]
+size = Vector3(0.7, 0.45, 0.05)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flag"]
+shading_mode = 0
+albedo_color = Color(0.35, 1, 0.4, 1)
+
+[node name="Building" type="StaticBody3D"]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_building")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+
+[node name="TeamBand" type="MeshInstance3D" parent="."]
+
+[node name="SelectionRing" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.3, 0, 0, 0, 1, 0, 0.05, 0)
+cast_shadow = 0
+mesh = SubResource("TorusMesh_ring")
+surface_material_override/0 = SubResource("StandardMaterial3D_ring")
+
+[node name="RallyFlag" type="Node3D" parent="."]
+top_level = true
+visible = false
+
+[node name="Pole" type="MeshInstance3D" parent="RallyFlag"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+cast_shadow = 0
+mesh = SubResource("CylinderMesh_pole")
+surface_material_override/0 = SubResource("StandardMaterial3D_flag")
+
+[node name="Flag" type="MeshInstance3D" parent="RallyFlag"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, 1.75, 0)
+cast_shadow = 0
+mesh = SubResource("BoxMesh_flag")
+surface_material_override/0 = SubResource("StandardMaterial3D_flag")

@@ -6,15 +6,21 @@ extends CharacterBody3D
 ## - IDLE: stands still, engages enemies that come within sight range, and
 ##   walks back once it has chased one further than its leash range.
 ## - MOVE: walks to a point and ignores enemies.
-## - ATTACK: chases and attacks one specific target until it dies.
+## - ATTACK: chases and attacks one specific target (creature or building)
+##   until it dies.
 ## - ATTACK_MOVE: walks to a point, fighting any enemies met on the way.
+## - GATHER / BUILD: Henchman-only work orders (see Henchman).
+##
+## Anything attackable (creatures and buildings) is in the "targets" group and
+## provides team, is_alive(), take_damage(), edge_distance_from(),
+## center_height(), radius(), bar_height() and get_max_health().
 ##
 ## Uses placeholder capsule art until real creature models exist.
 
 signal health_changed(current: float, maximum: float)
 signal died(creature: Creature)
 
-enum Order { IDLE, MOVE, ATTACK, ATTACK_MOVE }
+enum Order { IDLE, MOVE, ATTACK, ATTACK_MOVE, GATHER, BUILD }
 
 const TEAM_COLORS: Array[Color] = [
 	Color(0.25, 0.55, 1.0),
@@ -40,7 +46,7 @@ const ProjectileScene := preload("res://scenes/fx/projectile.tscn")
 
 var health := 0.0
 var order := Order.IDLE
-var attack_target: Creature = null
+var attack_target: Node3D = null
 var is_selected := false
 var is_moving := false
 
@@ -65,6 +71,7 @@ var _flash_tween: Tween
 
 func _ready() -> void:
 	add_to_group("units")
+	add_to_group("targets")
 	if stats == null:
 		stats = CreatureStats.new()
 	health = stats.max_health
@@ -103,7 +110,7 @@ func command_move(point: Vector3, group_speed := INF) -> void:
 	_navigate(point)
 
 
-func command_attack(target: Creature) -> void:
+func command_attack(target: Node3D) -> void:
 	if not is_valid_target(target) or target.team == team:
 		return
 	order = Order.ATTACK
@@ -157,8 +164,8 @@ func is_alive() -> bool:
 	return not _dead
 
 
-static func is_valid_target(unit: Creature) -> bool:
-	return is_instance_valid(unit) and unit.is_alive()
+static func is_valid_target(target: Node3D) -> bool:
+	return is_instance_valid(target) and target.is_alive()
 
 
 func radius() -> float:
@@ -169,22 +176,40 @@ func center_height() -> float:
 	return BASE_CENTER_HEIGHT * stats.size
 
 
-## Gap between the two creatures' edges on the ground plane.
-func surface_distance_to(other: Creature) -> float:
-	return _flat_distance(other.global_position) - radius() - other.radius()
+func bar_height() -> float:
+	return center_height() * 2.0 + 0.35
 
 
-func find_nearest_enemy(max_distance: float) -> Creature:
-	var best: Creature = null
-	var best_distance := max_distance
-	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if unit.team == team or not unit.is_alive():
-			continue
-		var distance := _flat_distance(unit.global_position)
-		if distance < best_distance:
-			best_distance = distance
-			best = unit
-	return best
+func get_max_health() -> float:
+	return stats.max_health
+
+
+## Distance from [param point] to this creature's edge on the ground plane.
+func edge_distance_from(point: Vector3) -> float:
+	return _flat_distance(point) - radius()
+
+
+## Gap between this creature's edge and [param target]'s edge.
+func surface_distance_to(target: Node3D) -> float:
+	return target.edge_distance_from(global_position) - radius()
+
+
+## Nearest enemy within [param max_distance]. Creatures are preferred over
+## buildings so units don't hit walls while being attacked.
+func find_nearest_enemy(max_distance: float) -> Node3D:
+	for group in [&"units", &"buildings"]:
+		var best: Node3D = null
+		var best_distance := max_distance
+		for target: Node3D in get_tree().get_nodes_in_group(group):
+			if target.team == team or not target.is_alive():
+				continue
+			var distance: float = target.edge_distance_from(global_position)
+			if distance < best_distance:
+				best_distance = distance
+				best = target
+		if best != null:
+			return best
+	return null
 
 
 func set_selected(value: bool) -> void:
@@ -198,7 +223,7 @@ func _update_orders() -> void:
 	if attack_target != null and not _should_keep_target():
 		_lose_target()
 
-	if attack_target == null and (order == Order.IDLE or order == Order.ATTACK_MOVE) and _scan_timer <= 0.0:
+	if attack_target == null and (order == Order.IDLE or order == Order.ATTACK_MOVE) and _scan_timer <= 0.0 and stats.sight_range > 0.0:
 		_scan_timer = SCAN_INTERVAL
 		var enemy := find_nearest_enemy(stats.sight_range)
 		if enemy != null:
@@ -217,7 +242,7 @@ func _should_keep_target() -> bool:
 		return _flat_distance(_guard_position) <= stats.leash_range
 	# Attack-moving units have no post to leash to, so they give up on
 	# targets that run out of sight instead of chasing across the map.
-	return _flat_distance(attack_target.global_position) <= stats.sight_range * LOSE_SIGHT_FACTOR
+	return attack_target.edge_distance_from(global_position) <= stats.sight_range * LOSE_SIGHT_FACTOR
 
 
 func _lose_target() -> void:
@@ -240,7 +265,7 @@ func _lose_target() -> void:
 				_halt()
 
 
-func _engage(target: Creature, automatic: bool) -> void:
+func _engage(target: Node3D, automatic: bool) -> void:
 	attack_target = target
 	_auto_target = automatic
 
@@ -250,7 +275,7 @@ func _clear_target() -> void:
 	_auto_target = false
 
 
-func _pursue_and_attack(target: Creature) -> void:
+func _pursue_and_attack(target: Node3D) -> void:
 	if surface_distance_to(target) <= stats.attack_range:
 		_halt()
 		if _cooldown <= 0.0:
@@ -260,7 +285,7 @@ func _pursue_and_attack(target: Creature) -> void:
 		_navigate(target.global_position)
 
 
-func _perform_attack(target: Creature) -> void:
+func _perform_attack(target: Node3D) -> void:
 	if stats.is_ranged():
 		var projectile := ProjectileScene.instantiate()
 		get_tree().current_scene.add_child(projectile)
@@ -274,6 +299,7 @@ func _perform_attack(target: Creature) -> void:
 func _die() -> void:
 	_dead = true
 	remove_from_group("units")
+	remove_from_group("targets")
 	set_physics_process(false)
 	collision_layer = 0
 	collision_mask = 0

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnitRecipe" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/unit_recipe.gd" id="1_recipe"]
+[ext_resource type="Resource" path="res://resources/creatures/skirmisher.tres" id="2_stats"]
+[ext_resource type="PackedScene" path="res://scenes/units/creature.tscn" id="3_scene"]
+
+[resource]
+script = ExtResource("1_recipe")
+stats = ExtResource("2_stats")
+scene = ExtResource("3_scene")
+cost_coal = 80
+cost_electricity = 40
+build_time = 10.0

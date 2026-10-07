@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 InputActions="*res://scripts/autoload/input_actions.gd"
+Economy="*res://scripts/autoload/economy.gd"
 
 [display]
 
@@ -29,3 +30,5 @@ window/size/viewport_height=900
 
 3d_physics/layer_1="world"
 3d_physics/layer_2="units"
+3d_physics/layer_3="buildings"
+3d_physics/layer_4="resources"

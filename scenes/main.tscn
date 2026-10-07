@@ -1,17 +1,27 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=30 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/props/rock.tscn" id="2_rock"]
 [ext_resource type="PackedScene" path="res://scenes/units/creature.tscn" id="3_creature"]
-[ext_resource type="Resource" path="res://resources/creatures/runner.tres" id="4_runner"]
-[ext_resource type="Resource" path="res://resources/creatures/brute.tres" id="5_brute"]
-[ext_resource type="Resource" path="res://resources/creatures/skirmisher.tres" id="6_skirmisher"]
-[ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="7_camera"]
-[ext_resource type="Script" path="res://scripts/selection/selection_manager.gd" id="8_selection"]
-[ext_resource type="Script" path="res://scripts/ui/selection_box.gd" id="9_box"]
-[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="10_hud"]
-[ext_resource type="Script" path="res://scripts/ai/ai_controller.gd" id="11_ai"]
-[ext_resource type="Script" path="res://scripts/ui/health_bars.gd" id="12_health_bars"]
+[ext_resource type="PackedScene" path="res://scenes/units/henchman.tscn" id="4_henchman_scene"]
+[ext_resource type="Resource" path="res://resources/creatures/runner.tres" id="5_runner"]
+[ext_resource type="Resource" path="res://resources/creatures/brute.tres" id="6_brute"]
+[ext_resource type="Resource" path="res://resources/creatures/skirmisher.tres" id="7_skirmisher"]
+[ext_resource type="Resource" path="res://resources/creatures/henchman.tres" id="8_henchman"]
+[ext_resource type="PackedScene" path="res://scenes/camera/rts_camera.tscn" id="9_camera"]
+[ext_resource type="Script" path="res://scripts/selection/selection_manager.gd" id="10_selection"]
+[ext_resource type="Script" path="res://scripts/ui/selection_box.gd" id="11_box"]
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="12_hud"]
+[ext_resource type="Script" path="res://scripts/ai/ai_controller.gd" id="13_ai"]
+[ext_resource type="Script" path="res://scripts/ui/health_bars.gd" id="14_health_bars"]
+[ext_resource type="PackedScene" path="res://scenes/buildings/building.tscn" id="15_building"]
+[ext_resource type="Resource" path="res://resources/buildings/lab.tres" id="16_lab"]
+[ext_resource type="Resource" path="res://resources/buildings/generator.tres" id="17_generator"]
+[ext_resource type="Resource" path="res://resources/buildings/creature_chamber.tres" id="18_creature_chamber"]
+[ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="19_building_data"]
+[ext_resource type="PackedScene" path="res://scenes/world/coal_pile.tscn" id="20_coal_pile"]
+[ext_resource type="Script" path="res://scripts/buildings/build_placer.gd" id="21_build_placer"]
+[ext_resource type="Script" path="res://scripts/game/game_rules.gd" id="22_game_rules"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.38, 0.56, 0.78, 1)
@@ -29,13 +39,15 @@ ambient_light_energy = 0.5
 tonemap_mode = 2
 
 [sub_resource type="NavigationMesh" id="NavigationMesh_map"]
+resource_local_to_scene = true
 geometry_parsed_geometry_type = 1
-geometry_collision_mask = 1
+geometry_collision_mask = 13
 cell_size = 0.25
 cell_height = 0.25
 agent_height = 1.5
 agent_radius = 0.5
 agent_max_climb = 0.25
+region_min_size = 30.0
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
 size = Vector3(100, 1, 100)
@@ -97,76 +109,152 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26, 0, -20)
 [node name="Rock8" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, -18)
 
-[node name="Units" type="Node3D" parent="."]
+[node name="CoalPiles" type="Node3D" parent="NavigationRegion3D"]
+
+[node name="CoalPile1" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("20_coal_pile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 0, 34)
+
+[node name="CoalPile2" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("20_coal_pile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17, 0, 27)
+
+[node name="CoalPile3" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("20_coal_pile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 0, -34)
+
+[node name="CoalPile4" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("20_coal_pile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17, 0, -27)
+
+[node name="CoalPile5" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("20_coal_pile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32, 0, 4)
+
+[node name="CoalPile6" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("20_coal_pile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32, 0, -4)
+
+[node name="Buildings" type="Node3D" parent="NavigationRegion3D" groups=["building_container"]]
+
+[node name="PlayerLab" parent="NavigationRegion3D/Buildings" instance=ExtResource("15_building")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 36)
+data = ExtResource("16_lab")
+
+[node name="PlayerGenerator" parent="NavigationRegion3D/Buildings" instance=ExtResource("15_building")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, 42)
+data = ExtResource("17_generator")
+
+[node name="EnemyLab" parent="NavigationRegion3D/Buildings" instance=ExtResource("15_building")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
+data = ExtResource("16_lab")
+team = 1
+
+[node name="EnemyGenerator" parent="NavigationRegion3D/Buildings" instance=ExtResource("15_building")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -43)
+data = ExtResource("17_generator")
+team = 1
+
+[node name="EnemyCreatureChamber" parent="NavigationRegion3D/Buildings" instance=ExtResource("15_building")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 0, -40)
+data = ExtResource("18_creature_chamber")
+team = 1
+
+[node name="Units" type="Node3D" parent="." groups=["unit_container"]]
+
+[node name="PlayerHenchman1" parent="Units" instance=ExtResource("4_henchman_scene")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 31)
+stats = ExtResource("8_henchman")
+
+[node name="PlayerHenchman2" parent="Units" instance=ExtResource("4_henchman_scene")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 31)
+stats = ExtResource("8_henchman")
+
+[node name="PlayerHenchman3" parent="Units" instance=ExtResource("4_henchman_scene")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 31)
+stats = ExtResource("8_henchman")
+
+[node name="PlayerHenchman4" parent="Units" instance=ExtResource("4_henchman_scene")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 31)
+stats = ExtResource("8_henchman")
 
 [node name="PlayerRunner1" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 6)
-stats = ExtResource("4_runner")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 26)
+stats = ExtResource("5_runner")
 
 [node name="PlayerRunner2" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 6)
-stats = ExtResource("4_runner")
-
-[node name="PlayerRunner3" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6)
-stats = ExtResource("4_runner")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 26)
+stats = ExtResource("5_runner")
 
 [node name="PlayerSkirmisher1" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 6)
-stats = ExtResource("6_skirmisher")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 26)
+stats = ExtResource("7_skirmisher")
 
 [node name="PlayerSkirmisher2" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 6)
-stats = ExtResource("6_skirmisher")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 26)
+stats = ExtResource("7_skirmisher")
 
 [node name="PlayerBrute1" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 9)
-stats = ExtResource("5_brute")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 26)
+stats = ExtResource("6_brute")
 
-[node name="PlayerBrute2" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 9)
-stats = ExtResource("5_brute")
+[node name="EnemyHenchman1" parent="Units" instance=ExtResource("4_henchman_scene")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -2, 0, -35)
+stats = ExtResource("8_henchman")
+team = 1
+
+[node name="EnemyHenchman2" parent="Units" instance=ExtResource("4_henchman_scene")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, -35)
+stats = ExtResource("8_henchman")
+team = 1
+
+[node name="EnemyHenchman3" parent="Units" instance=ExtResource("4_henchman_scene")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 2, 0, -35)
+stats = ExtResource("8_henchman")
+team = 1
 
 [node name="EnemyBrute1" parent="Units" instance=ExtResource("3_creature")]
 transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -2, 0, -30)
-stats = ExtResource("5_brute")
+stats = ExtResource("6_brute")
 team = 1
 
 [node name="EnemyBrute2" parent="Units" instance=ExtResource("3_creature")]
 transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 2, 0, -30)
-stats = ExtResource("5_brute")
+stats = ExtResource("6_brute")
 team = 1
 
 [node name="EnemyRunner1" parent="Units" instance=ExtResource("3_creature")]
 transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -6, 0, -31)
-stats = ExtResource("4_runner")
+stats = ExtResource("5_runner")
 team = 1
 
 [node name="EnemyRunner2" parent="Units" instance=ExtResource("3_creature")]
 transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 6, 0, -31)
-stats = ExtResource("4_runner")
+stats = ExtResource("5_runner")
 team = 1
 
 [node name="EnemySkirmisher1" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -3, 0, -34)
-stats = ExtResource("6_skirmisher")
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -3, 0, -33)
+stats = ExtResource("7_skirmisher")
 team = 1
 
 [node name="EnemySkirmisher2" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 3, 0, -34)
-stats = ExtResource("6_skirmisher")
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 3, 0, -33)
+stats = ExtResource("7_skirmisher")
 team = 1
 
-[node name="RTSCamera" parent="." instance=ExtResource("7_camera")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2)
+[node name="RTSCamera" parent="." instance=ExtResource("9_camera")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 28)
 
-[node name="SelectionManager" type="Node" parent="." node_paths=PackedStringArray("camera", "selection_box")]
-script = ExtResource("8_selection")
+[node name="BuildPlacer" type="Node3D" parent="."]
+script = ExtResource("21_build_placer")
+
+[node name="SelectionManager" type="Node" parent="." node_paths=PackedStringArray("camera", "selection_box", "build_placer")]
+script = ExtResource("10_selection")
 camera = NodePath("../RTSCamera/Camera3D")
 selection_box = NodePath("../UI/SelectionBox")
+build_placer = NodePath("../BuildPlacer")
+buildable = Array[ExtResource("19_building_data")]([ExtResource("16_lab"), ExtResource("17_generator"), ExtResource("18_creature_chamber")])
 
 [node name="EnemyAI" type="Node" parent="."]
-script = ExtResource("11_ai")
+script = ExtResource("13_ai")
+
+[node name="GameRules" type="Node" parent="."]
+script = ExtResource("22_game_rules")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -178,10 +266,10 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("12_health_bars")
+script = ExtResource("14_health_bars")
 camera = NodePath("../../RTSCamera/Camera3D")
 
-[node name="HUD" type="Control" parent="UI" node_paths=PackedStringArray("selection_manager")]
+[node name="HUD" type="Control" parent="UI" node_paths=PackedStringArray("selection_manager", "game_rules")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -189,15 +277,16 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("10_hud")
+script = ExtResource("12_hud")
 selection_manager = NodePath("../../SelectionManager")
+game_rules = NodePath("../../GameRules")
 
 [node name="SelectionLabel" type="Label" parent="UI/HUD"]
 layout_mode = 0
 offset_left = 16.0
 offset_top = 12.0
-offset_right = 716.0
-offset_bottom = 140.0
+offset_right = 916.0
+offset_bottom = 160.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 text = "No units selected"
@@ -209,17 +298,16 @@ anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
 offset_top = -170.0
-offset_right = 560.0
+offset_right = 760.0
 offset_bottom = -12.0
 grow_vertical = 0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 text = "Left click / drag: select   Shift: add to selection
-Right click: move / attack enemy   F + click or Ctrl + right click: attack-move
-H: stop   Esc: deselect
+Right click: move / attack / gather coal (Henchmen) / set rally point (building)
+F + click or Ctrl + right click: attack-move   H: stop   Esc: cancel / deselect
 Ctrl+1-9: set control group   1-9: recall group
-WASD / arrows / screen edge / middle drag: pan
-Q / E: rotate   Mouse wheel: zoom"
+WASD / arrows / screen edge / middle drag: pan   Q / E: rotate   Wheel: zoom"
 vertical_alignment = 2
 
 [node name="SelectionBox" type="Control" parent="UI"]
@@ -230,4 +318,4 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("9_box")
+script = ExtResource("11_box")

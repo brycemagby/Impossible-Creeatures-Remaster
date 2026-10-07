@@ -15,12 +15,17 @@ Follow-ups for later milestones:
 - Hold-position and patrol orders
 - Damage types and abilities (these arrive with the combiner, M4)
 
-## M3 — Economy and base building
-- Resources: coal and electricity
-- Henchmen: gather coal, construct buildings
-- Buildings: Lab, Creature Chamber, Electrical Generator, Lightning Rod, and so on
-- Placing buildings (with a ghost preview) and updating the navmesh at runtime
-- Production queues and rally points
+## M3 — Economy and base building ✅
+Coal and electricity, Henchmen that gather and build, Lab / Electrical Generator / Creature Chamber,
+placement with a ghost preview and runtime navmesh rebakes, production queues with refunds, rally
+points, destructible buildings, victory and defeat, and an enemy AI that runs an economy.
+
+Follow-ups:
+- Enemy AI that builds new buildings and expands to more coal
+- More buildings from the original (Workshop for upgrades, Lightning Rod, Soundbeam Tower, Aviary,
+  Water Chamber)
+- Research and upgrades (tie into creature levels in M4)
+- Minimap (M6)
 
 ## M4 — The creature combiner
 - Animal definitions: stats and abilities for each body part (head, torso, front legs, back legs, tail, wings, claws)
