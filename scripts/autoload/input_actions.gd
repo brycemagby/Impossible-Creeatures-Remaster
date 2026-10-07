@@ -12,6 +12,8 @@ const KEY_BINDINGS := {
 	"camera_rotate_left": [KEY_Q],
 	"camera_rotate_right": [KEY_E],
 	"deselect": [KEY_ESCAPE],
+	"attack_move": [KEY_F],
+	"stop": [KEY_H],
 }
 
 

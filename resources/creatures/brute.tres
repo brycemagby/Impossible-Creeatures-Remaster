@@ -5,6 +5,12 @@
 [resource]
 script = ExtResource("1_stats")
 display_name = "Brute"
-max_health = 200.0
+max_health = 220.0
 move_speed = 4.5
 size = 1.35
+armor = 4.0
+attack_damage = 20.0
+attack_range = 0.8
+attack_cooldown = 1.6
+projectile_speed = 0.0
+sight_range = 9.0

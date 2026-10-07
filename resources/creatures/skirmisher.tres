@@ -5,6 +5,12 @@
 [resource]
 script = ExtResource("1_stats")
 display_name = "Skirmisher"
-max_health = 120.0
+max_health = 110.0
 move_speed = 6.0
 size = 1.0
+armor = 1.0
+attack_damage = 11.0
+attack_range = 8.0
+attack_cooldown = 1.4
+projectile_speed = 20.0
+sight_range = 11.0

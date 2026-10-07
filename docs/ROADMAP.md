@@ -5,11 +5,15 @@ A rough plan. Each milestone should be playable on its own.
 ## M1 — Core RTS loop ✅
 Camera, selection, control groups, pathfinding, avoidance, formations, placeholder units.
 
-## M2 — Combat
-- Health, damage, death, and health bars
-- Attack-move and targeted attack orders, auto-acquiring nearby enemies
-- Melee and ranged attacks, armour
-- Basic enemy AI that defends and counter-attacks
+## M2 — Combat ✅
+Health, armor, melee and ranged (projectile) attacks, death, health bars, attack and attack-move
+orders, stop, auto-targeting with a leash, allies helping when attacked, group-speed formations, and
+an enemy AI that defends and sends waves.
+
+Follow-ups for later milestones:
+- Smarter target choice (focus fire on weak targets, ranged units keeping their distance)
+- Hold-position and patrol orders
+- Damage types and abilities (these arrive with the combiner, M4)
 
 ## M3 — Economy and base building
 - Resources: coal and electricity

@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/props/rock.tscn" id="2_rock"]
@@ -10,6 +10,8 @@
 [ext_resource type="Script" path="res://scripts/selection/selection_manager.gd" id="8_selection"]
 [ext_resource type="Script" path="res://scripts/ui/selection_box.gd" id="9_box"]
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="10_hud"]
+[ext_resource type="Script" path="res://scripts/ai/ai_controller.gd" id="11_ai"]
+[ext_resource type="Script" path="res://scripts/ui/health_bars.gd" id="12_health_bars"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.38, 0.56, 0.78, 1)
@@ -125,19 +127,34 @@ stats = ExtResource("5_brute")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 9)
 stats = ExtResource("5_brute")
 
-[node name="EnemySkirmisher1" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -3, 0, -30)
-stats = ExtResource("6_skirmisher")
+[node name="EnemyBrute1" parent="Units" instance=ExtResource("3_creature")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -2, 0, -30)
+stats = ExtResource("5_brute")
 team = 1
 
-[node name="EnemyBrute1" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, -30)
+[node name="EnemyBrute2" parent="Units" instance=ExtResource("3_creature")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 2, 0, -30)
 stats = ExtResource("5_brute")
 team = 1
 
 [node name="EnemyRunner1" parent="Units" instance=ExtResource("3_creature")]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 3, 0, -30)
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -6, 0, -31)
 stats = ExtResource("4_runner")
+team = 1
+
+[node name="EnemyRunner2" parent="Units" instance=ExtResource("3_creature")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 6, 0, -31)
+stats = ExtResource("4_runner")
+team = 1
+
+[node name="EnemySkirmisher1" parent="Units" instance=ExtResource("3_creature")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -3, 0, -34)
+stats = ExtResource("6_skirmisher")
+team = 1
+
+[node name="EnemySkirmisher2" parent="Units" instance=ExtResource("3_creature")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 3, 0, -34)
+stats = ExtResource("6_skirmisher")
 team = 1
 
 [node name="RTSCamera" parent="." instance=ExtResource("7_camera")]
@@ -148,7 +165,21 @@ script = ExtResource("8_selection")
 camera = NodePath("../RTSCamera/Camera3D")
 selection_box = NodePath("../UI/SelectionBox")
 
+[node name="EnemyAI" type="Node" parent="."]
+script = ExtResource("11_ai")
+
 [node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HealthBars" type="Control" parent="UI" node_paths=PackedStringArray("camera")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("12_health_bars")
+camera = NodePath("../../RTSCamera/Camera3D")
 
 [node name="HUD" type="Control" parent="UI" node_paths=PackedStringArray("selection_manager")]
 layout_mode = 3
@@ -165,7 +196,7 @@ selection_manager = NodePath("../../SelectionManager")
 layout_mode = 0
 offset_left = 16.0
 offset_top = 12.0
-offset_right = 416.0
+offset_right = 716.0
 offset_bottom = 140.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
@@ -177,14 +208,15 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = -150.0
+offset_top = -170.0
 offset_right = 560.0
 offset_bottom = -12.0
 grow_vertical = 0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 text = "Left click / drag: select   Shift: add to selection
-Right click: move   Esc: deselect
+Right click: move / attack enemy   F + click or Ctrl + right click: attack-move
+H: stop   Esc: deselect
 Ctrl+1-9: set control group   1-9: recall group
 WASD / arrows / screen edge / middle drag: pan
 Q / E: rotate   Mouse wheel: zoom"
