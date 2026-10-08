@@ -50,10 +50,16 @@ Follow-ups:
 - Shared animation set (idle, walk, attack, death) that works on hybrid bodies
 - Low-poly stylised art direction that's achievable for a small team
 
-## M6 — Skirmish
-- Fog of war, minimap
-- Skirmish AI that builds an economy and an army
-- Several maps, win and loss conditions
+## M6 — Skirmish ✅
+Fog of war (per team, the AI included), minimap with camera jump and orders, a smarter AI (defends,
+attacks scouted targets or the likely enemy base, growing waves, rebuilds), Easy/Normal/Hard, a
+second map (Canyon), and a skirmish setup screen.
+
+Follow-ups:
+- Hide coal piles and rocks under unexplored fog; "last seen" ghosts for destroyed enemy buildings
+- AI that expands to distant coal with a second Lab, retreats wounded units, and focuses fire
+- More maps, 2v2 / free-for-all with more AI players
+- Pause menu, game speed setting, end-of-match statistics
 
 ## Later
 - Single-player campaign (an original story in the spirit of the 1930s pulp-adventure setting)

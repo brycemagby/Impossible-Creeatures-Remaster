@@ -10,8 +10,13 @@ extends Node
 ## - researches the next level at the Lab: once its army is big enough for
 ##   its current level it stops making creatures and saves up for research;
 ## - keeps its Lab and Chambers producing Henchmen and creatures it has unlocked.
-## Defence is handled by the creatures themselves. Every [member wave_interval]
-## seconds idle combat units attack-move toward the enemy.
+## - defends: when it sees enemies near its buildings, nearby idle fighters
+##   attack-move to them;
+## - attacks: every [member wave_interval] seconds, if enough fighters are idle,
+##   they attack-move at the nearest enemy building it has scouted, or toward
+##   where the enemy base probably is (the far side of the map). Each wave
+##   asks for one more creature than the last.
+## It only knows what its fog of war shows, like the player.
 
 const THINK_INTERVAL := 1.0
 const MAX_QUEUED := 2
@@ -22,6 +27,17 @@ const CHAMBER_DATA := preload("res://resources/buildings/creature_chamber.tres")
 ## Distances from the Lab's centre to try when placing a building.
 const PLACEMENT_RADII := [9.0, 12.0, 15.0, 18.0, 21.0]
 const PLACEMENT_ANGLES := 16
+## Enemies this close to one of its buildings trigger a defence.
+const DEFEND_RADIUS := 20.0
+## Fighters this close to the threat join the defence.
+const DEFENDER_RADIUS := 45.0
+const MAX_WAVE_SIZE := 12
+## [wave interval, min wave size, max henchmen, coal income, army per level].
+const DIFFICULTY_SETTINGS := {
+	0: [150.0, 5, 5, 0.8, 1],
+	1: [100.0, 4, 7, 1.0, 2],
+	2: [70.0, 4, 9, 1.3, 2],
+}
 
 @export var enabled := true
 @export var team := 1
@@ -44,6 +60,7 @@ const PLACEMENT_ANGLES := 16
 var _wave_timer := 0.0
 var _think_timer := 0.0
 var _placer: BuildPlacer
+var waves_sent := 0
 
 
 func _ready() -> void:
@@ -65,6 +82,16 @@ func _physics_process(delta: float) -> void:
 			launch_wave()
 
 
+## Applies a GameSettings.Difficulty level.
+func apply_difficulty(level: int) -> void:
+	var settings: Array = DIFFICULTY_SETTINGS[level]
+	wave_interval = settings[0]
+	min_wave_size = settings[1]
+	max_henchmen = settings[2]
+	Economy.set_income_multiplier(team, settings[3])
+	army_per_level = settings[4]
+
+
 ## One round of decisions. Public so tests can step the AI.
 func think() -> void:
 	# Place new sites first so workers are assigned to them straight away.
@@ -72,6 +99,37 @@ func think() -> void:
 	manage_workers()
 	manage_research()
 	manage_production()
+	defend_base()
+
+
+# --- Defence ------------------------------------------------------------------
+
+## Sends nearby idle fighters at the closest visible enemy threatening a
+## building. Returns how many were sent.
+func defend_base() -> int:
+	var threat: Creature = null
+	var threat_distance := DEFEND_RADIUS
+	var buildings := _buildings(true) + _buildings(false)
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if unit.team != enemy_team or not _can_see(unit.global_position):
+			continue
+		for building in buildings:
+			var distance := building.edge_distance_from(unit.global_position)
+			if distance < threat_distance:
+				threat_distance = distance
+				threat = unit
+	if threat == null:
+		return 0
+	var sent := 0
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if unit.team != team or unit is Henchman or unit.attack_target != null:
+			continue
+		if unit.order != Creature.Order.IDLE and unit.order != Creature.Order.MOVE:
+			continue
+		if unit.global_position.distance_to(threat.global_position) <= DEFENDER_RADIUS:
+			unit.command_attack_move(threat.global_position)
+			sent += 1
+	return sent
 
 
 # --- Workers ------------------------------------------------------------------
@@ -120,9 +178,15 @@ func next_building() -> BuildingData:
 ## starts a construction site there. Returns it, or null.
 func place_building(data: BuildingData) -> Building:
 	var home := _home()
-	if home == null:
+	var anchor: Vector3
+	if home != null:
+		anchor = home.global_position
+	elif not _henchmen().is_empty():
+		# Lost every building: start again where the workers are.
+		anchor = _henchmen()[0].global_position
+	else:
 		return null
-	var toward_center := -home.global_position
+	var toward_center := -anchor
 	toward_center.y = 0.0
 	var base_angle := atan2(toward_center.x, toward_center.z)
 	_placer.start(data, team)
@@ -132,7 +196,7 @@ func place_building(data: BuildingData) -> Building:
 			# Alternate either side of the centre direction: 0, +1, -1, +2...
 			var step := ceili(i / 2.0) * (1 if i % 2 == 1 else -1)
 			var angle := base_angle + step * TAU / PLACEMENT_ANGLES
-			var spot := home.global_position + Vector3(sin(angle), 0.0, cos(angle)) * radius
+			var spot := anchor + Vector3(sin(angle), 0.0, cos(angle)) * radius
 			if _placer.can_place_at(_placer.snap(spot)):
 				site = _placer.place(spot)
 				break
@@ -203,34 +267,47 @@ func launch_wave() -> int:
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
 		if unit.team == team and not unit is Henchman and unit.order == Creature.Order.IDLE and unit.attack_target == null:
 			idle.append(unit)
-	if idle.size() < min_wave_size:
+	if idle.size() < mini(min_wave_size + waves_sent, MAX_WAVE_SIZE):
 		return 0
-	var target: Variant = _wave_target()
+	var target: Variant = wave_target()
 	if target == null:
 		return 0
 	SelectionManager.assign_formation(idle, target, formation_spacing, &"command_attack_move")
+	waves_sent += 1
 	return idle.size()
 
 
-## The enemy's nearest building, falling back to their army's centre.
-func _wave_target() -> Variant:
+## The nearest enemy building this team has scouted; otherwise the mirror
+## image of its own base, where the enemy most likely lives.
+func wave_target() -> Variant:
 	var home := _home()
 	var from := home.global_position if home else Vector3.ZERO
 	var best: Variant = null
 	var best_distance := INF
 	for building: Building in get_tree().get_nodes_in_group("buildings"):
-		if building.team == enemy_team and building.global_position.distance_to(from) < best_distance:
-			best_distance = building.global_position.distance_to(from)
+		if building.team != enemy_team or not _has_explored(building.global_position):
+			continue
+		var distance := building.global_position.distance_to(from)
+		if distance < best_distance:
+			best_distance = distance
 			best = building.global_position
 	if best != null:
 		return best
-	var center := Vector3.ZERO
-	var enemies := 0
-	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if unit.team == enemy_team:
-			center += unit.global_position
-			enemies += 1
-	return center / enemies if enemies > 0 else null
+	return Vector3(-from.x, 0.0, -from.z) if home else null
+
+
+func _fog() -> FogOfWar:
+	return get_tree().get_first_node_in_group("fog") as FogOfWar
+
+
+func _can_see(point: Vector3) -> bool:
+	var fog := _fog()
+	return fog == null or fog.is_visible(team, point)
+
+
+func _has_explored(point: Vector3) -> bool:
+	var fog := _fog()
+	return fog == null or fog.is_explored(team, point)
 
 
 # --- Helpers ------------------------------------------------------------------

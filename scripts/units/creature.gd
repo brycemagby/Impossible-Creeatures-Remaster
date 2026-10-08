@@ -270,6 +270,11 @@ func get_armor() -> float:
 	return stats.armor
 
 
+## How far this creature reveals the fog of war.
+func vision_range() -> float:
+	return maxf(stats.sight_range, 9.0) + (3.0 if stats.can_fly else 0.0)
+
+
 ## Distance from [param point] to this creature's edge on the ground plane.
 func edge_distance_from(point: Vector3) -> float:
 	return _flat_distance(point) - radius()

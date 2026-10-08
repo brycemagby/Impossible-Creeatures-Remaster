@@ -1,7 +1,7 @@
 extends Control
 ## Title screen: start a skirmish or open the creature combiner.
 
-const GAME_SCENE := "res://scenes/main.tscn"
+const SETUP_SCENE := "res://scenes/ui/skirmish_setup.tscn"
 const COMBINER_SCENE := "res://scenes/ui/combiner.tscn"
 
 
@@ -31,7 +31,7 @@ func _ready() -> void:
 	column.add_child(subtitle)
 	column.add_child(Control.new())
 
-	_add_button(column, "Play Skirmish", func() -> void: get_tree().change_scene_to_file(GAME_SCENE))
+	_add_button(column, "Play Skirmish", func() -> void: get_tree().change_scene_to_file(SETUP_SCENE))
 	_add_button(column, "Creature Combiner", func() -> void: get_tree().change_scene_to_file(COMBINER_SCENE))
 	_add_button(column, "Quit", func() -> void: get_tree().quit())
 

@@ -22,7 +22,7 @@ func _process(_delta: float) -> void:
 
 func _draw() -> void:
 	for target: Node3D in get_tree().get_nodes_in_group("targets"):
-		if not target.is_selected and target.health >= target.get_max_health():
+		if not target.is_visible_in_tree() or (not target.is_selected and target.health >= target.get_max_health()):
 			continue
 		var top: Vector3 = target.global_position + Vector3.UP * target.bar_height()
 		if camera.is_position_behind(top):

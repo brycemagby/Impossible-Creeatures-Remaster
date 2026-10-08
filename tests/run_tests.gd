@@ -20,6 +20,9 @@ var _checks := 0
 
 
 func _ready() -> void:
+	# Headless windows are tiny (64x64); use a real screen size so the HUD
+	# (minimap, panels) sits where it would in the game.
+	get_tree().root.size = Vector2i(1600, 900)
 	# Never touch the player's real saved army.
 	Armies.save_path = TEST_ARMY_PATH
 	Armies.set_designs(0, Armies.default_designs())
@@ -61,6 +64,12 @@ func _run() -> void:
 	await _test_leap()
 	await _test_starting_army()
 	await _test_research()
+	await _test_fog_of_war()
+	await _test_minimap()
+	await _test_ai_defence_and_waves()
+	await _test_difficulty_and_settings()
+	await _test_canyon_map()
+	await _test_skirmish_setup()
 	await _test_target_choice()
 	await _test_combiner_screen()
 	await _test_main_menu()
@@ -842,6 +851,181 @@ func _test_research() -> void:
 	await _unload(main)
 
 
+func _fog_frames() -> void:
+	await _physics_frames(int(FogOfWar.UPDATE_INTERVAL * 60) + 3)
+
+
+func _test_fog_of_war() -> void:
+	print("fog of war")
+	var main := await _load_map()
+	var fog: FogOfWar = main.get_node("FogOfWar")
+	fog.reveal_all = false
+	await _fog_frames()
+	var my_lab := _building(0, "Lab")
+	var enemy_lab := _building(1, "Lab")
+	var enemy := _first(1, "Brute")
+	_check(fog.is_visible(0, my_lab.global_position), "the player sees around their own base")
+	_check(not fog.is_explored(0, enemy_lab.global_position), "the enemy base starts unexplored")
+	_check(not enemy.visible and not enemy_lab.visible, "enemy creatures and buildings in the fog are hidden")
+	var material := (main.get_node("NavigationRegion3D/Ground/MeshInstance3D") as MeshInstance3D).material_override as ShaderMaterial
+	_check(material != null and material.get_shader_parameter("fog") == fog.texture and material.get_shader_parameter("fog_enabled"),
+			"the ground shader shows the fog")
+
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var rig: RTSCamera = main.get_node("RTSCamera")
+	manager.select_units([_first(0, "Runner")])
+	rig.focus_on(enemy.global_position)
+	await get_tree().process_frame
+	_check(manager.unit_at_screen(manager.camera.unproject_position(enemy.global_position)) == null, "hidden enemies can't be clicked")
+
+	var scout := _first(0, "Runner")
+	_isolate([scout, enemy, _first(0, "Henchman")])
+	scout.global_position = enemy_lab.global_position + Vector3(0, 0, 7)
+	scout.command_stop()
+	await _fog_frames()
+	_check(enemy.visible, "enemies in sight of a scout appear")
+	_check(enemy_lab.visible and fog.is_explored(0, enemy_lab.global_position), "scouted enemy buildings appear")
+	scout.global_position = Vector3(30, 0, 30)
+	scout.command_stop()
+	await _fog_frames()
+	_check(not enemy.visible, "enemies disappear again when out of sight")
+	_check(enemy_lab.visible, "explored enemy buildings stay on the map")
+	_check(fog.explored_fraction(0) > 0.05 and fog.explored_fraction(0) < 0.9, "exploration is tracked (%d%% of the map)" % (fog.explored_fraction(0) * 100))
+
+	fog.enabled = false
+	await _fog_frames()
+	_check(enemy.visible and fog.is_visible(0, Vector3(40, 0, -40)), "with fog of war off, everything is visible")
+	await _unload(main)
+
+
+func _test_minimap() -> void:
+	print("minimap")
+	var main := await _load_map()
+	var minimap: Minimap = main.get_node("UI/HUD/Minimap")
+	var rig: RTSCamera = main.get_node("RTSCamera")
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	await _process_frames(2)
+	var point := Vector3(20, 0, -30)
+	_check(minimap.map_to_world(minimap.world_to_map(point)).distance_to(point) < 0.01, "minimap and world coordinates convert both ways")
+	var screen := minimap.get_global_rect().position + minimap.world_to_map(point)
+	_click(screen, MOUSE_BUTTON_LEFT)
+	await _process_frames(1)
+	_check(Vector2(rig.position.x - point.x, rig.position.z - point.z).length() < 1.0, "clicking the minimap moves the camera")
+	var runner := _first(0, "Runner")
+	manager.select_units([runner])
+	var target := Vector3(-20, 0, 10)
+	_click(minimap.get_global_rect().position + minimap.world_to_map(target), MOUSE_BUTTON_RIGHT)
+	_check(runner.order == Creature.Order.MOVE and runner.agent.target_position.distance_to(target) < 1.0,
+			"right clicking the minimap orders the selection there")
+	await _unload(main)
+
+
+func _test_ai_defence_and_waves() -> void:
+	print("AI defence and waves")
+	var main := await _load_map()
+	var ai: AIController = main.get_node("EnemyAI")
+	var fog: FogOfWar = main.get_node("FogOfWar")
+	var player_lab := _building(0, "Lab")
+	await _fog_frames()
+	var target: Variant = ai.wave_target()
+	_check(target != null and target.z > 20.0, "without scouting, the AI heads for the far side of the map")
+	var scout := _first(1, "Runner")
+	scout.global_position = player_lab.global_position + Vector3(0, 0, -6)
+	scout.command_stop()
+	await _fog_frames()
+	_check(fog.is_explored(1, player_lab.global_position), "AI units explore for their team")
+	_check(_flat(ai.wave_target() - player_lab.global_position) < 1.0, "once scouted, the AI attacks the player's buildings")
+
+	# Next to the enemy Generator, but out of its fighters' sight: only the
+	# AI's base awareness can react.
+	var raider := _first(0, "Brute")
+	raider.global_position = _building(1, "Electrical Generator").global_position + Vector3(-6, 0, -2)
+	raider.command_stop()
+	await _fog_frames()
+	var sent := ai.defend_base()
+	_check(sent > 0 and _fighters(1).any(func(u: Creature) -> bool: return u.order == Creature.Order.ATTACK_MOVE),
+			"the AI sends nearby fighters to defend its base (%d)" % sent)
+
+	# Keep exactly the minimum wave size.
+	var keep: Array = _fighters(1).slice(0, ai.min_wave_size) + _team_units(0) + _team_units(1).filter(func(u: Creature) -> bool: return u is Henchman)
+	_isolate(keep)
+	for unit in _fighters(1):
+		unit.command_stop()
+	_check(ai.launch_wave() == ai.min_wave_size and ai.waves_sent == 1, "the AI launches an attack wave")
+	for unit in _fighters(1):
+		unit.command_stop()
+	_check(ai.launch_wave() == 0, "each wave needs a bigger army than the last")
+	await _unload(main)
+
+
+func _test_difficulty_and_settings() -> void:
+	print("difficulty and settings")
+	GameSettings.difficulty = GameSettings.Difficulty.HARD
+	GameSettings.fog_enabled = false
+	var main := await _load_map()
+	var ai: AIController = main.get_node("EnemyAI")
+	_check(ai.wave_interval < 100.0 and ai.max_henchmen > 7, "Hard makes the AI attack sooner and keep more workers")
+	var coal: float = Economy.coal(1)
+	Economy.deposit_coal(1, 10)
+	_check(is_equal_approx(Economy.coal(1) - coal, 13.0), "Hard gives the AI a coal bonus")
+	coal = Economy.coal(0)
+	Economy.deposit_coal(0, 10)
+	_check(is_equal_approx(Economy.coal(0) - coal, 10.0), "the player gets no bonus")
+	_check(not main.get_node("FogOfWar").enabled, "the fog setting is applied to the match")
+	await _unload(main)
+	GameSettings.difficulty = GameSettings.Difficulty.NORMAL
+	GameSettings.fog_enabled = true
+
+
+func _test_canyon_map() -> void:
+	print("canyon map")
+	var main: Node3D = load(GameSettings.MAPS[1].path).instantiate()
+	main.get_node("EnemyAI").enabled = false
+	get_tree().root.add_child(main)
+	get_tree().current_scene = main
+	await _physics_frames(10)
+	var player_lab := _building(0, "Lab")
+	var enemy_lab := _building(1, "Lab")
+	_check(player_lab != null and enemy_lab != null and player_lab.global_position.x < 0 and enemy_lab.global_position.x > 0,
+			"Canyon has bases on the west and east")
+	_check(_fighters(0).size() >= 3 and _fighters(1).size() >= 3, "both armies spawn on Canyon")
+	var map := main.get_world_3d().navigation_map
+	var from := player_lab.global_position + Vector3(6, 0, 0)
+	var to := enemy_lab.global_position - Vector3(6, 0, 0)
+	var path := NavigationServer3D.map_get_path(map, from, to, true)
+	_check(path.size() > 1 and path[path.size() - 1].distance_to(to) < 1.0, "the bases are connected through the canyon")
+	# Crossing the wall where it's solid means walking round to a pass.
+	var west := Vector3(-6, 0, -38)
+	var east := Vector3(6, 0, -38)
+	path = NavigationServer3D.map_get_path(map, west, east, true)
+	var walked := 0.0
+	for i in range(1, path.size()):
+		walked += path[i - 1].distance_to(path[i])
+	_check(walked > west.distance_to(east) * 2.0, "the rock wall forces a detour through a pass (%.0f m vs %.0f m)" % [walked, west.distance_to(east)])
+	var ai: AIController = main.get_node("EnemyAI")
+	_check(ai.wave_target().x < 0.0, "the AI's first guess is the west side")
+	await _unload(main)
+
+
+func _test_skirmish_setup() -> void:
+	print("skirmish setup")
+	var setup: SkirmishSetup = load("res://scenes/ui/skirmish_setup.tscn").instantiate()
+	get_tree().root.add_child(setup)
+	await _process_frames(2)
+	_check(setup.map_list.item_count == GameSettings.MAPS.size(), "the setup screen lists every map")
+	setup.select_map(1)
+	setup.difficulty_option.select(GameSettings.Difficulty.EASY)
+	setup.difficulty_option.item_selected.emit(GameSettings.Difficulty.EASY)
+	setup.fog_check.button_pressed = false
+	_check(GameSettings.map_path() == "res://scenes/maps/canyon.tscn" and GameSettings.difficulty == GameSettings.Difficulty.EASY
+			and not GameSettings.fog_enabled, "choices are stored for the match")
+	setup.queue_free()
+	GameSettings.map_index = 0
+	GameSettings.difficulty = GameSettings.Difficulty.NORMAL
+	GameSettings.fog_enabled = true
+	await _process_frames(1)
+
+
 func _test_starting_army() -> void:
 	print("starting army")
 	var main := await _load_map(false)
@@ -925,6 +1109,8 @@ func _test_main_menu() -> void:
 func _load_map(with_fixtures := true) -> Node3D:
 	var main: Node3D = load("res://scenes/main.tscn").instantiate()
 	main.get_node("EnemyAI").enabled = false
+	# Fog is still computed, but the player sees everything unless a test opts in.
+	main.get_node("FogOfWar").reveal_all = true
 	main.spawn_starting_army = not with_fixtures
 	get_tree().root.add_child(main)
 	get_tree().current_scene = main

@@ -23,6 +23,7 @@ func _ready() -> void:
 	add_to_group("navmesh")
 	Economy.reset([0, 1], starting_coal, starting_electricity)
 	Research.reset([0, 1])
+	_apply_settings()
 	navigation_region.bake_finished.connect(_on_bake_finished)
 	# Bake from the ground, rock, building and coal colliders.
 	navigation_region.bake_navigation_mesh(false)
@@ -31,11 +32,22 @@ func _ready() -> void:
 		spawn_army(1, $EnemyArmySpawn)
 
 
+## Applies the skirmish setup choices (fog, AI difficulty).
+func _apply_settings() -> void:
+	var fog := get_node_or_null("FogOfWar") as FogOfWar
+	if fog:
+		fog.enabled = GameSettings.fog_enabled
+	var ai := get_node_or_null("EnemyAI") as AIController
+	if ai:
+		ai.apply_difficulty(GameSettings.difficulty)
+
+
 ## Spawns [param team]'s starting army in a grid around [param marker],
-## facing the way the marker faces. Returns the new creatures.
+## facing the middle of the map. Returns the new creatures.
 func spawn_army(team: int, marker: Node3D) -> Array[Creature]:
 	var picks := pick_starting_army(Armies.recipes(team), starting_army_budget)
-	var yaw := marker.global_rotation.y
+	var to_center := -marker.global_position
+	var yaw := atan2(-to_center.x, -to_center.z)
 	var spawned: Array[Creature] = []
 	var offsets := SelectionManager.formation_offsets(picks.size(), ARMY_SPACING, yaw)
 	for i in picks.size():

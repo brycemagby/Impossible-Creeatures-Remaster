@@ -5,7 +5,6 @@ extends Control
 ## Armies.MAX_SIZE designs for the Creature Chamber to produce.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
-const GAME_SCENE := "res://scenes/main.tscn"
 const Slot := CreatureDesign.Slot
 const PREVIEW_SPIN := 0.6
 
@@ -299,7 +298,7 @@ func _build_layout() -> void:
 	_button(bottom, "Save army", save_army)
 	_button(bottom, "Save and play", func() -> void:
 		save_army()
-		get_tree().change_scene_to_file(GAME_SCENE))
+		get_tree().change_scene_to_file(GameSettings.map_path()))
 
 
 func _animal_list(parent: Control, heading: String) -> ItemList:

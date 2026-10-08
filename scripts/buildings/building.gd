@@ -204,6 +204,10 @@ func get_armor() -> float:
 	return data.armor
 
 
+func vision_range() -> float:
+	return radius() + (8.0 if is_complete else 4.0)
+
+
 ## Distance from [param point] to the nearest edge of the footprint.
 func edge_distance_from(point: Vector3) -> float:
 	var offset := point - global_position

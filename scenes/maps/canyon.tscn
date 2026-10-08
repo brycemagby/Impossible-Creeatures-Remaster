@@ -54,7 +54,7 @@ size = Vector3(100, 1, 100)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ground"]
 render_priority = 0
 shader = ExtResource("20_fog_shader")
-shader_parameter/albedo = Color(0.3, 0.42, 0.2, 1)
+shader_parameter/albedo = Color(0.52, 0.42, 0.28, 1)
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 material = SubResource("ShaderMaterial_ground")
@@ -88,110 +88,152 @@ mesh = SubResource("PlaneMesh_ground")
 [node name="Rocks" type="Node3D" parent="NavigationRegion3D"]
 
 [node name="Rock1" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, -6)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -46)
 
 [node name="Rock2" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, -4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -42)
 
 [node name="Rock3" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -14)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -38)
 
 [node name="Rock4" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 10)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -34)
 
 [node name="Rock5" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0, 12)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -30)
 
 [node name="Rock6" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -24)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -16)
 
 [node name="Rock7" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26, 0, -20)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -12)
 
 [node name="Rock8" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, -18)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8)
+
+[node name="Rock9" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 8)
+
+[node name="Rock10" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12)
+
+[node name="Rock11" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 16)
+
+[node name="Rock12" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 30)
+
+[node name="Rock13" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 34)
+
+[node name="Rock14" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 38)
+
+[node name="Rock15" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 42)
+
+[node name="Rock16" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 46)
+
+[node name="Rock17" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 0, -30)
+
+[node name="Rock18" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 30)
+
+[node name="Rock19" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0, 22)
+
+[node name="Rock20" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, -22)
+
+[node name="Rock21" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 4)
+
+[node name="Rock22" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -4)
 
 [node name="CoalPiles" type="Node3D" parent="NavigationRegion3D"]
 
 [node name="CoalPile1" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("16_coal_pile")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 0, 34)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -36, 0, -14)
 
 [node name="CoalPile2" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("16_coal_pile")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17, 0, 27)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28, 0, 12)
 
 [node name="CoalPile3" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("16_coal_pile")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 0, -34)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36, 0, 14)
 
 [node name="CoalPile4" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("16_coal_pile")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17, 0, -27)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28, 0, -12)
 
 [node name="CoalPile5" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("16_coal_pile")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32, 0, 4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -23)
 
 [node name="CoalPile6" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("16_coal_pile")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32, 0, -4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 23)
 
 [node name="Buildings" type="Node3D" parent="NavigationRegion3D" groups=["building_container"]]
 
 [node name="PlayerLab" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 36)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 0, 0)
 data = ExtResource("12_b_lab")
 
 [node name="PlayerGenerator" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, 42)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42, 0, 10)
 data = ExtResource("13_b_generator")
 
 [node name="EnemyLab" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38, 0, 0)
 data = ExtResource("12_b_lab")
 team = 1
 
 [node name="EnemyGenerator" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -43)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0, -10)
 data = ExtResource("13_b_generator")
 team = 1
 
 [node name="Units" type="Node3D" parent="." groups=["unit_container"]]
 
 [node name="PlayerHenchman1" parent="Units" instance=ExtResource("3_henchman_scene")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 31)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -33, 0, -3)
 stats = ExtResource("4_henchman")
 
 [node name="PlayerHenchman2" parent="Units" instance=ExtResource("3_henchman_scene")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 31)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -33, 0, -1)
 stats = ExtResource("4_henchman")
 
 [node name="PlayerHenchman3" parent="Units" instance=ExtResource("3_henchman_scene")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 31)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -33, 0, 1)
 stats = ExtResource("4_henchman")
 
 [node name="PlayerHenchman4" parent="Units" instance=ExtResource("3_henchman_scene")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 31)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -33, 0, 3)
 stats = ExtResource("4_henchman")
 
 [node name="EnemyHenchman1" parent="Units" instance=ExtResource("3_henchman_scene")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -35)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 0, -2)
 stats = ExtResource("4_henchman")
 team = 1
 
 [node name="EnemyHenchman2" parent="Units" instance=ExtResource("3_henchman_scene")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -35)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 0, 0)
 stats = ExtResource("4_henchman")
 team = 1
 
 [node name="EnemyHenchman3" parent="Units" instance=ExtResource("3_henchman_scene")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -35)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 0, 2)
 stats = ExtResource("4_henchman")
 team = 1
 
 [node name="PlayerArmySpawn" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 25)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27, 0, 0)
 
 [node name="EnemyArmySpawn" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -31)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27, 0, 0)
 
 [node name="RTSCamera" parent="." instance=ExtResource("5_camera")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 28)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0, 0)
 
 [node name="BuildPlacer" type="Node3D" parent="."]
 script = ExtResource("17_build_placer")
@@ -281,7 +323,7 @@ script = ExtResource("21_minimap")
 camera_rig = NodePath("../../../RTSCamera")
 selection_manager = NodePath("../../../SelectionManager")
 fog = NodePath("../../../FogOfWar")
-ground_color = Color(0.3, 0.42, 0.2, 1)
+ground_color = Color(0.52, 0.42, 0.28, 1)
 
 [node name="SelectionBox" type="Control" parent="UI"]
 layout_mode = 3

@@ -121,12 +121,13 @@ func selected_henchmen() -> Array[Henchman]:
 ## a small screen radius so small units are easy to click.
 func unit_at_screen(screen_position: Vector2) -> Creature:
 	var hit := _raycast(screen_position, UNIT_MASK)
-	if hit and hit.collider is Creature and hit.collider.is_alive():
+	if hit and hit.collider is Creature and hit.collider.is_alive() and hit.collider.is_visible_in_tree():
 		return hit.collider
 	var best: Creature = null
 	var best_distance := CLICK_PICK_RADIUS
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if camera.is_position_behind(unit.global_position):
+		# Creatures hidden by fog of war can't be clicked.
+		if camera.is_position_behind(unit.global_position) or not unit.is_visible_in_tree():
 			continue
 		var distance := camera.unproject_position(unit.global_position).distance_to(screen_position)
 		if distance < best_distance:
@@ -137,7 +138,9 @@ func unit_at_screen(screen_position: Vector2) -> Creature:
 
 func building_at_screen(screen_position: Vector2) -> Building:
 	var hit := _raycast(screen_position, BUILDING_MASK)
-	return hit.collider if hit and hit.collider is Building and hit.collider.is_alive() else null
+	if hit and hit.collider is Building and hit.collider.is_alive() and hit.collider.is_visible_in_tree():
+		return hit.collider
+	return null
 
 
 func coal_pile_at_screen(screen_position: Vector2) -> CoalPile:
@@ -232,6 +235,18 @@ func issue_order_at_screen(screen_position: Vector2, attack_move := false) -> vo
 		issue_attack_move(target)
 	else:
 		issue_move(target)
+
+
+## Orders the selection to [param point] (from the minimap): a building sets
+## its rally point, units move or attack-move.
+func issue_order_at_world(point: Vector3, attack_move := false) -> void:
+	if Creature.is_valid_target(selected_building):
+		selected_building.set_rally_point(point)
+		_spawn_marker(point, MOVE_COLOR)
+	elif attack_move:
+		issue_attack_move(point)
+	else:
+		issue_move(point)
 
 
 func set_attack_move_armed(armed: bool) -> void:

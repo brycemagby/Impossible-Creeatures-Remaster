@@ -6,12 +6,15 @@ signal changed(team: int)
 
 var _coal := {}
 var _electricity := {}
+## Per-team multiplier on coal Henchmen deliver (AI difficulty).
+var _income := {}
 
 
 ## Clears every stockpile and gives [param teams] their starting resources.
 func reset(teams: Array[int], starting_coal: float, starting_electricity: float) -> void:
 	_coal.clear()
 	_electricity.clear()
+	_income.clear()
 	for team in teams:
 		_coal[team] = starting_coal
 		_electricity[team] = starting_electricity
@@ -30,6 +33,15 @@ func add(team: int, coal_amount := 0.0, electricity_amount := 0.0) -> void:
 	_coal[team] = coal(team) + coal_amount
 	_electricity[team] = electricity(team) + electricity_amount
 	changed.emit(team)
+
+
+func set_income_multiplier(team: int, multiplier: float) -> void:
+	_income[team] = multiplier
+
+
+## Coal delivered by a Henchman, scaled by the team's income multiplier.
+func deposit_coal(team: int, amount: float) -> void:
+	add(team, amount * _income.get(team, 1.0))
 
 
 func can_afford(team: int, coal_cost: float, electricity_cost: float) -> bool:

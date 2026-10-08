@@ -104,7 +104,7 @@ func _return_coal() -> void:
 		return
 	if drop_off.edge_distance_from(global_position) - radius() <= WORK_REACH:
 		_halt()
-		Economy.add(team, carried_coal)
+		Economy.deposit_coal(team, carried_coal)
 		carried_coal = 0
 	elif not is_moving:
 		_navigate(drop_off.global_position)
