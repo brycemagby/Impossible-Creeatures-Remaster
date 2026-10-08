@@ -21,3 +21,6 @@ extends Resource
 @export var produces_army := false
 ## Research levels can be studied here (see Research).
 @export var can_research := false
+## Heals friendly creatures within this many metres of the footprint (0 = no).
+@export var heal_radius := 0.0
+@export var heal_per_second := 0.0

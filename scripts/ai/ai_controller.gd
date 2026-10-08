@@ -16,6 +16,10 @@ extends Node
 ##   they attack-move at the nearest enemy building it has scouted, or toward
 ##   where the enemy base probably is (the far side of the map). Each wave
 ##   asks for one more creature than the last.
+## - pulls badly wounded fighters back to a Lab to heal, and sends them out
+##   again once they're healthy;
+## - expands: when the coal near its Labs runs low (or it's rich), it builds
+##   another Lab next to unclaimed coal and moves some workers there.
 ## It only knows what its fog of war shows, like the player.
 
 const THINK_INTERVAL := 1.0
@@ -32,6 +36,19 @@ const DEFEND_RADIUS := 20.0
 ## Fighters this close to the threat join the defence.
 const DEFENDER_RADIUS := 45.0
 const MAX_WAVE_SIZE := 12
+## Retreat below this fraction of health; rejoin above RETURN_HEALTH.
+const RETREAT_HEALTH := 0.3
+const RETURN_HEALTH := 0.9
+## Coal piles this close to a Lab count as that Lab's.
+const BASE_COAL_RADIUS := 25.0
+## Expand when the coal left near its Labs falls below this...
+const EXPANSION_COAL_THRESHOLD := 1000
+## ...or when it has this much coal banked and only one Lab.
+const EXPANSION_RICH_COAL := 700
+const MAX_LABS := 3
+const EXPANSION_RADII := [6.0, 8.0, 10.0, 12.0]
+## Workers sent to each newly built Lab's coal.
+const EXPANSION_WORKERS := 2
 ## [wave interval, min wave size, max henchmen, coal income, army per level].
 const DIFFICULTY_SETTINGS := {
 	0: [150.0, 5, 5, 0.8, 1],
@@ -61,6 +78,8 @@ var _wave_timer := 0.0
 var _think_timer := 0.0
 var _placer: BuildPlacer
 var waves_sent := 0
+## Fighters currently pulled back to heal.
+var retreating: Array[Creature] = []
 
 
 func _ready() -> void:
@@ -99,7 +118,43 @@ func think() -> void:
 	manage_workers()
 	manage_research()
 	manage_production()
+	manage_retreats()
 	defend_base()
+
+
+# --- Retreats -----------------------------------------------------------------
+
+## Sends badly wounded fighters to the nearest healing Lab and releases the
+## ones that have recovered. Returns how many are retreating.
+func manage_retreats() -> int:
+	for unit in retreating.duplicate():
+		if not Creature.is_valid_target(unit):
+			retreating.erase(unit)
+		elif unit.health >= unit.stats.max_health * RETURN_HEALTH:
+			retreating.erase(unit)
+			unit.command_stop()
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if unit.team != team or unit is Henchman or unit in retreating:
+			continue
+		if unit.health > unit.stats.max_health * RETREAT_HEALTH:
+			continue
+		var healer := _nearest_healer(unit.global_position)
+		if healer == null or healer.heals_at(unit.global_position):
+			continue
+		var toward := (unit.global_position - healer.global_position)
+		toward.y = 0.0
+		unit.command_move(healer.global_position + toward.normalized() * (healer.radius() + 3.0))
+		retreating.append(unit)
+	return retreating.size()
+
+
+func _nearest_healer(point: Vector3) -> Building:
+	var best: Building = null
+	for building in _buildings(true):
+		if building.data.heal_radius > 0.0 and (best == null
+				or building.global_position.distance_to(point) < best.global_position.distance_to(point)):
+			best = building
+	return best
 
 
 # --- Defence ------------------------------------------------------------------
@@ -122,7 +177,7 @@ func defend_base() -> int:
 		return 0
 	var sent := 0
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if unit.team != team or unit is Henchman or unit.attack_target != null:
+		if unit.team != team or unit is Henchman or unit.attack_target != null or unit in retreating:
 			continue
 		if unit.order != Creature.Order.IDLE and unit.order != Creature.Order.MOVE:
 			continue
@@ -150,6 +205,26 @@ func manage_workers() -> void:
 			var pile: CoalPile = henchman.find_coal_pile(INF)
 			if pile != null:
 				henchman.command_gather(pile)
+	_staff_expansions(henchmen)
+
+
+## Makes sure every Lab with coal nearby has a few workers on that coal.
+func _staff_expansions(henchmen: Array[Henchman]) -> void:
+	for lab in _buildings(true):
+		if not lab.data.is_drop_off:
+			continue
+		var piles := _piles_near(lab.global_position)
+		if piles.is_empty():
+			continue
+		var working_here := henchmen.filter(func(h: Henchman) -> bool:
+			return h.order == Creature.Order.GATHER and is_instance_valid(h.gather_target) and h.gather_target in piles)
+		for henchman in henchmen:
+			if working_here.size() >= EXPANSION_WORKERS:
+				break
+			if henchman.order != Creature.Order.GATHER or henchman in working_here:
+				continue
+			henchman.command_gather(piles[0])
+			working_here.append(henchman)
 
 
 # --- Construction -------------------------------------------------------------
@@ -159,7 +234,12 @@ func manage_construction() -> void:
 		return
 	var wanted := next_building()
 	if wanted != null and Economy.can_afford(team, wanted.cost_coal, wanted.cost_electricity):
-		place_building(wanted)
+		if wanted == LAB_DATA and _count(LAB_DATA) > 0:
+			var pile := expansion_site()
+			if pile != null:
+				place_building(wanted, pile.global_position, EXPANSION_RADII)
+		else:
+			place_building(wanted)
 
 
 ## What to build next, or null if the base is complete.
@@ -171,15 +251,63 @@ func next_building() -> BuildingData:
 		return CHAMBER_DATA
 	if _count(GENERATOR_DATA) < 1 + chambers * generators_per_chamber:
 		return GENERATOR_DATA
+	if wants_expansion():
+		return LAB_DATA
 	return null
 
 
-## Finds a free spot around the Lab, facing the middle of the map first, and
-## starts a construction site there. Returns it, or null.
-func place_building(data: BuildingData) -> Building:
+## True when the coal around its Labs is running low, or when it's rich and
+## has only one Lab, and there's somewhere to expand to.
+func wants_expansion() -> bool:
+	var labs := _count(LAB_DATA)
+	if labs == 0 or labs >= MAX_LABS or expansion_site() == null:
+		return false
+	var nearby_coal := 0
+	for building in _buildings(true):
+		if building.data.is_drop_off:
+			for pile in _piles_near(building.global_position):
+				nearby_coal += pile.amount
+	return nearby_coal < EXPANSION_COAL_THRESHOLD or (labs == 1 and Economy.coal(team) >= EXPANSION_RICH_COAL)
+
+
+## The coal pile closest to home that no Lab covers and no known enemy
+## building sits near, or null.
+func expansion_site() -> CoalPile:
+	var home := _home()
+	var from := home.global_position if home else Vector3.ZERO
+	var best: CoalPile = null
+	for pile: CoalPile in get_tree().get_nodes_in_group("coal_piles"):
+		var claimed := false
+		for building: Building in get_tree().get_nodes_in_group("buildings"):
+			var mine := building.team == team and building.data.is_drop_off
+			var hostile := building.team != team and _has_explored(building.global_position)
+			if (mine or hostile) and building.global_position.distance_to(pile.global_position) < BASE_COAL_RADIUS:
+				claimed = true
+				break
+		if claimed:
+			continue
+		if best == null or pile.global_position.distance_to(from) < best.global_position.distance_to(from):
+			best = pile
+	return best
+
+
+func _piles_near(point: Vector3) -> Array[CoalPile]:
+	var result: Array[CoalPile] = []
+	for pile: CoalPile in get_tree().get_nodes_in_group("coal_piles"):
+		if pile.global_position.distance_to(point) < BASE_COAL_RADIUS:
+			result.append(pile)
+	return result
+
+
+## Finds a free spot around [param near] (default: its Lab), facing the
+## middle of the map first, and starts a construction site there. Returns it,
+## or null.
+func place_building(data: BuildingData, near: Variant = null, radii: Array = PLACEMENT_RADII) -> Building:
 	var home := _home()
 	var anchor: Vector3
-	if home != null:
+	if near != null:
+		anchor = near
+	elif home != null:
 		anchor = home.global_position
 	elif not _henchmen().is_empty():
 		# Lost every building: start again where the workers are.
@@ -191,7 +319,7 @@ func place_building(data: BuildingData) -> Building:
 	var base_angle := atan2(toward_center.x, toward_center.z)
 	_placer.start(data, team)
 	var site: Building = null
-	for radius: float in PLACEMENT_RADII:
+	for radius: float in radii:
 		for i in PLACEMENT_ANGLES:
 			# Alternate either side of the centre direction: 0, +1, -1, +2...
 			var step := ceili(i / 2.0) * (1 if i % 2 == 1 else -1)
@@ -210,7 +338,7 @@ func place_building(data: BuildingData) -> Building:
 
 func manage_research() -> void:
 	var target := Research.next_level(team)
-	if target == 0 or _count(CHAMBER_DATA, true) == 0:
+	if target == 0 or _count(CHAMBER_DATA, true) == 0 or is_saving_for_expansion():
 		return
 	var reserve := 0 if is_saving_for_research() else research_reserve
 	if Economy.coal(team) < Research.coal_cost(target) + reserve:
@@ -231,9 +359,17 @@ func is_saving_for_research() -> bool:
 	return _fighter_count() >= army_base + army_per_level * Research.level(team)
 
 
+## True while it wants a new Lab but can't afford one yet: creature
+## production and research wait so the coal can build up.
+func is_saving_for_expansion() -> bool:
+	if not _buildings(false).is_empty() or next_building() != LAB_DATA or _count(LAB_DATA) == 0:
+		return false
+	return not Economy.can_afford(team, LAB_DATA.cost_coal, LAB_DATA.cost_electricity)
+
+
 func manage_production() -> void:
 	var henchmen := _henchmen().size() + _queued_henchmen()
-	var saving := is_saving_for_research()
+	var saving := is_saving_for_research() or is_saving_for_expansion()
 	for building in _buildings(true):
 		if building.queue.size() >= MAX_QUEUED:
 			continue
@@ -265,7 +401,8 @@ func manage_production() -> void:
 func launch_wave() -> int:
 	var idle: Array[Creature] = []
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if unit.team == team and not unit is Henchman and unit.order == Creature.Order.IDLE and unit.attack_target == null:
+		if unit.team == team and not unit is Henchman and unit.order == Creature.Order.IDLE and unit.attack_target == null \
+				and unit not in retreating:
 			idle.append(unit)
 	if idle.size() < mini(min_wave_size + waves_sent, MAX_WAVE_SIZE):
 		return 0

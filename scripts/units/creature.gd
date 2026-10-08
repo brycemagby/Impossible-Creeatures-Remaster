@@ -251,6 +251,13 @@ func apply_poison(dps: float, duration: float) -> void:
 	_poison_time = maxf(_poison_time, duration)
 
 
+func heal(amount: float) -> void:
+	if _dead or health >= stats.max_health:
+		return
+	health = minf(health + amount, stats.max_health)
+	health_changed.emit(health, stats.max_health)
+
+
 func is_poisoned() -> bool:
 	return _poison_time > 0.0
 

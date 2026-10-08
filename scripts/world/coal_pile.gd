@@ -14,6 +14,7 @@ var _starting_amount := 0
 
 func _ready() -> void:
 	add_to_group("coal_piles")
+	add_to_group("fog_hidden")
 	_starting_amount = maxi(amount, 1)
 
 

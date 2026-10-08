@@ -157,7 +157,7 @@ func building_at_screen(screen_position: Vector2) -> Building:
 
 func coal_pile_at_screen(screen_position: Vector2) -> CoalPile:
 	var hit := _raycast(screen_position, RESOURCE_MASK)
-	return hit.collider if hit and hit.collider is CoalPile else null
+	return hit.collider if hit and hit.collider is CoalPile and hit.collider.is_visible_in_tree() else null
 
 
 ## Returns the ground point under the cursor, or null if there is none.

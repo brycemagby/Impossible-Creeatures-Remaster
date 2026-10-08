@@ -26,7 +26,7 @@ its own Creature Chamber and Generators, researches (saving up once its army is 
 produces the strongest creatures it has unlocked.
 
 Follow-ups:
-- Enemy AI that expands to more coal and rebuilds lost buildings smartly
+- Enemy AI that expands to more coal ✅ (new Labs at unclaimed coal, saving up for them)
 - More buildings from the original (Workshop for upgrades, Lightning Rod, Soundbeam Tower, Aviary,
   Water Chamber)
 - Research and upgrades (tie into creature levels in M4)
@@ -56,8 +56,9 @@ attacks scouted targets or the likely enemy base, growing waves, rebuilds), Easy
 second map (Canyon), and a skirmish setup screen.
 
 Follow-ups:
-- Hide coal piles and rocks under unexplored fog; "last seen" ghosts for destroyed enemy buildings
-- AI that expands to distant coal with a second Lab, retreats wounded units, and focuses fire
+- Hide coal piles and rocks under unexplored fog; "last seen" ghosts for destroyed enemy buildings ✅
+- AI that expands to distant coal with a second Lab, retreats wounded units, and focuses fire ✅
+  (Labs now heal nearby creatures, which is where wounded AI creatures retreat to)
 - More maps, 2v2 / free-for-all with more AI players
 - Pause menu, game speed setting, end-of-match statistics ✅
 

@@ -10,6 +10,7 @@ const BORDER_COLOR := Color(0, 0, 0, 0.8)
 const VIEW_COLOR := Color(1, 1, 1, 0.85)
 const COAL_COLOR := Color(0.05, 0.05, 0.05)
 const UNIT_DOT := 3.0
+const GHOST_COLOR := Color(0.6, 0.6, 0.6, 0.6)
 
 @export var camera_rig: RTSCamera
 @export var selection_manager: SelectionManager
@@ -86,6 +87,10 @@ func _draw_overlay() -> void:
 		var rect := Rect2(world_to_map(building.global_position) - extent / 2.0, extent)
 		_overlay.draw_rect(rect.grow(1.0), BORDER_COLOR)
 		_overlay.draw_rect(rect, _team_color(building.team))
+	if fog:
+		for ghost in fog.ghosts:
+			var ghost_extent := Vector2(ghost.size.x, ghost.size.z) / bounds.size * size
+			_overlay.draw_rect(Rect2(world_to_map(ghost.position) - ghost_extent / 2.0, ghost_extent), GHOST_COLOR)
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
 		if not unit.is_visible_in_tree():
 			continue

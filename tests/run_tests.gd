@@ -73,6 +73,10 @@ func _run() -> void:
 	await _test_match_stats()
 	await _test_pause_and_speed()
 	await _test_end_screen()
+	await _test_fog_props_and_ghosts()
+	await _test_lab_healing()
+	await _test_ai_retreat()
+	await _test_ai_expansion()
 	await _test_target_choice()
 	await _test_kiting()
 	await _test_hold_position()
@@ -768,6 +772,8 @@ func _test_poison() -> void:
 	var main := await _load_map()
 	var brute := _first(1, "Brute")
 	_isolate([brute])
+	# Away from its Lab, whose healing would cancel the poison out.
+	_place(brute, Vector3(0, 0, -5))
 	var stinger := _spawn(main, _stats("lion", "scorpion", [0, 0, 0, 0, 1, -1]), 0, Vector3(30, 0, 30))
 	await _physics_frames(2)
 	stinger.deal_hit(brute)
@@ -1123,6 +1129,113 @@ func _test_end_screen() -> void:
 	_check(screen.cell_text(kills_row, 1) == str(int(MatchStats.get_stat(0, "kills"))) and MatchStats.get_stat(0, "kills") >= 6,
 			"it lists the match statistics")
 	_check(not MatchStats.running, "match time stops at the end")
+	await _unload(main)
+
+
+func _test_fog_props_and_ghosts() -> void:
+	print("fog props and ghosts")
+	var main := await _load_map()
+	var fog: FogOfWar = main.get_node("FogOfWar")
+	fog.reveal_all = false
+	await _fog_frames()
+	var enemy_pile := _nearest_pile(_building(1, "Lab").global_position)
+	var home_pile := _nearest_pile(_building(0, "Lab").global_position)
+	_check(not enemy_pile.visible and home_pile.visible, "coal piles stay hidden until explored")
+	var far_rock: Node3D = null
+	for rock: Node3D in get_tree().get_nodes_in_group("fog_hidden"):
+		if rock is not CoalPile and rock.global_position.z < -20.0:
+			far_rock = rock
+	_check(far_rock != null and not far_rock.visible, "so do rocks")
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var rig: RTSCamera = main.get_node("RTSCamera")
+	rig.focus_on(enemy_pile.global_position)
+	await get_tree().process_frame
+	_check(manager.coal_pile_at_screen(manager.camera.unproject_position(enemy_pile.global_position + Vector3.UP * 0.8)) == null,
+			"hidden coal can't be clicked")
+
+	# Scout the enemy Generator, walk away, then destroy it out of sight.
+	var scout := _first(0, "Runner")
+	var generator := _building(1, "Electrical Generator")
+	scout.global_position = generator.global_position + Vector3(6, 0, 4)
+	scout.command_stop()
+	await _fog_frames()
+	scout.global_position = Vector3(30, 0, 30)
+	scout.command_stop()
+	await _fog_frames()
+	var where := generator.global_position
+	generator.take_damage(99999.0, scout)
+	_check(fog.ghosts.size() == 1 and fog.ghosts[0].position.distance_to(where) < 0.1,
+			"a building destroyed out of sight leaves a last-seen ghost")
+	scout.global_position = where + Vector3(5, 0, 0)
+	scout.command_stop()
+	await _fog_frames()
+	_check(fog.ghosts.is_empty(), "the ghost disappears once the spot is seen again")
+	var lab := _building(1, "Lab")
+	lab.take_damage(99999.0, scout)
+	_check(fog.ghosts.is_empty(), "buildings destroyed in plain sight leave no ghost")
+	await _unload(main)
+
+
+func _test_lab_healing() -> void:
+	print("Lab healing")
+	var main := await _load_map()
+	var lab := _building(0, "Lab")
+	var near := _first(0, "Runner")
+	var far := _first(0, "Brute")
+	_isolate([near, far])
+	_place(near, lab.global_position + Vector3(0, 0, -6))
+	_place(far, Vector3(0, 0, 0))
+	near.take_damage(50.0)
+	far.take_damage(50.0)
+	var near_health := near.health
+	var far_health := far.health
+	await _physics_frames(130)
+	_check(near.health > near_health + 6.0, "creatures near a Lab heal (+%d in 2s)" % (near.health - near_health))
+	_check(is_equal_approx(far.health, far_health), "creatures far away don't")
+	await _unload(main)
+
+
+func _test_ai_retreat() -> void:
+	print("AI retreat")
+	var main := await _load_map()
+	var ai: AIController = main.get_node("EnemyAI")
+	var wounded := _first(1, "Brute")
+	_place(wounded, Vector3(0, 0, -5))
+	wounded.take_damage(wounded.stats.max_health * 0.8)
+	_check(ai.manage_retreats() == 1 and wounded.order == Creature.Order.MOVE, "the AI pulls a badly wounded creature back")
+	var lab := _building(1, "Lab")
+	_check(lab.heals_at(wounded.agent.target_position), "it retreats to where its Lab heals it")
+	_check(ai.launch_wave() == 0 or wounded.order == Creature.Order.MOVE, "retreating creatures aren't sent in waves")
+	wounded.heal(wounded.stats.max_health)
+	ai.manage_retreats()
+	_check(ai.retreating.is_empty() and wounded.order == Creature.Order.IDLE, "healed creatures are released for duty")
+	await _unload(main)
+
+
+func _test_ai_expansion() -> void:
+	print("AI expansion")
+	var main := await _load_map()
+	var ai: AIController = main.get_node("EnemyAI")
+	var lab := _building(1, "Lab")
+	_add_building("res://resources/buildings/creature_chamber.tres", 1, lab.global_position + Vector3(12, 0, 0))
+	_add_building("res://resources/buildings/generator.tres", 1, lab.global_position + Vector3(-12, 0, 6))
+	await _physics_frames(2)
+	_check(not ai.wants_expansion(), "no expansion while home coal is plentiful")
+	for pile in ai._piles_near(lab.global_position):
+		pile.amount = 100
+	_check(ai.wants_expansion() and ai.next_building() == AIController.LAB_DATA, "low home coal makes the AI want a new Lab")
+	var site_pile := ai.expansion_site()
+	_check(site_pile != null and site_pile.global_position.distance_to(lab.global_position) > AIController.BASE_COAL_RADIUS,
+			"it picks unclaimed coal away from its base")
+	Economy.reset([0, 1], 50.0, 500.0)
+	_check(ai.is_saving_for_expansion(), "it saves up when it can't afford the Lab yet")
+	Economy.add(1, 1000)
+	ai.manage_construction()
+	var new_lab: Building = null
+	for building: Building in get_tree().get_nodes_in_group("buildings"):
+		if building.team == 1 and building.data.display_name == "Lab" and not building.is_complete:
+			new_lab = building
+	_check(new_lab != null and new_lab.global_position.distance_to(site_pile.global_position) < 15.0, "it builds the new Lab next to that coal")
 	await _unload(main)
 
 

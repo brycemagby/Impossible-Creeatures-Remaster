@@ -22,8 +22,10 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - **Skirmish setup**: choose the map (Island Clearing or Canyon), the enemy's difficulty (Easy,
   Normal, Hard) and whether fog of war is on
 - **Fog of war**: you only see what your creatures and buildings see; explored ground stays dimmed,
-  enemy buildings stay marked once found, enemy creatures only show while in sight. The AI plays by
-  the same rules.
+  enemy buildings stay marked once found, enemy creatures only show while in sight, and rocks and coal
+  appear as you explore. An enemy building destroyed out of sight leaves a grey "last seen" ghost
+  until you look again. The AI plays by the same rules.
+- **Labs heal** friendly creatures within 10 m (4 health per second)
 - **Minimap**: terrain under the fog, coal, buildings, creatures and your camera's view; click to look,
   right click to send the selection there
 
@@ -53,9 +55,10 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - **Research**: each team starts at research level 1 and researches levels 2–5 at its Lab; the
   Creature Chamber only produces hybrids at or below your research level
 - Enemy AI that builds its own base (Creature Chamber, Generators, rebuilding if it loses
-  everything), gathers coal, researches, produces the strongest creatures it has unlocked, rushes
-  fighters to defend its base, and attacks what it has scouted (or where your base probably is) in
-  waves that grow each time
+  everything), gathers coal, expands with new Labs when its coal runs low, researches, produces the
+  strongest creatures it has unlocked, pulls wounded creatures back to heal, rushes fighters to
+  defend its base, and attacks what it has scouted (or where your base probably is) in waves that
+  grow each time
 - Health bars, a resource counter, and a command panel with build and production buttons
 - Creature types defined as data (`CreatureStats` resources); the combiner will generate these later
 - Headless tests

@@ -15,6 +15,7 @@ const SITE_HEALTH_FRACTION := 0.1
 ## Idle units within this radius come to defend a building under attack.
 const DEFEND_RADIUS := 15.0
 const SPAWN_GAP := 1.2
+const HEAL_INTERVAL := 0.5
 
 @export var data: BuildingData
 @export var team := 0
@@ -37,6 +38,7 @@ var is_selected := false
 var _dead := false
 var _body_material: StandardMaterial3D
 var _last_attacker_team := -1
+var _heal_timer := 0.0
 
 @onready var collision: CollisionShape3D = $CollisionShape3D
 @onready var body: MeshInstance3D = $Body
@@ -63,6 +65,11 @@ func _physics_process(delta: float) -> void:
 		return
 	if data.electricity_per_second > 0.0:
 		Economy.add(team, 0.0, data.electricity_per_second * delta)
+	if data.heal_radius > 0.0:
+		_heal_timer += delta
+		if _heal_timer >= HEAL_INTERVAL:
+			_heal_nearby(data.heal_per_second * _heal_timer)
+			_heal_timer = 0.0
 	if researching > 0:
 		research_time += delta
 		if research_time >= Research.duration(researching):
@@ -110,6 +117,17 @@ func cancel_last() -> void:
 	if queue.is_empty():
 		production_time = 0.0
 	production_changed.emit(self)
+
+
+func _heal_nearby(amount: float) -> void:
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if unit.team == team and edge_distance_from(unit.global_position) <= data.heal_radius:
+			unit.heal(amount)
+
+
+## Whether [param point] is close enough to be healed by this building.
+func heals_at(point: Vector3) -> bool:
+	return is_complete and data.heal_radius > 0.0 and edge_distance_from(point) <= data.heal_radius
 
 
 ## Pays for and starts researching the team's next level. Returns "" on
@@ -208,7 +226,10 @@ func get_armor() -> float:
 
 
 func vision_range() -> float:
-	return radius() + (8.0 if is_complete else 4.0)
+	if not is_complete:
+		return radius() + 4.0
+	# Labs see far enough to show their own coal fields.
+	return radius() + (17.0 if data.is_drop_off else 8.0)
 
 
 ## Distance from [param point] to the nearest edge of the footprint.
@@ -283,6 +304,7 @@ func _die() -> void:
 		cancel_last()
 	cancel_research()
 	MatchStats.record_building_lost(team, _last_attacker_team)
+	get_tree().call_group("building_watchers", "building_destroyed", self)
 	died.emit(self)
 	get_tree().call_group("navmesh", "request_rebake")
 	var tween := create_tween()

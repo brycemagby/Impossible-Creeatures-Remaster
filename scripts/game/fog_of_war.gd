@@ -7,13 +7,17 @@ extends Node
 ## "explored". For the local player:
 ## - the ground is darkened (unexplored: almost black, explored: dim),
 ## - enemy creatures are hidden unless currently visible,
-## - enemy buildings are hidden until explored, then stay shown.
+## - enemy buildings are hidden until explored, then stay shown;
+## - rocks and coal piles (group "fog_hidden") are hidden until explored;
+## - an enemy building destroyed while out of sight leaves a "last seen"
+##   ghost until the player looks at that spot again.
 ## The AI asks is_explored()/is_visible() too, so it doesn't cheat.
 
 const UPDATE_INTERVAL := 0.2
 const UNEXPLORED := 0
 const EXPLORED := 128
 const VISIBLE := 255
+const GHOST_COLOR := Color(0.6, 0.6, 0.6, 0.35)
 
 ## When false, everyone sees everything (the setting in the skirmish menu).
 @export var enabled := true:
@@ -40,10 +44,13 @@ var _explored := {}
 var _image: Image
 var _timer := 0.0
 var _material: ShaderMaterial
+## Last-seen ghosts: [{position, size, node}].
+var ghosts: Array[Dictionary] = []
 
 
 func _ready() -> void:
 	add_to_group("fog")
+	add_to_group("building_watchers")
 	_width = int(bounds.size.x)
 	_depth = int(bounds.size.y)
 	for team in teams:
@@ -77,6 +84,7 @@ func update_now() -> void:
 			_reveal(target.team, target.global_position, target.vision_range())
 	_update_texture()
 	_apply_to_player()
+	_clear_seen_ghosts()
 
 
 func is_visible(team: int, point: Vector3) -> bool:
@@ -160,6 +168,35 @@ func _apply_to_player() -> void:
 	for building: Building in get_tree().get_nodes_in_group("buildings"):
 		if building.team != player_team:
 			building.visible = see_all or _footprint_explored(building)
+	for prop: Node3D in get_tree().get_nodes_in_group("fog_hidden"):
+		prop.visible = see_all or is_explored(player_team, prop.global_position)
+
+
+## Called by buildings as they are destroyed (group "building_watchers").
+func building_destroyed(building: Building) -> void:
+	if not enabled or reveal_all or building.team == player_team or not building.visible:
+		return
+	if is_visible(player_team, building.global_position):
+		return
+	var mesh := BoxMesh.new()
+	mesh.size = building.data.size
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = GHOST_COLOR
+	var ghost := MeshInstance3D.new()
+	ghost.mesh = mesh
+	ghost.material_override = material
+	ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(ghost)
+	ghost.global_position = building.global_position + Vector3.UP * building.data.size.y / 2.0
+	ghosts.append({"position": building.global_position, "size": building.data.size, "node": ghost})
+
+
+func _clear_seen_ghosts() -> void:
+	for ghost in ghosts.duplicate():
+		if not enabled or reveal_all or is_visible(player_team, ghost.position):
+			ghost.node.queue_free()
+			ghosts.erase(ghost)
 
 
 func _footprint_explored(building: Building) -> bool:
