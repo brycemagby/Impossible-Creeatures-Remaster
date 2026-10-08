@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 InputActions="*res://scripts/autoload/input_actions.gd"
 Economy="*res://scripts/autoload/economy.gd"
 Armies="*res://scripts/autoload/armies.gd"
+Research="*res://scripts/autoload/research.gd"
 
 [display]
 

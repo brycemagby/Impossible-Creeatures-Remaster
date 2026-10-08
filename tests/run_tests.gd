@@ -60,6 +60,7 @@ func _run() -> void:
 	await _test_charge()
 	await _test_leap()
 	await _test_starting_army()
+	await _test_research()
 	await _test_target_choice()
 	await _test_combiner_screen()
 	await _test_main_menu()
@@ -530,13 +531,32 @@ func _test_ai_economy() -> void:
 	var main := await _load_map()
 	var ai: AIController = main.get_node("EnemyAI")
 	ai.wave_interval = 0.0
+	_check(_building(1, "Creature Chamber") == null, "the enemy starts without a Creature Chamber")
+	_check(ai.next_building().display_name == "Creature Chamber", "a Creature Chamber is the AI's first build")
 	ai.enabled = true
 	await _physics_frames(90)
 	var henchmen := _team_units(1).filter(func(u: Creature) -> bool: return u is Henchman)
-	_check(henchmen.all(func(u: Henchman) -> bool: return u.order == Creature.Order.GATHER), "AI puts its Henchmen to work")
+	_check(henchmen.all(func(u: Henchman) -> bool: return u.is_working()), "AI puts its Henchmen to work")
+	var builder_count := henchmen.filter(func(u: Henchman) -> bool: return u.order == Creature.Order.BUILD).size()
+	_check(builder_count == AIController.BUILDERS_PER_SITE, "two Henchmen build while the rest gather")
+	var site := _building(1, "Creature Chamber")
+	_check(site != null and not site.is_complete, "AI places a Creature Chamber")
+	_check(site != null and site.edge_distance_from(_building(1, "Lab").global_position) < 20.0, "it builds near its Lab")
 	_check(not _building(1, "Lab").queue.is_empty(), "AI produces more Henchmen")
-	_check(not _building(1, "Creature Chamber").queue.is_empty(), "AI produces creatures")
+
+	# Fast-forward a couple of minutes of game time.
+	Engine.time_scale = 4.0
+	await _wait_until(func() -> bool: return Research.level(1) >= 2, 40.0)
+	Engine.time_scale = 1.0
+	_check(site.is_complete, "the Creature Chamber gets finished")
+	_check(_count_buildings(1, "Electrical Generator") >= 2, "AI adds a Generator to keep up with production")
+	_check(Research.level(1) >= 2, "AI researches new levels")
 	await _unload(main)
+
+
+func _count_buildings(team: int, display_name: String) -> int:
+	return get_tree().get_nodes_in_group("buildings").filter(
+			func(b: Building) -> bool: return b.team == team and b.data.display_name == display_name).size()
 
 
 func _test_hud_command_panel() -> void:
@@ -557,7 +577,7 @@ func _test_hud_command_panel() -> void:
 	manager.select_building(_building(0, "Lab"))
 	await _process_frames(2)
 	buttons = hud.command_grid.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
-	_check(buttons.size() == 2, "the Lab shows Henchman + Cancel buttons")
+	_check(buttons.size() == 3 and buttons[2].text.begins_with("Research L2"), "the Lab shows Henchman, Cancel and Research buttons")
 	buttons[0].pressed.emit()
 	_check(_building(0, "Lab").queue.size() == 1, "clicking a production button queues a unit")
 	await _unload(main)
@@ -646,13 +666,23 @@ func _test_army_roster() -> void:
 	Armies.set_designs(0, Armies.default_designs())
 
 
+func _add_building(data_path: String, team: int, at: Vector3) -> Building:
+	var building: Building = load("res://scenes/buildings/building.tscn").instantiate()
+	building.data = load(data_path)
+	building.team = team
+	building.position = at
+	get_tree().get_first_node_in_group("building_container").add_child(building)
+	return building
+
+
 func _test_hybrid_production() -> void:
 	print("hybrid production")
 	var main := await _load_map()
-	var chamber := _building(1, "Creature Chamber")
+	var chamber := _add_building("res://resources/buildings/creature_chamber.tres", 1, Vector3(12, 0, -40))
 	var options := chamber.production_options()
 	_check(options.size() == Armies.designs(1).size(), "the Creature Chamber offers the team's army")
 	Economy.add(1, 1000, 1000)
+	Research.set_level(1, Research.MAX_LEVEL)
 	var recipe := options[0]
 	_check(chamber.enqueue(recipe) == "", "a hybrid can be queued")
 	var before := _team_units(1).size()
@@ -764,6 +794,51 @@ func _test_leap() -> void:
 	await _physics_frames(int(Creature.LEAP_DURATION * 60) + 2)
 	_check(leaper.surface_distance_to(brute) <= leaper.stats.attack_range + 0.3, "it lands within reach")
 	_check(not leaper.is_leaping(), "the leap ends")
+	await _unload(main)
+
+
+func _test_research() -> void:
+	print("research")
+	var main := await _load_map()
+	_check(Research.level(0) == 1 and Research.level(1) == 1, "teams start at research level 1")
+	var lab := _building(0, "Lab")
+	var chamber := _add_building("res://resources/buildings/creature_chamber.tres", 0, Vector3(12, 0, 30))
+	await _physics_frames(2)
+	var locked: UnitRecipe = null
+	for recipe in chamber.production_options():
+		if recipe.stats.level >= 3:
+			locked = recipe
+			break
+	Economy.add(0, 2000, 2000)
+	_check(chamber.enqueue(locked) == "Requires research level %d" % locked.stats.level, "creatures above the research level are locked")
+	var henchman_recipe: UnitRecipe = lab.data.production[0]
+	_check(Research.can_produce(0, henchman_recipe), "Henchmen are never locked")
+
+	var coal: float = Economy.coal(0)
+	_check(lab.start_research() == "" and lab.researching == 2, "the Lab researches the next level")
+	_check(Economy.coal(0) == coal - Research.coal_cost(2), "research is paid up front")
+	_check(lab.start_research() == "Already researching", "one research at a time")
+	lab.cancel_research()
+	_check(lab.researching == 0 and Economy.coal(0) == coal, "cancelling research refunds it")
+	lab.start_research()
+	lab.research_time = Research.duration(2) - 0.05
+	await _physics_frames(6)
+	_check(Research.level(0) == 2 and lab.researching == 0, "research completes after its duration")
+	_check(Research.level(1) == 1, "research is per team")
+
+	Research.set_level(0, locked.stats.level)
+	_check(chamber.enqueue(locked) == "", "researched levels can be produced")
+
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var hud := main.get_node("UI/HUD")
+	Research.set_level(0, 1)
+	manager.select_building(chamber)
+	await _process_frames(2)
+	var buttons: Array = hud.command_grid.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
+	var locked_buttons := buttons.filter(func(b: Button) -> bool: return b.text.contains("needs research"))
+	_check(not locked_buttons.is_empty() and locked_buttons.all(func(b: Button) -> bool: return b.disabled),
+			"locked creatures show as disabled in the HUD")
+	_check(hud.resource_label.text.contains("Research  L1"), "the HUD shows the research level")
 	await _unload(main)
 
 

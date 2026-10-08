@@ -146,11 +146,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -43)
 data = ExtResource("14_generator")
 team = 1
 
-[node name="EnemyCreatureChamber" parent="NavigationRegion3D/Buildings" instance=ExtResource("12_building")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 0, -40)
-data = ExtResource("15_creature_chamber")
-team = 1
-
 [node name="Units" type="Node3D" parent="." groups=["unit_container"]]
 
 [node name="PlayerHenchman1" parent="Units" instance=ExtResource("4_henchman_scene")]

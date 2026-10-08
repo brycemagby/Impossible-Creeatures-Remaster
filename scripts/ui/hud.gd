@@ -8,7 +8,8 @@ const MESSAGE_TIME := 2.5
 @export var game_rules: GameRules
 
 var _context := "none"
-## [Button, coal cost, electricity cost] for refreshing disabled states.
+## [Button, coal cost, electricity cost, research level needed] for refreshing
+## disabled states.
 var _cost_buttons: Array = []
 var _message_timer := 0.0
 
@@ -30,7 +31,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var team := selection_manager.player_team
-	resource_label.text = "Coal  %d      Electricity  %d" % [Economy.coal(team), Economy.electricity(team)]
+	resource_label.text = "Coal  %d      Electricity  %d      Research  L%d" % [
+			Economy.coal(team), Economy.electricity(team), Research.level(team)]
 	selection_label.text = _describe_selection()
 	_refresh_command_panel()
 	_message_timer -= delta
@@ -102,7 +104,8 @@ func _refresh_command_panel() -> void:
 	var building := selection_manager.selected_building
 	var context := "none"
 	if Creature.is_valid_target(building):
-		context = "building:%d:%s" % [building.get_instance_id(), building.is_complete]
+		context = "building:%d:%s:%d:%d" % [building.get_instance_id(), building.is_complete,
+				Research.level(building.team), building.researching]
 	elif not selection_manager.selected_henchmen().is_empty():
 		context = "henchmen"
 	if context != _context:
@@ -111,7 +114,7 @@ func _refresh_command_panel() -> void:
 
 	var team := selection_manager.player_team
 	for entry in _cost_buttons:
-		entry[0].disabled = not Economy.can_afford(team, entry[1], entry[2])
+		entry[0].disabled = not Economy.can_afford(team, entry[1], entry[2]) or Research.level(team) < entry[3]
 	if context.begins_with("building"):
 		command_status.text = _building_status(building)
 
@@ -128,19 +131,34 @@ func _rebuild_command_panel(building: Building) -> void:
 		for data in selection_manager.buildable:
 			var button := _add_button("%s\n%s" % [data.display_name, _cost_text(data.cost_coal, data.cost_electricity)])
 			button.pressed.connect(selection_manager.begin_placement.bind(data))
-			_cost_buttons.append([button, data.cost_coal, data.cost_electricity])
+			_cost_buttons.append([button, data.cost_coal, data.cost_electricity, 0])
 	elif _context.begins_with("building"):
 		command_title.text = building.data.display_name
 		if building.is_complete:
 			var options := building.production_options()
 			for recipe in options:
-				var button := _add_button("%s\n%s" % [recipe.display_name(), _cost_text(recipe.cost_coal, recipe.cost_electricity)])
+				var locked := not Research.can_produce(building.team, recipe)
+				var label := "%s  L%d" % [recipe.display_name(), recipe.stats.level] if recipe.stats.design else recipe.display_name()
+				var button := _add_button("%s\n%s" % [label, "needs research L%d" % recipe.stats.level if locked
+						else _cost_text(recipe.cost_coal, recipe.cost_electricity)])
 				button.pressed.connect(_on_produce_pressed.bind(building, recipe))
 				button.tooltip_text = _recipe_tooltip(recipe)
-				_cost_buttons.append([button, recipe.cost_coal, recipe.cost_electricity])
+				var needed: int = recipe.stats.level if recipe.stats.design else 0
+				_cost_buttons.append([button, recipe.cost_coal, recipe.cost_electricity, needed])
 			if not options.is_empty():
 				var cancel := _add_button("Cancel\nlast")
 				cancel.pressed.connect(building.cancel_last)
+			if building.data.can_research:
+				var next := Research.next_level(building.team)
+				if building.researching > 0:
+					var stop := _add_button("Cancel\nresearch")
+					stop.pressed.connect(building.cancel_research)
+				elif next > 0:
+					var research := _add_button("Research L%d\n%s" % [next,
+							_cost_text(Research.coal_cost(next), Research.electricity_cost(next))])
+					research.tooltip_text = "Unlocks level %d creatures. Takes %ds." % [next, Research.duration(next)]
+					research.pressed.connect(_on_research_pressed.bind(building))
+					_cost_buttons.append([research, Research.coal_cost(next), Research.electricity_cost(next), 0])
 		command_status.text = _building_status(building)
 
 
@@ -150,6 +168,10 @@ func _building_status(building: Building) -> String:
 	var lines := PackedStringArray()
 	if building.data.electricity_per_second > 0.0:
 		lines.append("Producing %.1f electricity / s" % building.data.electricity_per_second)
+	if building.researching > 0:
+		lines.append("Researching level %d  %d%%" % [building.researching, roundi(building.research_fraction() * 100.0)])
+	elif building.data.can_research and Research.next_level(building.team) == 0:
+		lines.append("Fully researched")
 	if not building.queue.is_empty():
 		lines.append("Making %s  %d%%" % [building.queue[0].display_name(), roundi(building.production_fraction() * 100.0)])
 		if building.queue.size() > 1:
@@ -168,6 +190,12 @@ func _recipe_tooltip(recipe: UnitRecipe) -> String:
 		s.display_name, s.level, s.max_health, s.armor, s.move_speed, s.attack_damage,
 		"  ranged" if s.is_ranged() else "", "  poison" if s.poison_dps > 0.0 else "",
 		"  flying" if s.can_fly else ""] + ("  charge" if s.can_charge else "") + ("  leap" if s.can_leap else "")
+
+
+func _on_research_pressed(building: Building) -> void:
+	var error := building.start_research()
+	if error != "":
+		show_message(error)
 
 
 func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:

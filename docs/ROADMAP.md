@@ -20,8 +20,12 @@ Coal and electricity, Henchmen that gather and build, Lab / Electrical Generator
 placement with a ghost preview and runtime navmesh rebakes, production queues with refunds, rally
 points, destructible buildings, victory and defeat, and an enemy AI that runs an economy.
 
+Follow-up pass ✅: research levels 1–5 at the Lab gate creature production, and the enemy AI builds
+its own Creature Chamber and Generators, researches (saving up once its army is big enough), and
+produces the strongest creatures it has unlocked.
+
 Follow-ups:
-- Enemy AI that builds new buildings and expands to more coal
+- Enemy AI that expands to more coal and rebuilds lost buildings smartly
 - More buildings from the original (Workshop for upgrades, Lightning Rod, Soundbeam Tower, Aviary,
   Water Chamber)
 - Research and upgrades (tie into creature levels in M4)
@@ -38,7 +42,6 @@ matches start with a budgeted army from each side's roster.
 
 Follow-ups:
 - More abilities from the original (swimming, sonic, electric, herding, stink...)
-- Research: gate creature levels behind Lab research, like the original
 - Water, so swimmers and the Water Chamber make sense; Aviary for flyers
 - Ranged units keeping their distance from melee
 

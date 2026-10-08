@@ -28,6 +28,9 @@ var build_progress := 0.0
 var queue: Array[UnitRecipe] = []
 ## Seconds spent on the unit at the front of the queue.
 var production_time := 0.0
+## Research level being studied here, or 0.
+var researching := 0
+var research_time := 0.0
 var rally_point: Variant = null
 var is_selected := false
 
@@ -59,6 +62,13 @@ func _physics_process(delta: float) -> void:
 		return
 	if data.electricity_per_second > 0.0:
 		Economy.add(team, 0.0, data.electricity_per_second * delta)
+	if researching > 0:
+		research_time += delta
+		if research_time >= Research.duration(researching):
+			Research.set_level(team, researching)
+			researching = 0
+			research_time = 0.0
+			production_changed.emit(self)
 	if not queue.is_empty():
 		production_time += delta
 		if production_time >= queue[0].build_time:
@@ -81,6 +91,8 @@ func enqueue(recipe: UnitRecipe) -> String:
 		return "Still under construction"
 	if queue.size() >= MAX_QUEUE:
 		return "Queue is full"
+	if not Research.can_produce(team, recipe):
+		return "Requires research level %d" % recipe.stats.level
 	if not Economy.spend(team, recipe.cost_coal, recipe.cost_electricity):
 		return Economy.shortfall(team, recipe.cost_coal, recipe.cost_electricity)
 	queue.append(recipe)
@@ -97,6 +109,46 @@ func cancel_last() -> void:
 	if queue.is_empty():
 		production_time = 0.0
 	production_changed.emit(self)
+
+
+## Pays for and starts researching the team's next level. Returns "" on
+## success, or the reason it couldn't start.
+func start_research() -> String:
+	if not data.can_research:
+		return "Can't research here"
+	if not is_complete:
+		return "Still under construction"
+	if researching > 0 or _team_is_researching():
+		return "Already researching"
+	var target := Research.next_level(team)
+	if target == 0:
+		return "Fully researched"
+	if not Economy.spend(team, Research.coal_cost(target), Research.electricity_cost(target)):
+		return Economy.shortfall(team, Research.coal_cost(target), Research.electricity_cost(target))
+	researching = target
+	research_time = 0.0
+	production_changed.emit(self)
+	return ""
+
+
+func cancel_research() -> void:
+	if researching == 0:
+		return
+	Economy.add(team, Research.coal_cost(researching), Research.electricity_cost(researching))
+	researching = 0
+	research_time = 0.0
+	production_changed.emit(self)
+
+
+func research_fraction() -> float:
+	return research_time / Research.duration(researching) if researching > 0 else 0.0
+
+
+func _team_is_researching() -> bool:
+	for building: Building in get_tree().get_nodes_in_group("buildings"):
+		if building.team == team and building.researching > 0:
+			return true
+	return false
 
 
 ## Progress of the unit currently being produced, from 0 to 1.
@@ -219,6 +271,7 @@ func _die() -> void:
 	# Refund anything still queued, like most RTS games do.
 	while not queue.is_empty():
 		cancel_last()
+	cancel_research()
 	died.emit(self)
 	get_tree().call_group("navmesh", "request_rebake")
 	var tween := create_tween()

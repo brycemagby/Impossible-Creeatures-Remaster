@@ -22,6 +22,7 @@ var _rebake_pending := false
 func _ready() -> void:
 	add_to_group("navmesh")
 	Economy.reset([0, 1], starting_coal, starting_electricity)
+	Research.reset([0, 1])
 	navigation_region.bake_finished.connect(_on_bake_finished)
 	# Bake from the ground, rock, building and coal colliders.
 	navigation_region.bake_navigation_mesh(false)

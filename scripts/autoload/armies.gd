@@ -8,14 +8,17 @@ signal changed(team: int)
 const MAX_SIZE := 9
 const DEFAULT_SAVE_PATH := "user://army.tres"
 const ANIMAL_DIR := "res://resources/animals/"
-## Starting designs: [animal A, animal B, picks (head, torso, front legs,
+## Starting designs, roughly one per research level so there's always
+## something to build: [animal A, animal B, picks (head, torso, front legs,
 ## back legs, tail, wings), name].
 const PRESETS := [
+	["wolf", "wolf", [0, 0, 0, 0, 0, -1], ""],
+	["cheetah", "porcupine", [0, 0, 0, 0, 1, -1], ""],
 	["lion", "cheetah", [0, 0, 1, 1, 0, -1], ""],
-	["rhino", "elephant", [0, 1, 0, 0, 1, -1], ""],
 	["gorilla", "porcupine", [0, 0, 0, 0, 1, -1], ""],
-	["lion", "scorpion", [0, 0, 1, 0, 1, -1], ""],
 	["lion", "eagle", [0, 0, 1, 0, 0, 1], ""],
+	["rhino", "elephant", [0, 1, 0, 0, 1, -1], ""],
+	["lion", "scorpion", [0, 0, 1, 0, 1, -1], ""],
 ]
 
 ## Where the player's army is saved (tests point this elsewhere).

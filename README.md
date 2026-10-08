@@ -10,6 +10,8 @@ A fan remake of Relic Entertainment's *Impossible Creatures* (2003), built in **
 
 ![The creature combiner](docs/combiner.png)
 
+![Research-locked creatures in the Creature Chamber](docs/research.png)
+
 ## Status
 
 Milestones 1 (**core RTS loop**), 2 (**combat**), 3 (**economy and base building**) and 4 (**the
@@ -36,7 +38,10 @@ creature combiner**) are working with placeholder art:
 - Production queues (up to 5, cancel refunds), rally points
 - Buildings can be attacked and destroyed, and nearby units come to defend them
 - Win by destroying every enemy unit and building
-- Enemy AI that gathers coal, produces Henchmen and creatures, defends, and sends attack waves
+- **Research**: each team starts at research level 1 and researches levels 2–5 at its Lab; the
+  Creature Chamber only produces hybrids at or below your research level
+- Enemy AI that builds its own base (Creature Chamber, Generators), gathers coal, researches,
+  produces the strongest creatures it has unlocked, defends, and sends attack waves
 - Health bars, a resource counter, and a command panel with build and production buttons
 - Creature types defined as data (`CreatureStats` resources); the combiner will generate these later
 - Headless tests
@@ -126,7 +131,7 @@ scenes/
   fx/move_marker.tscn    Order feedback ring
   fx/projectile.tscn     Ranged attack projectile
 scripts/
-  autoload/              Global singletons (input bindings, Economy, Armies)
+  autoload/              Global singletons (input bindings, Economy, Armies, Research)
   combiner/              AnimalData, CreatureDesign, CreatureCombiner rules, ArmyRoster
   ai/                    Enemy AI controller
   buildings/             Building, BuildingData, UnitRecipe, build placement
@@ -157,3 +162,12 @@ Layers 1, 3 and 4 are baked into the navmesh.
 | Lab | 400 | — | 45 Henchman-seconds |
 
 Teams start with 300 coal and 100 electricity. Henchmen carry 10 coal per trip.
+
+| Research | Coal | Electricity | Time |
+| --- | --- | --- | --- |
+| Level 2 | 100 | 50 | 25 s |
+| Level 3 | 200 | 100 | 40 s |
+| Level 4 | 300 | 175 | 55 s |
+| Level 5 | 400 | 250 | 70 s |
+
+Research one level at a time at the Lab (select it, then **Research L*n***). Cancelling refunds it.

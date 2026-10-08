@@ -134,7 +134,7 @@ func refresh() -> void:
 		buttons[1].set_pressed_no_signal(design.picks[slot] == CreatureDesign.FROM_B)
 
 	var lines := PackedStringArray()
-	lines.append("Level %d" % stats.level)
+	lines.append("Level %d%s" % [stats.level, "  (needs research level %d to produce)" % stats.level if stats.level > 1 else ""])
 	lines.append("Cost  %d coal%s   %.1fs" % [recipe.cost_coal,
 			"  %d electricity" % recipe.cost_electricity if recipe.cost_electricity > 0 else "", recipe.build_time])
 	lines.append("")

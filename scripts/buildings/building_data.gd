@@ -19,3 +19,5 @@ extends Resource
 @export var production: Array[UnitRecipe] = []
 ## Produces the owning team's army roster (see Armies) instead of [member production].
 @export var produces_army := false
+## Research levels can be studied here (see Research).
+@export var can_research := false
