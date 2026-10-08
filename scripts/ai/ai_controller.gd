@@ -57,7 +57,7 @@ func manage_economy() -> void:
 		if building.team != team or not building.is_complete or building.queue.size() >= MAX_QUEUED:
 			continue
 		var options: Array[UnitRecipe] = []
-		for recipe in building.data.production:
+		for recipe in building.production_options():
 			if recipe.is_worker and henchmen + _queued_henchmen() >= max_henchmen:
 				continue
 			if Economy.can_afford(team, recipe.cost_coal, recipe.cost_electricity):

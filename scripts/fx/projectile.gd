@@ -26,8 +26,10 @@ func _physics_process(delta: float) -> void:
 	var to_target := _aim_point - global_position
 	var step := _speed * delta
 	if to_target.length() <= step:
-		if Creature.is_valid_target(_target):
-			_target.take_damage(_damage, _source if Creature.is_valid_target(_source) else null)
+		if Creature.is_valid_target(_source):
+			_source.deal_hit(_target)
+		elif Creature.is_valid_target(_target):
+			_target.take_damage(_damage)
 		queue_free()
 		return
 	global_position += to_target.normalized() * step

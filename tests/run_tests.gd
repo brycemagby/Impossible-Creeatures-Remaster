@@ -1,15 +1,21 @@
 extends Node
-## Headless tests for the core RTS loop, combat, economy and base building.
+## Headless tests for the core RTS loop, combat, economy, base building and
+## the creature combiner.
 ##
 ## Run with:
 ##   godot --headless --path . res://tests/test_runner.tscn
 ## Exits with a non-zero code if any check fails.
+
+const TEST_ARMY_PATH := "user://test_army.tres"
 
 var _failures := 0
 var _checks := 0
 
 
 func _ready() -> void:
+	# Never touch the player's real saved army.
+	Armies.save_path = TEST_ARMY_PATH
+	Armies.set_designs(0, Armies.default_designs())
 	_run.call_deferred()
 
 
@@ -39,6 +45,15 @@ func _run() -> void:
 	await _test_victory()
 	await _test_ai_economy()
 	await _test_hud_command_panel()
+	_test_combiner_rules()
+	_test_army_roster()
+	await _test_hybrid_production()
+	await _test_flying()
+	await _test_poison()
+	await _test_target_choice()
+	await _test_combiner_screen()
+	await _test_main_menu()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_ARMY_PATH))
 	print("\n%d checks, %d failed" % [_checks, _failures])
 	get_tree().quit(1 if _failures > 0 else 0)
 
@@ -536,6 +551,224 @@ func _test_hud_command_panel() -> void:
 	buttons[0].pressed.emit()
 	_check(_building(0, "Lab").queue.size() == 1, "clicking a production button queues a unit")
 	await _unload(main)
+
+
+# --- Creature combiner --------------------------------------------------------
+
+func _design(a: String, b: String, picks: Array, name := "") -> CreatureDesign:
+	var typed: Array[int] = []
+	typed.assign(picks)
+	return CreatureDesign.create(Armies.animal(a), Armies.animal(b), typed, name)
+
+
+func _stats(a: String, b: String, picks: Array) -> CreatureStats:
+	return CreatureCombiner.build_stats(_design(a, b, picks))
+
+
+func _test_combiner_rules() -> void:
+	print("combiner rules")
+	var pure_elephant := _stats("elephant", "elephant", [0, 0, 0, 0, 0, -1])
+	var pure_cheetah := _stats("cheetah", "cheetah", [0, 0, 0, 0, 0, -1])
+	var cheetah_legs := _stats("elephant", "cheetah", [0, 0, 1, 1, 0, -1])
+	_check(pure_elephant.max_health > pure_cheetah.max_health * 3.0, "an elephant torso is far tougher than a cheetah's")
+	_check(cheetah_legs.move_speed > pure_elephant.move_speed and cheetah_legs.move_speed < pure_cheetah.move_speed,
+			"cheetah legs speed up an elephant, but not to cheetah speed (%.1f)" % cheetah_legs.move_speed)
+	_check(_stats("elephant", "rhino", [1, 0, 0, 0, 0, -1]).armor > pure_elephant.armor, "a rhino head adds armor")
+
+	var stinger := _stats("lion", "scorpion", [0, 0, 0, 0, 1, -1])
+	_check(stinger.poison_dps > 0.0 and not stinger.is_ranged(), "a scorpion tail adds poison")
+	var quills := _stats("gorilla", "porcupine", [0, 0, 0, 0, 1, -1])
+	_check(quills.is_ranged() and quills.attack_range >= 8.0, "a porcupine tail gives a ranged attack")
+	_check(_stats("lion", "eagle", [0, 0, 0, 0, 0, 1]).can_fly, "eagle wings let a lion fly")
+	_check(not _stats("lion", "eagle", [0, 0, 0, 0, 0, -1]).can_fly, "no wings, no flight")
+	var heavy := _design("rhino", "eagle", [0, 0, 0, 0, 0, 1])
+	_check(not CreatureCombiner.build_stats(heavy).can_fly and CreatureCombiner.too_heavy_to_fly(heavy), "a rhino is too heavy for eagle wings")
+
+	var wingless := _design("lion", "cheetah", [0, 0, 0, 0, 0, -1])
+	wingless.set_pick(CreatureDesign.Slot.WINGS, CreatureDesign.FROM_A)
+	_check(wingless.picks[CreatureDesign.Slot.WINGS] == CreatureDesign.NONE, "wings can't come from an animal without them")
+	_check(CreatureDesign.generated_name(Armies.animal("lion"), Armies.animal("eagle")) == "Ligle", "names are portmanteaus (Lion + Eagle = Ligle)")
+
+	# Every pair of animals with a few part mixes gives sane numbers.
+	var sane := true
+	var levels := {}
+	var animals := Armies.all_animals()
+	for a in animals:
+		for b in animals:
+			for picks in [[0, 0, 0, 0, 0, -1], [1, 0, 1, 0, 1, -1], [0, 1, 1, 1, 0, 1]]:
+				var typed: Array[int] = []
+				typed.assign(picks)
+				var design := CreatureDesign.create(a, b, typed)
+				design.set_pick(CreatureDesign.Slot.WINGS, typed[5])
+				var stats := CreatureCombiner.build_stats(design)
+				var recipe := CreatureCombiner.make_recipe(design)
+				levels[stats.level] = true
+				if stats.max_health <= 0 or stats.move_speed <= 0 or stats.attack_damage <= 0 or recipe.cost_coal <= 0 \
+						or stats.level < 1 or stats.level > 5:
+					sane = false
+	_check(sane, "all %d animal pairs produce valid stats and costs" % (animals.size() * animals.size()))
+	_check(levels.size() == 5, "hybrids span all 5 levels")
+
+
+func _test_army_roster() -> void:
+	print("army roster")
+	_check(Armies.designs(0).size() == Armies.PRESETS.size(), "the player starts with the preset army")
+	_check(Armies.recipes(1).size() == Armies.PRESETS.size(), "the enemy has a roster too")
+	var many: Array[CreatureDesign] = []
+	for i in 12:
+		many.append(_design("lion", "cheetah", [0, 0, 1, 1, 0, -1]))
+	Armies.set_designs(0, many)
+	_check(Armies.designs(0).size() == Armies.MAX_SIZE, "armies are capped at %d designs" % Armies.MAX_SIZE)
+
+	var saved: Array[CreatureDesign] = [_design("gorilla", "eagle", [1, 0, 0, 1, 0, 1], "Kong"), _design("rhino", "scorpion", [0, 0, 1, 0, 1, -1])]
+	Armies.set_designs(0, saved)
+	_check(Armies.save_player_army() == OK, "the army saves to disk")
+	Armies.set_designs(0, Armies.default_designs())
+	Armies.load_player_army()
+	var loaded := Armies.designs(0)
+	_check(loaded.size() == 2 and loaded[0].display_name() == "Kong" and loaded[0].animal_a.display_name == "Gorilla"
+			and loaded[1].picks == saved[1].picks, "the saved army loads back the same")
+	Armies.set_designs(0, Armies.default_designs())
+
+
+func _test_hybrid_production() -> void:
+	print("hybrid production")
+	var main := await _load_map()
+	var chamber := _building(1, "Creature Chamber")
+	var options := chamber.production_options()
+	_check(options.size() == Armies.designs(1).size(), "the Creature Chamber offers the team's army")
+	Economy.add(1, 1000, 1000)
+	var recipe := options[0]
+	_check(chamber.enqueue(recipe) == "", "a hybrid can be queued")
+	var before := _team_units(1).size()
+	await _wait_until(func() -> bool: return chamber.queue.is_empty(), recipe.build_time + 2.0)
+	var units := _team_units(1)
+	var hybrid: Creature = units.back()
+	_check(units.size() == before + 1 and hybrid.stats.design != null, "the chamber produces the hybrid")
+	_check(hybrid.find_children("*", "CreatureModel", false, false).size() == 1, "hybrids get a model built from their parts")
+	await _unload(main)
+
+
+func _spawn(main: Node, stats: CreatureStats, team: int, at: Vector3) -> Creature:
+	var unit: Creature = load("res://scenes/units/creature.tscn").instantiate()
+	unit.stats = stats
+	unit.team = team
+	unit.position = at
+	main.get_node("Units").add_child(unit)
+	return unit
+
+
+func _test_flying() -> void:
+	print("flying")
+	var main := await _load_map()
+	_isolate([])
+	var lab := _building(0, "Lab")
+	var start := lab.global_position + Vector3(0, 0, -8)
+	var goal := lab.global_position + Vector3(0, 0, 8)
+	var flyer := _spawn(main, _stats("lion", "eagle", [0, 0, 1, 0, 0, 1]), 0, start)
+	var walker := _spawn(main, _stats("lion", "cheetah", [0, 0, 1, 1, 0, -1]), 0, start + Vector3(2, 0, 0))
+	await _physics_frames(5)
+	flyer.command_move(goal)
+	walker.command_move(goal + Vector3(2, 0, 0))
+	var direct := start.distance_to(goal) / flyer.stats.move_speed
+	await _wait_until(func() -> bool: return not flyer.is_moving, direct + 1.5)
+	_check(not flyer.is_moving and _flat(flyer.global_position - goal) < 1.0, "flyers go straight over buildings")
+	_check(absf(flyer.global_position.y - Creature.HOVER_HEIGHT) < 0.3, "flyers hover above the ground")
+	var map := main.get_world_3d().navigation_map
+	var path := NavigationServer3D.map_get_path(map, start, goal, true)
+	var walked := 0.0
+	for i in range(1, path.size()):
+		walked += path[i - 1].distance_to(path[i])
+	_check(walked > start.distance_to(goal) + 2.0, "walkers have to path around the building (%.1f m vs %.1f m)" % [walked, start.distance_to(goal)])
+
+	var melee := _spawn(main, _stats("rhino", "rhino", [0, 0, 0, 0, 0, -1]), 1, goal + Vector3(0, 0, 3))
+	var ranged := _spawn(main, _stats("gorilla", "porcupine", [0, 0, 0, 0, 1, -1]), 1, goal + Vector3(-3, 0, 3))
+	await _physics_frames(30)
+	melee.command_attack(flyer)
+	_check(melee.attack_target != flyer and melee.find_best_enemy(50.0) != flyer, "ground melee creatures can't attack flyers")
+	_check(ranged.attack_target == flyer or ranged.attack_target == walker, "ranged creatures can")
+	ranged.command_attack(flyer)
+	_check(ranged.attack_target == flyer, "ranged creatures accept attack orders on flyers")
+	await _unload(main)
+
+
+func _test_poison() -> void:
+	print("poison")
+	var main := await _load_map()
+	var brute := _first(1, "Brute")
+	_isolate([brute])
+	var stinger := _spawn(main, _stats("lion", "scorpion", [0, 0, 0, 0, 1, -1]), 0, Vector3(30, 0, 30))
+	await _physics_frames(2)
+	stinger.deal_hit(brute)
+	var after_hit := brute.health
+	_check(brute.is_poisoned(), "a poisonous hit poisons the target")
+	await _physics_frames(120)
+	var poison_damage := after_hit - brute.health
+	_check(poison_damage > 6.0 and poison_damage < 10.0, "poison deals ~4/s through armor (%.1f in 2s)" % poison_damage)
+	await _physics_frames(150)
+	_check(not brute.is_poisoned(), "poison wears off")
+	await _unload(main)
+
+
+func _test_target_choice() -> void:
+	print("target choice")
+	var main := await _load_map()
+	var runner := _first(0, "Runner")
+	var brute := _first(1, "Brute")
+	var weak := _first(1, "Runner")
+	var other := _first(1, "Skirmisher")
+	_isolate([runner, brute, weak, other])
+	_place(other, Vector3(0, 0, -40))
+	_place(runner, Vector3(0, 0, 0))
+	_place(brute, Vector3(-6, 0, -1))
+	_place(weak, Vector3(6, 0, -1))
+	_check(runner.find_best_enemy(20.0) == weak, "units prefer targets their attack gets through the armor of")
+
+	_isolate([runner, weak, other])
+	_place(weak, Vector3(-6, 0, -1))
+	_place(other, Vector3(6, 0, -1))
+	other.take_damage(80.0)
+	_check(runner.find_best_enemy(20.0) == other, "units prefer finishing off wounded targets")
+	await _unload(main)
+
+
+func _test_combiner_screen() -> void:
+	print("combiner screen")
+	var screen: CombinerScreen = load("res://scenes/ui/combiner.tscn").instantiate()
+	get_tree().root.add_child(screen)
+	await _process_frames(2)
+	_check(screen.army.size() == Armies.designs(0).size(), "the combiner opens with the saved army")
+	screen.set_animals(Armies.animal("lion"), Armies.animal("eagle"))
+	screen.set_pick(CreatureDesign.Slot.WINGS, CreatureDesign.FROM_B)
+	_check(screen.current_stats().can_fly, "choosing eagle wings makes the preview fly")
+	_check(screen.stats_label.text.contains("Flying"), "the stats panel lists abilities")
+	screen.set_pick(CreatureDesign.Slot.TAIL, CreatureDesign.FROM_B)
+	_check(screen.design.picks[CreatureDesign.Slot.TAIL] == CreatureDesign.FROM_B, "parts can be switched between the two animals")
+	var count := screen.army.size()
+	_check(screen.add_to_army() and screen.army.size() == count + 1, "designs can be added to the army")
+	while screen.army.size() < Armies.MAX_SIZE:
+		screen.add_to_army()
+	_check(not screen.add_to_army(), "the army can't exceed %d" % Armies.MAX_SIZE)
+	screen.select_army_item(0)
+	screen.remove_selected()
+	_check(screen.army.size() == Armies.MAX_SIZE - 1, "designs can be removed")
+	screen.save_army()
+	_check(Armies.designs(0).size() == Armies.MAX_SIZE - 1, "saving hands the army to the Creature Chamber")
+	_check(FileAccess.file_exists(TEST_ARMY_PATH), "saving writes the army to disk")
+	screen.queue_free()
+	Armies.set_designs(0, Armies.default_designs())
+	await _process_frames(2)
+
+
+func _test_main_menu() -> void:
+	print("main menu")
+	var menu: Control = load("res://scenes/ui/main_menu.tscn").instantiate()
+	get_tree().root.add_child(menu)
+	await _process_frames(2)
+	var labels := menu.find_children("*", "Button", true, false).map(func(b: Button) -> String: return b.text)
+	_check("Play Skirmish" in labels and "Creature Combiner" in labels, "the main menu offers skirmish and the combiner")
+	menu.queue_free()
+	await _process_frames(1)
 
 
 # --- Helpers ------------------------------------------------------------------

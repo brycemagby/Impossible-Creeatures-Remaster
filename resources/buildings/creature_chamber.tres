@@ -1,10 +1,7 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="1_data"]
 [ext_resource type="Script" path="res://scripts/buildings/unit_recipe.gd" id="2_recipe"]
-[ext_resource type="Resource" path="res://resources/recipes/runner.tres" id="3_runner"]
-[ext_resource type="Resource" path="res://resources/recipes/skirmisher.tres" id="4_skirmisher"]
-[ext_resource type="Resource" path="res://resources/recipes/brute.tres" id="5_brute"]
 
 [resource]
 script = ExtResource("1_data")
@@ -18,4 +15,5 @@ size = Vector3(5, 3.5, 5)
 color = Color(0.22, 0.38, 0.28, 1)
 is_drop_off = false
 electricity_per_second = 0.0
-production = Array[ExtResource("2_recipe")]([ExtResource("3_runner"), ExtResource("4_skirmisher"), ExtResource("5_brute")])
+production = Array[ExtResource("2_recipe")]([])
+produces_army = true

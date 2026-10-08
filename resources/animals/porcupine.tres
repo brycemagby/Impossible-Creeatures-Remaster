@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AnimalData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combiner/animal_data.gd" id="1_animal"]
+
+[resource]
+script = ExtResource("1_animal")
+display_name = "Porcupine"
+color = Color(0.35, 0.3, 0.25, 1)
+size = 0.6
+bite_damage = 3.0
+head_armor = 0.0
+head_ability = 0
+health = 70.0
+torso_armor = 2.0
+claw_damage = 2.0
+front_leg_speed = 5.0
+back_leg_speed = 5.0
+tail_damage = 9.0
+tail_ability = 2
+has_wings = false
+flight_speed = 0.0

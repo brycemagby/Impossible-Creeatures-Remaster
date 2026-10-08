@@ -13,9 +13,14 @@ extends CharacterBody3D
 ##
 ## Anything attackable (creatures and buildings) is in the "targets" group and
 ## provides team, is_alive(), take_damage(), edge_distance_from(),
-## center_height(), radius(), bar_height() and get_max_health().
+## center_height(), radius(), bar_height(), get_armor() and get_max_health().
 ##
-## Uses placeholder capsule art until real creature models exist.
+## Abilities come from stats: flying creatures hover above the ground, fly
+## straight over obstacles and can only be hit by ranged or flying attackers;
+## poisonous creatures add damage over time to each hit.
+##
+## Hybrids (stats with a design) get a CreatureModel built from their parts;
+## hand-authored creatures fall back to a team-coloured capsule.
 
 signal health_changed(current: float, maximum: float)
 signal died(creature: Creature)
@@ -39,6 +44,12 @@ const REPATH_DISTANCE := 0.75
 const ALLY_ALERT_RADIUS := 10.0
 ## While attack-moving, automatic targets further than sight_range * this are dropped.
 const LOSE_SIGHT_FACTOR := 1.5
+## How high flying creatures hover.
+const HOVER_HEIGHT := 2.5
+const CLIMB_RATE := 4.0
+## Target scoring weights (see _target_score).
+const SCORE_DAMAGE_WEIGHT := 4.0
+const SCORE_WOUNDED_WEIGHT := 3.0
 const ProjectileScene := preload("res://scenes/fx/projectile.tscn")
 
 @export var stats: CreatureStats
@@ -61,6 +72,12 @@ var _scan_timer := 0.0
 var _dead := false
 var _material: StandardMaterial3D
 var _flash_tween: Tween
+var _model: CreatureModel
+## Whichever node shows the creature: the hybrid model or the capsule body.
+var _visual: Node3D
+var _nav_target := Vector3.ZERO
+var _poison_dps := 0.0
+var _poison_time := 0.0
 
 @onready var agent: NavigationAgent3D = $NavigationAgent3D
 @onready var body: MeshInstance3D = $Body
@@ -82,12 +99,23 @@ func _ready() -> void:
 	agent.max_speed = stats.move_speed
 	agent.velocity_computed.connect(_on_velocity_computed)
 	_apply_team_color()
+	if stats.design != null:
+		_build_model()
+	_visual = _model if _model else body
+	if stats.can_fly:
+		# Flyers pass over rocks and buildings.
+		collision_mask = 0
 	set_selected(false)
 
 
 func _physics_process(delta: float) -> void:
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	_scan_timer -= delta
+	if _poison_time > 0.0:
+		_poison_time -= delta
+		_lose_health(_poison_dps * delta)
+		if _dead:
+			return
 	_update_orders()
 
 	var desired := _desired_velocity()
@@ -111,7 +139,7 @@ func command_move(point: Vector3, group_speed := INF) -> void:
 
 
 func command_attack(target: Node3D) -> void:
-	if not is_valid_target(target) or target.team == team:
+	if not is_valid_target(target) or target.team == team or not can_attack(target):
 		return
 	order = Order.ATTACK
 	attack_target = target
@@ -141,12 +169,9 @@ func command_stop() -> void:
 func take_damage(amount: float, source: Creature = null) -> void:
 	if _dead:
 		return
-	var dealt := maxf(amount - stats.armor, 1.0)
-	health = maxf(health - dealt, 0.0)
-	health_changed.emit(health, stats.max_health)
 	_flash()
-	if health <= 0.0:
-		_die()
+	_lose_health(maxf(amount - stats.armor, 1.0))
+	if _dead:
 		return
 	if is_valid_target(source) and source.team != team:
 		respond_to_attack(source)
@@ -154,10 +179,40 @@ func take_damage(amount: float, source: Creature = null) -> void:
 			ally.respond_to_attack(source)
 
 
+## Poisons this creature: [param dps] damage per second for [param duration]
+## seconds, ignoring armor. Doesn't stack; the stronger and longer effect wins.
+func apply_poison(dps: float, duration: float) -> void:
+	if _dead:
+		return
+	_poison_dps = maxf(_poison_dps if _poison_time > 0.0 else 0.0, dps)
+	_poison_time = maxf(_poison_time, duration)
+
+
+func is_poisoned() -> bool:
+	return _poison_time > 0.0
+
+
+## Lands one of this creature's attacks on [param target]: damage plus any
+## poison. Projectiles call this on arrival.
+func deal_hit(target: Node3D) -> void:
+	if not is_valid_target(target):
+		return
+	target.take_damage(stats.attack_damage, self)
+	if stats.poison_dps > 0.0 and target is Creature:
+		target.apply_poison(stats.poison_dps, stats.poison_duration)
+
+
 ## Engages [param attacker] unless busy with an explicit order.
 func respond_to_attack(attacker: Creature) -> void:
-	if attack_target == null and (order == Order.IDLE or order == Order.ATTACK_MOVE):
+	if attack_target == null and (order == Order.IDLE or order == Order.ATTACK_MOVE) and can_attack(attacker):
 		_engage(attacker, true)
+
+
+## Ground melee creatures can't reach flyers.
+func can_attack(target: Node3D) -> bool:
+	if target is Creature and target.stats.can_fly:
+		return stats.is_ranged() or stats.can_fly
+	return true
 
 
 func is_alive() -> bool:
@@ -184,6 +239,10 @@ func get_max_health() -> float:
 	return stats.max_health
 
 
+func get_armor() -> float:
+	return stats.armor
+
+
 ## Distance from [param point] to this creature's edge on the ground plane.
 func edge_distance_from(point: Vector3) -> float:
 	return _flat_distance(point) - radius()
@@ -194,22 +253,41 @@ func surface_distance_to(target: Node3D) -> float:
 	return target.edge_distance_from(global_position) - radius()
 
 
-## Nearest enemy within [param max_distance]. Creatures are preferred over
-## buildings so units don't hit walls while being attacked.
-func find_nearest_enemy(max_distance: float) -> Node3D:
-	for group in [&"units", &"buildings"]:
-		var best: Node3D = null
-		var best_distance := max_distance
-		for target: Node3D in get_tree().get_nodes_in_group(group):
-			if target.team == team or not target.is_alive():
-				continue
-			var distance: float = target.edge_distance_from(global_position)
-			if distance < best_distance:
-				best_distance = distance
-				best = target
-		if best != null:
-			return best
-	return null
+## Best enemy within [param max_distance] to attack. Creatures are preferred
+## over buildings so units don't hit walls while being attacked; among
+## creatures, see _target_score.
+func find_best_enemy(max_distance: float) -> Node3D:
+	var best: Node3D = null
+	var best_score := INF
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if unit.team == team or not unit.is_alive() or not can_attack(unit):
+			continue
+		if unit.edge_distance_from(global_position) > max_distance:
+			continue
+		var score := _target_score(unit)
+		if score < best_score:
+			best_score = score
+			best = unit
+	if best != null:
+		return best
+	var best_distance := max_distance
+	for building: Building in get_tree().get_nodes_in_group("buildings"):
+		if building.team == team or not building.is_alive():
+			continue
+		var distance := building.edge_distance_from(global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = building
+	return best
+
+
+## Lower is better: close targets, ones our attack gets through the armor of,
+## and wounded ones (to finish them off).
+func _target_score(target: Creature) -> float:
+	var distance := target.edge_distance_from(global_position)
+	var effectiveness := maxf(stats.attack_damage - target.stats.armor, 1.0) / maxf(stats.attack_damage, 1.0)
+	var wounded := 1.0 - target.health / target.stats.max_health
+	return distance - effectiveness * SCORE_DAMAGE_WEIGHT - wounded * SCORE_WOUNDED_WEIGHT
 
 
 func set_selected(value: bool) -> void:
@@ -223,10 +301,14 @@ func _update_orders() -> void:
 	if attack_target != null and not _should_keep_target():
 		_lose_target()
 
-	if attack_target == null and (order == Order.IDLE or order == Order.ATTACK_MOVE) and _scan_timer <= 0.0 and stats.sight_range > 0.0:
+	var scanning := (order == Order.IDLE or order == Order.ATTACK_MOVE) and stats.sight_range > 0.0
+	# Re-scan when idle, or when auto-attacking a building in case a creature
+	# shows up that is more urgent.
+	var retarget := attack_target == null or (_auto_target and attack_target is Building)
+	if scanning and retarget and _scan_timer <= 0.0:
 		_scan_timer = SCAN_INTERVAL
-		var enemy := find_nearest_enemy(stats.sight_range)
-		if enemy != null:
+		var enemy := find_best_enemy(stats.sight_range)
+		if enemy != null and (attack_target == null or enemy is Creature):
 			_engage(enemy, true)
 
 	if attack_target != null:
@@ -292,8 +374,17 @@ func _perform_attack(target: Node3D) -> void:
 		var muzzle := global_position + Vector3.UP * center_height() * 1.2
 		projectile.launch(muzzle, target, stats.attack_damage, self, stats.projectile_speed)
 	else:
-		target.take_damage(stats.attack_damage, self)
+		deal_hit(target)
 		_lunge()
+
+
+func _lose_health(amount: float) -> void:
+	if _dead:
+		return
+	health = maxf(health - amount, 0.0)
+	health_changed.emit(health, stats.max_health)
+	if health <= 0.0:
+		_die()
 
 
 func _die() -> void:
@@ -312,7 +403,7 @@ func _die() -> void:
 	var tween := create_tween()
 	tween.tween_property(self, "rotation:z", PI / 2.0 * (1.0 if randf() > 0.5 else -1.0), 0.35)
 	tween.tween_interval(0.8)
-	tween.tween_property(self, "position:y", -1.5, 1.0)
+	tween.tween_property(self, "position:y", -1.5, 1.0 + position.y * 0.3)
 	tween.tween_callback(queue_free)
 
 
@@ -327,6 +418,7 @@ func _allies_within(max_distance: float) -> Array[Creature]:
 # --- Movement -----------------------------------------------------------------
 
 func _navigate(point: Vector3) -> void:
+	_nav_target = point
 	agent.target_position = point
 	is_moving = true
 
@@ -338,6 +430,8 @@ func _halt() -> void:
 func _desired_velocity() -> Vector3:
 	if not is_moving:
 		return Vector3.ZERO
+	if stats.can_fly:
+		return _flying_velocity()
 	if agent.is_navigation_finished():
 		is_moving = false
 		_on_arrived()
@@ -350,6 +444,18 @@ func _desired_velocity() -> Vector3:
 	return to_next.normalized() * speed
 
 
+## Flyers ignore the navmesh and head straight for their destination.
+func _flying_velocity() -> Vector3:
+	var to_target := _nav_target - global_position
+	to_target.y = 0.0
+	if to_target.length() <= agent.target_desired_distance:
+		is_moving = false
+		_on_arrived()
+		return Vector3.ZERO
+	var speed := stats.move_speed if attack_target != null else minf(stats.move_speed, _group_speed)
+	return to_target.normalized() * speed
+
+
 func _on_arrived() -> void:
 	if attack_target == null and (order == Order.MOVE or order == Order.ATTACK_MOVE):
 		order = Order.IDLE
@@ -358,7 +464,10 @@ func _on_arrived() -> void:
 
 
 func _on_velocity_computed(safe_velocity: Vector3) -> void:
-	velocity = Vector3(safe_velocity.x, 0.0, safe_velocity.z)
+	var climb := 0.0
+	if stats.can_fly:
+		climb = clampf((HOVER_HEIGHT - global_position.y) * 3.0, -CLIMB_RATE, CLIMB_RATE)
+	velocity = Vector3(safe_velocity.x, climb, safe_velocity.z)
 	move_and_slide()
 
 
@@ -406,6 +515,9 @@ func _team_color() -> Color:
 
 
 func _flash() -> void:
+	if _model:
+		_model.flash()
+		return
 	if _flash_tween:
 		_flash_tween.kill()
 	_material.albedo_color = Color.WHITE
@@ -415,5 +527,27 @@ func _flash() -> void:
 
 func _lunge() -> void:
 	var tween := create_tween()
-	tween.tween_property(body, "position:z", -0.3 * stats.size, 0.08)
-	tween.tween_property(body, "position:z", 0.0, 0.15)
+	tween.tween_property(_visual, "position:z", -0.3 * stats.size, 0.08)
+	tween.tween_property(_visual, "position:z", 0.0, 0.15)
+
+
+func _build_model() -> void:
+	body.visible = false
+	_model = CreatureModel.new()
+	_model.scale = Vector3.ONE * stats.size
+	add_child(_model)
+	_model.build(stats.design)
+	# Hybrids are coloured like their animals, so show the team on a base disc.
+	var disc := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.6 * stats.size
+	mesh.bottom_radius = 0.6 * stats.size
+	mesh.height = 0.04
+	disc.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = _team_color()
+	disc.material_override = material
+	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	disc.position.y = 0.03
+	add_child(disc)

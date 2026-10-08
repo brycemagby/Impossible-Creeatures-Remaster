@@ -69,6 +69,17 @@ func _describe_selection() -> String:
 		lines.append("  Damage  %d every %.1fs (%s)" % [s.attack_damage, s.attack_cooldown,
 				"ranged %dm" % s.attack_range if s.is_ranged() else "melee"])
 		lines.append("  Armor   %d    Speed  %.1f" % [s.armor, s.move_speed])
+		var traits := PackedStringArray()
+		if s.design != null:
+			traits.append("Level %d" % s.level)
+		if s.can_fly:
+			traits.append("Flying")
+		if s.poison_dps > 0.0:
+			traits.append("Poison")
+		if unit.is_poisoned():
+			traits.append("POISONED")
+		if not traits.is_empty():
+			lines.append("  " + "  ".join(traits))
 		if unit is Henchman:
 			lines.append("  Carrying  %d coal" % unit.carried_coal)
 	else:
@@ -117,11 +128,13 @@ func _rebuild_command_panel(building: Building) -> void:
 	elif _context.begins_with("building"):
 		command_title.text = building.data.display_name
 		if building.is_complete:
-			for recipe in building.data.production:
+			var options := building.production_options()
+			for recipe in options:
 				var button := _add_button("%s\n%s" % [recipe.display_name(), _cost_text(recipe.cost_coal, recipe.cost_electricity)])
 				button.pressed.connect(_on_produce_pressed.bind(building, recipe))
+				button.tooltip_text = _recipe_tooltip(recipe)
 				_cost_buttons.append([button, recipe.cost_coal, recipe.cost_electricity])
-			if not building.data.production.is_empty():
+			if not options.is_empty():
 				var cancel := _add_button("Cancel\nlast")
 				cancel.pressed.connect(building.cancel_last)
 		command_status.text = _building_status(building)
@@ -140,9 +153,17 @@ func _building_status(building: Building) -> String:
 			for recipe in building.queue.slice(1):
 				waiting.append(recipe.display_name())
 			lines.append("Queued: " + ", ".join(waiting))
-	elif not building.data.production.is_empty():
+	elif not building.production_options().is_empty():
 		lines.append("Idle")
 	return "\n".join(lines)
+
+
+func _recipe_tooltip(recipe: UnitRecipe) -> String:
+	var s := recipe.stats
+	return "%s (level %d)\nHealth %d  Armor %d  Speed %.1f\nDamage %.0f%s%s%s" % [
+		s.display_name, s.level, s.max_health, s.armor, s.move_speed, s.attack_damage,
+		"  ranged" if s.is_ranged() else "", "  poison" if s.poison_dps > 0.0 else "",
+		"  flying" if s.can_fly else ""]
 
 
 func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:
@@ -193,6 +214,16 @@ func _build_layout() -> void:
 	game_over_label.grow_vertical = Control.GROW_DIRECTION_BOTH
 	game_over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	game_over_label.visible = false
+
+	var menu_button := Button.new()
+	menu_button.text = "Menu"
+	menu_button.focus_mode = Control.FOCUS_NONE
+	menu_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	menu_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	menu_button.offset_top = 44
+	menu_button.offset_right = -16
+	menu_button.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn"))
+	add_child(menu_button)
 
 	command_panel = PanelContainer.new()
 	command_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)

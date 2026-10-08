@@ -17,3 +17,5 @@ extends Resource
 @export var is_drop_off := false
 @export var electricity_per_second := 0.0
 @export var production: Array[UnitRecipe] = []
+## Produces the owning team's army roster (see Armies) instead of [member production].
+@export var produces_army := false

@@ -27,12 +27,18 @@ Follow-ups:
 - Research and upgrades (tie into creature levels in M4)
 - Minimap (M6)
 
-## M4 — The creature combiner
-- Animal definitions: stats and abilities for each body part (head, torso, front legs, back legs, tail, wings, claws)
-- Combination rules that generate a `CreatureStats` from two animals and the chosen parts
-- Combiner UI with a live stat preview, and saving and loading army rosters
-- Abilities that come from specific parts: flying, swimming, poison, sonic, leap, and so on
-- Research levels that gate which creatures can be built
+## M4 — The creature combiner ✅
+8 animals with per-part stats, combination rules (size, leg load, level and cost), abilities from
+parts (flying, poison, ranged quills), hybrid models assembled from parts, a combiner screen with a
+live preview, saved armies of up to 9 that the Creature Chamber produces, smarter target choice, and
+a main menu.
+
+Follow-ups:
+- More animals and abilities from the original (swimming, charge, leap, sonic, electric, herding...)
+- Research: gate creature levels behind Lab research, like the original
+- Start skirmishes with hybrids from your army instead of the placeholder Runner/Skirmisher/Brute
+- Water, so swimmers and the Water Chamber make sense; Aviary for flyers
+- Ranged units keeping their distance from melee
 
 ## M5 — Creature visuals
 - Modular, rigged animal parts that can be attached to each other

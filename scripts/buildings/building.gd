@@ -69,6 +69,11 @@ func _physics_process(delta: float) -> void:
 
 # --- Production ---------------------------------------------------------------
 
+## What this building can make right now.
+func production_options() -> Array[UnitRecipe]:
+	return Armies.recipes(team) if data.produces_army else data.production
+
+
 ## Pays for and queues [param recipe]. Returns "" on success, or the reason it
 ## couldn't be queued.
 func enqueue(recipe: UnitRecipe) -> String:
@@ -141,6 +146,10 @@ func is_alive() -> bool:
 
 func get_max_health() -> float:
 	return data.max_health
+
+
+func get_armor() -> float:
+	return data.armor
 
 
 ## Distance from [param point] to the nearest edge of the footprint.

@@ -2,8 +2,8 @@ class_name CreatureStats
 extends Resource
 ## Data describing a creature type.
 ##
-## For now these are hand-authored placeholders. Later the creature combiner
-## will generate these from two parent animals and the chosen body parts.
+## Hybrids get theirs from CreatureCombiner.build_stats(); a few
+## hand-authored ones (the starting units) are saved as .tres files.
 
 @export var display_name := "Creature"
 @export var max_health := 100.0
@@ -11,6 +11,10 @@ extends Resource
 @export var move_speed := 6.0
 ## Uniform scale applied to the placeholder body, collision and avoidance radius.
 @export var size := 1.0
+## Strength tier from 1 to 5 (hybrids only).
+@export var level := 1
+## The combiner design this creature was made from, if any. Used to build its model.
+@export var design: CreatureDesign
 
 @export_group("Combat")
 ## Flat reduction applied to every incoming hit (minimum 1 damage gets through).
@@ -27,6 +31,13 @@ extends Resource
 ## How far an idle creature will chase an enemy it noticed before giving up
 ## and walking back to where it was standing.
 @export var leash_range := 14.0
+
+@export_group("Abilities")
+## Flies over obstacles; only ranged and flying creatures can hit it.
+@export var can_fly := false
+## Poison damage per second applied by each hit (ignores armor).
+@export var poison_dps := 0.0
+@export var poison_duration := 0.0
 
 
 func is_ranged() -> bool:
