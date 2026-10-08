@@ -59,7 +59,7 @@ Follow-ups:
 - Hide coal piles and rocks under unexplored fog; "last seen" ghosts for destroyed enemy buildings ✅
 - AI that expands to distant coal with a second Lab, retreats wounded units, and focuses fire ✅
   (Labs now heal nearby creatures, which is where wounded AI creatures retreat to)
-- More maps, 2v2 / free-for-all with more AI players
+- More maps, 2v2 / free-for-all with more AI players ✅ (Crossroads, up to 4 players, alliances)
 - Pause menu, game speed setting, end-of-match statistics ✅
 
 ## Later

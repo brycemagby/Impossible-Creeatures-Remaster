@@ -33,6 +33,9 @@ func _ready() -> void:
 
 
 func designs(team: int) -> Array[CreatureDesign]:
+	if not _designs.has(team):
+		# Every computer opponent uses the presets.
+		set_designs(team, default_designs())
 	var result: Array[CreatureDesign] = []
 	result.assign(_designs.get(team, []))
 	return result

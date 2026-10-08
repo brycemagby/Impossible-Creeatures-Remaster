@@ -1,13 +1,15 @@
 class_name SkirmishSetup
 extends Control
-## Pick the map, the enemy's difficulty and whether fog of war is on, then
-## start the match.
+## Pick the map, how many players (and free-for-all or 2 vs 2), the computer
+## opponents' difficulty and whether fog of war is on, then start the match.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 
 var map_list: ItemList
 var description: Label
 var difficulty_option: OptionButton
+var players_option: OptionButton
+var mode_option: OptionButton
 var fog_check: CheckBox
 
 
@@ -43,7 +45,20 @@ func _ready() -> void:
 	description.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
 	column.add_child(description)
 
-	column.add_child(_heading("Enemy difficulty"))
+	column.add_child(_heading("Players"))
+	var player_row := HBoxContainer.new()
+	column.add_child(player_row)
+	players_option = OptionButton.new()
+	players_option.custom_minimum_size.x = 160
+	players_option.item_selected.connect(func(index: int) -> void: set_player_count(players_option.get_item_id(index)))
+	player_row.add_child(players_option)
+	mode_option = OptionButton.new()
+	for mode_name in GameSettings.MODE_NAMES:
+		mode_option.add_item(mode_name)
+	mode_option.item_selected.connect(func(index: int) -> void: GameSettings.mode = index)
+	player_row.add_child(mode_option)
+
+	column.add_child(_heading("Computer difficulty"))
 	difficulty_option = OptionButton.new()
 	for difficulty_name in GameSettings.DIFFICULTY_NAMES:
 		difficulty_option.add_item(difficulty_name)
@@ -75,9 +90,26 @@ func _ready() -> void:
 
 
 func select_map(index: int) -> void:
-	GameSettings.map_index = index
+	GameSettings.select_map(index)
 	map_list.select(index)
 	description.text = GameSettings.MAPS[index].description
+	players_option.clear()
+	for count in range(2, GameSettings.max_players() + 1):
+		players_option.add_item("%d players" % count, count)
+	players_option.select(GameSettings.player_count - 2)
+	_refresh_mode()
+
+
+func set_player_count(count: int) -> void:
+	GameSettings.player_count = count
+	if not GameSettings.teams_available():
+		GameSettings.mode = GameSettings.Mode.FREE_FOR_ALL
+	_refresh_mode()
+
+
+func _refresh_mode() -> void:
+	mode_option.disabled = not GameSettings.teams_available()
+	mode_option.select(GameSettings.mode)
 
 
 func start_match() -> void:

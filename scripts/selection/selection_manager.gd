@@ -181,7 +181,7 @@ func issue_attack_move(target: Vector3) -> void:
 
 ## Orders every selected unit to attack [param target] (creature or building).
 func issue_attack(target: Node3D) -> void:
-	if not Creature.is_valid_target(target) or target.team == player_team:
+	if not Creature.is_valid_target(target) or not Teams.are_enemies(player_team, target.team):
 		return
 	var units := _valid_selected()
 	if units.is_empty():
@@ -234,12 +234,12 @@ func issue_order_at_screen(screen_position: Vector2, attack_move := false) -> vo
 	if _valid_selected().is_empty():
 		return
 	var unit := unit_at_screen(screen_position)
-	if unit != null and unit.team != player_team:
+	if unit != null and Teams.are_enemies(player_team, unit.team):
 		issue_attack(unit)
 		return
 	var building := building_at_screen(screen_position)
 	if building != null:
-		if building.team != player_team:
+		if Teams.are_enemies(player_team, building.team):
 			issue_attack(building)
 			return
 		if not building.is_complete and not selected_henchmen().is_empty():

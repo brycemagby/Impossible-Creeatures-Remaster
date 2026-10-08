@@ -16,8 +16,10 @@ extends Node
 ##   attack-move to them;
 ## - attacks: every [member wave_interval] seconds, if enough fighters are idle,
 ##   they attack-move at the nearest enemy building it has scouted, or toward
-##   where the enemy base probably is (the far side of the map). Each wave
-##   asks for one more creature than the last.
+##   the nearest enemy start location it hasn't checked yet (with no start
+##   locations on the map: the far side). Each wave asks for one more
+##   creature than the last.
+## Works for any number of enemies; allies (see Teams) are left alone.
 ## - pulls badly wounded fighters back to a Lab to heal, and sends them out
 ##   again once they're healthy;
 ## - expands: when the coal near its Labs runs low (or it's rich), it builds
@@ -65,7 +67,6 @@ const DIFFICULTY_SETTINGS := {
 
 @export var enabled := true
 @export var team := 1
-@export var enemy_team := 0
 ## Seconds between attack waves. 0 disables waves.
 @export var wave_interval := 90.0
 ## Waves only launch when at least this many combat units are idle.
@@ -174,7 +175,7 @@ func defend_base() -> int:
 	var threat_distance := DEFEND_RADIUS
 	var buildings := _buildings(true) + _buildings(false)
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if unit.team != enemy_team or not _can_see(unit.global_position):
+		if not Teams.are_enemies(unit.team, team) or not _can_see(unit.global_position):
 			continue
 		for building in buildings:
 			var distance := building.edge_distance_from(unit.global_position)
@@ -294,7 +295,7 @@ func expansion_site() -> CoalPile:
 		var claimed := false
 		for building: Building in get_tree().get_nodes_in_group("buildings"):
 			var mine := building.team == team and building.data.is_drop_off
-			var hostile := building.team != team and _has_explored(building.global_position)
+			var hostile := Teams.are_enemies(building.team, team) and _has_explored(building.global_position)
 			if (mine or hostile) and building.global_position.distance_to(pile.global_position) < BASE_COAL_RADIUS:
 				claimed = true
 				break
@@ -456,20 +457,31 @@ func launch_wave() -> int:
 	return idle.size()
 
 
-## The nearest enemy building this team has scouted; otherwise the mirror
-## image of its own base, where the enemy most likely lives.
+## The nearest enemy building this team has scouted; otherwise the nearest
+## enemy start location it hasn't explored yet; otherwise the mirror image of
+## its own base.
 func wave_target() -> Variant:
 	var home := _home()
 	var from := home.global_position if home else Vector3.ZERO
 	var best: Variant = null
 	var best_distance := INF
 	for building: Building in get_tree().get_nodes_in_group("buildings"):
-		if building.team != enemy_team or not _has_explored(building.global_position):
+		if not Teams.are_enemies(building.team, team) or not _has_explored(building.global_position):
 			continue
 		var distance := building.global_position.distance_to(from)
 		if distance < best_distance:
 			best_distance = distance
 			best = building.global_position
+	if best != null:
+		return best
+	for start: Node3D in get_tree().get_nodes_in_group("start_locations"):
+		var owner_team: int = start.get_meta("team", -1)
+		if owner_team not in Teams.active or not Teams.are_enemies(owner_team, team) or _has_explored(start.global_position):
+			continue
+		var distance := start.global_position.distance_to(from)
+		if distance < best_distance:
+			best_distance = distance
+			best = start.global_position
 	if best != null:
 		return best
 	return Vector3(-from.x, 0.0, -from.z) if home else null

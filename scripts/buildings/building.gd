@@ -152,7 +152,7 @@ func find_tower_target() -> Creature:
 	var best: Creature = null
 	var best_gap := data.attack_range
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if unit.team == team or not unit.is_alive():
+		if not Teams.are_enemies(unit.team, team) or not unit.is_alive():
 			continue
 		var gap := edge_distance_from(unit.global_position) - unit.radius()
 		if gap <= best_gap:
@@ -315,9 +315,9 @@ func take_damage(amount: float, source: Node3D = null) -> void:
 	if health <= 0.0:
 		_die()
 		return
-	if Creature.is_valid_target(source) and source.team != team:
+	if Creature.is_valid_target(source) and Teams.are_enemies(source.team, team):
 		for unit: Creature in get_tree().get_nodes_in_group("units"):
-			if unit.team == team and edge_distance_from(unit.global_position) <= DEFEND_RADIUS:
+			if Teams.are_allies(unit.team, team) and edge_distance_from(unit.global_position) <= DEFEND_RADIUS:
 				unit.respond_to_attack(source)
 
 
@@ -358,6 +358,11 @@ func center_height() -> float:
 
 func bar_height() -> float:
 	return data.size.y + 0.8
+
+
+## Re-applies the team colour (after the match decides who's allied with whom).
+func refresh_team_color() -> void:
+	(team_band.material_override as StandardMaterial3D).albedo_color = Teams.color(team)
 
 
 func set_selected(value: bool) -> void:
@@ -441,7 +446,7 @@ func _build_visuals() -> void:
 	team_band.mesh = band
 	team_band.position.y = data.size.y - 0.3
 	var band_material := StandardMaterial3D.new()
-	band_material.albedo_color = Creature.TEAM_COLORS[team % Creature.TEAM_COLORS.size()]
+	band_material.albedo_color = Teams.color(team)
 	team_band.material_override = band_material
 
 	var ring_scale := radius() * 1.25 / 0.8

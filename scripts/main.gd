@@ -1,7 +1,11 @@
 extends Node3D
-## Root of the skirmish map: sets up the economy, spawns each side's starting
-## army from its roster, and keeps the navmesh in sync with buildings being
-## placed or destroyed.
+## Root of a skirmish map: sets up the teams for the chosen player count
+## (removing unused bases), the economy, one AI per opponent, each side's
+## starting army from its roster, and keeps the navmesh in sync with buildings
+## being placed or destroyed.
+##
+## Maps hold bases for up to 4 teams: ArmySpawnN markers, and each team's
+## Lab, Generator and Henchmen. You are always team 0.
 
 const CreatureScene := preload("res://scenes/units/creature.tscn")
 const ARMY_SPACING := 2.4
@@ -21,17 +25,42 @@ var _rebake_pending := false
 
 func _ready() -> void:
 	add_to_group("navmesh")
-	Economy.reset([0, 1], starting_coal, starting_electricity)
-	Research.reset([0, 1])
-	MatchStats.reset([0, 1])
-	Upgrades.reset([0, 1])
+	var teams := _match_teams()
+	Teams.setup(teams, GameSettings.alliances())
+	_remove_unused_bases(teams)
+	get_tree().call_group("targets", "refresh_team_color")
+	Economy.reset(teams, starting_coal, starting_electricity)
+	Research.reset(teams)
+	MatchStats.reset(teams)
+	Upgrades.reset(teams)
 	_apply_settings()
 	navigation_region.bake_finished.connect(_on_bake_finished)
 	# Bake from the ground, rock, building and coal colliders.
 	navigation_region.bake_navigation_mesh(false)
 	if spawn_starting_army:
-		spawn_army(0, $PlayerArmySpawn)
-		spawn_army(1, $EnemyArmySpawn)
+		for team in teams:
+			spawn_army(team, get_node("ArmySpawn%d" % team))
+
+
+## The chosen number of players, limited to the bases this map has.
+func _match_teams() -> Array[int]:
+	var bases := 0
+	while has_node("ArmySpawn%d" % bases):
+		bases += 1
+	var teams: Array[int] = []
+	for team in GameSettings.active_teams():
+		if team < bases:
+			teams.append(team)
+	return teams
+
+
+## Takes out the buildings and Henchmen of bases nobody is playing.
+func _remove_unused_bases(teams: Array[int]) -> void:
+	for node: Node3D in get_tree().get_nodes_in_group("targets"):
+		if node.team not in teams and is_ancestor_of(node):
+			# Out of the tree right away, so the navmesh bake doesn't see it.
+			node.get_parent().remove_child(node)
+			node.queue_free()
 
 
 ## Applies the skirmish setup choices (fog, AI difficulty).
@@ -39,8 +68,16 @@ func _apply_settings() -> void:
 	var fog := get_node_or_null("FogOfWar") as FogOfWar
 	if fog:
 		fog.enabled = GameSettings.fog_enabled
-	var ai := get_node_or_null("EnemyAI") as AIController
-	if ai:
+	# The scene's EnemyAI plays team 1; every further opponent gets its own.
+	for team in Teams.active:
+		if team == 0:
+			continue
+		var ai := get_node_or_null("EnemyAI") as AIController if team == 1 else null
+		if ai == null:
+			ai = AIController.new()
+			ai.name = "AI%d" % team
+			ai.team = team
+			add_child(ai)
 		ai.apply_difficulty(GameSettings.difficulty)
 	Engine.time_scale = GameSettings.game_speed
 

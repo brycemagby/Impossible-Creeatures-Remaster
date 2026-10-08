@@ -25,6 +25,7 @@ Research="*res://scripts/autoload/research.gd"
 GameSettings="*res://scripts/autoload/game_settings.gd"
 MatchStats="*res://scripts/autoload/match_stats.gd"
 Upgrades="*res://scripts/autoload/upgrades.gd"
+Teams="*res://scripts/autoload/teams.gd"
 
 [display]
 

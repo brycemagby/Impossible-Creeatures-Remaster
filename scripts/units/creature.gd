@@ -30,12 +30,6 @@ signal died(creature: Creature)
 
 enum Order { IDLE, MOVE, ATTACK, ATTACK_MOVE, GATHER, BUILD, HOLD, PATROL }
 
-const TEAM_COLORS: Array[Color] = [
-	Color(0.25, 0.55, 1.0),
-	Color(0.9, 0.25, 0.2),
-	Color(0.95, 0.8, 0.2),
-	Color(0.4, 0.85, 0.35),
-]
 const TURN_SPEED := 12.0
 ## Capsule radius and centre height at size 1.0 (see creature.tscn).
 const BASE_RADIUS := 0.45
@@ -102,6 +96,7 @@ var _dead := false
 var _material: StandardMaterial3D
 var _flash_tween: Tween
 var _model: CreatureModel
+var _disc_material: StandardMaterial3D
 ## Whichever node shows the creature: the hybrid model or the capsule body.
 var _visual: Node3D
 var _nav_target := Vector3.ZERO
@@ -181,7 +176,7 @@ func command_move(point: Vector3, group_speed := INF) -> void:
 
 
 func command_attack(target: Node3D) -> void:
-	if not is_valid_target(target) or target.team == team or not can_attack(target):
+	if not is_valid_target(target) or not Teams.are_enemies(team, target.team) or not can_attack(target):
 		return
 	order = Order.ATTACK
 	attack_target = target
@@ -237,7 +232,7 @@ func take_damage(amount: float, source: Node3D = null) -> void:
 	_lose_health(maxf(amount - armor(), 1.0))
 	if _dead:
 		return
-	if is_valid_target(source) and source.team != team:
+	if is_valid_target(source) and Teams.are_enemies(source.team, team):
 		respond_to_attack(source)
 		for ally in _allies_within(ALLY_ALERT_RADIUS):
 			ally.respond_to_attack(source)
@@ -361,7 +356,7 @@ func find_best_enemy(max_distance: float) -> Node3D:
 	# How many nearby allies are already on each target, for focus fire.
 	var focus := {}
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if unit.team == team:
+		if not Teams.are_enemies(unit.team, team):
 			if unit != self and unit.attack_target is Creature and _flat_distance(unit.global_position) <= FOCUS_RADIUS:
 				focus[unit.attack_target] = focus.get(unit.attack_target, 0) + 1
 			continue
@@ -377,7 +372,7 @@ func find_best_enemy(max_distance: float) -> Node3D:
 		return best
 	var best_distance := max_distance
 	for building: Building in get_tree().get_nodes_in_group("buildings"):
-		if building.team == team or not building.is_alive():
+		if not Teams.are_enemies(building.team, team) or not building.is_alive():
 			continue
 		var distance := building.edge_distance_from(global_position)
 		if distance < best_distance:
@@ -598,7 +593,7 @@ func _die() -> void:
 func _allies_within(max_distance: float) -> Array[Creature]:
 	var allies: Array[Creature] = []
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if unit != self and unit.team == team and _flat_distance(unit.global_position) <= max_distance:
+		if unit != self and Teams.are_allies(unit.team, team) and _flat_distance(unit.global_position) <= max_distance:
 			allies.append(unit)
 	return allies
 
@@ -707,7 +702,14 @@ func _apply_team_color() -> void:
 
 
 func _team_color() -> Color:
-	return TEAM_COLORS[team % TEAM_COLORS.size()]
+	return Teams.color(team)
+
+
+## Re-applies team colours (after the match decides who's allied with whom).
+func refresh_team_color() -> void:
+	_material.albedo_color = _team_color()
+	if _disc_material:
+		_disc_material.albedo_color = _team_color()
 
 
 func _flash() -> void:
@@ -743,6 +745,7 @@ func _build_model() -> void:
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.albedo_color = _team_color()
+	_disc_material = material
 	disc.material_override = material
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	disc.position.y = 0.03

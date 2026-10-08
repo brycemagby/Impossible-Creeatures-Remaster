@@ -135,62 +135,70 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32, 0, -4)
 
 [node name="Buildings" type="Node3D" parent="NavigationRegion3D" groups=["building_container"]]
 
-[node name="PlayerLab" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
+[node name="Team0Lab" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 36)
 data = ExtResource("12_b_lab")
 
-[node name="PlayerGenerator" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
+[node name="Team0Generator" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, 42)
 data = ExtResource("13_b_generator")
 
-[node name="EnemyLab" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
+[node name="Team1Lab" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
 data = ExtResource("12_b_lab")
 team = 1
 
-[node name="EnemyGenerator" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
+[node name="Team1Generator" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -43)
 data = ExtResource("13_b_generator")
 team = 1
 
 [node name="Units" type="Node3D" parent="." groups=["unit_container"]]
 
-[node name="PlayerHenchman1" parent="Units" instance=ExtResource("3_henchman_scene")]
+[node name="Team0Henchman1" parent="Units" instance=ExtResource("3_henchman_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 31)
 stats = ExtResource("4_henchman")
 
-[node name="PlayerHenchman2" parent="Units" instance=ExtResource("3_henchman_scene")]
+[node name="Team0Henchman2" parent="Units" instance=ExtResource("3_henchman_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 31)
 stats = ExtResource("4_henchman")
 
-[node name="PlayerHenchman3" parent="Units" instance=ExtResource("3_henchman_scene")]
+[node name="Team0Henchman3" parent="Units" instance=ExtResource("3_henchman_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 31)
 stats = ExtResource("4_henchman")
 
-[node name="PlayerHenchman4" parent="Units" instance=ExtResource("3_henchman_scene")]
+[node name="Team0Henchman4" parent="Units" instance=ExtResource("3_henchman_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 31)
 stats = ExtResource("4_henchman")
 
-[node name="EnemyHenchman1" parent="Units" instance=ExtResource("3_henchman_scene")]
+[node name="Team1Henchman1" parent="Units" instance=ExtResource("3_henchman_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -35)
 stats = ExtResource("4_henchman")
 team = 1
 
-[node name="EnemyHenchman2" parent="Units" instance=ExtResource("3_henchman_scene")]
+[node name="Team1Henchman2" parent="Units" instance=ExtResource("3_henchman_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -35)
 stats = ExtResource("4_henchman")
 team = 1
 
-[node name="EnemyHenchman3" parent="Units" instance=ExtResource("3_henchman_scene")]
+[node name="Team1Henchman3" parent="Units" instance=ExtResource("3_henchman_scene")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -35)
 stats = ExtResource("4_henchman")
 team = 1
 
-[node name="PlayerArmySpawn" type="Marker3D" parent="."]
+[node name="ArmySpawn0" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 25)
 
-[node name="EnemyArmySpawn" type="Marker3D" parent="."]
+[node name="StartLocation0" type="Marker3D" parent="." groups=["start_locations"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 36)
+metadata/team = 0
+
+[node name="ArmySpawn1" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -31)
+
+[node name="StartLocation1" type="Marker3D" parent="." groups=["start_locations"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
+metadata/team = 1
 
 [node name="RTSCamera" parent="." instance=ExtResource("5_camera")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 28)

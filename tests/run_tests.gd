@@ -80,6 +80,11 @@ func _run() -> void:
 	await _test_soundbeam_tower()
 	await _test_workshop_upgrades()
 	await _test_ai_builds_defences()
+	_test_teams_service()
+	await _test_four_player_free_for_all()
+	await _test_unused_bases_removed()
+	await _test_two_vs_two()
+	await _test_setup_players()
 	await _test_target_choice()
 	await _test_kiting()
 	await _test_hold_position()
@@ -1329,6 +1334,143 @@ func _test_ai_builds_defences() -> void:
 	ai.manage_upgrades()
 	_check(_building(1, "Workshop").upgrading != null, "it buys upgrades at its Workshop")
 	await _unload(main)
+
+
+func _load_crossroads(players: int, mode: int) -> Node3D:
+	GameSettings.select_map(2)
+	GameSettings.player_count = players
+	GameSettings.mode = mode
+	var main: Node3D = load(GameSettings.map_path()).instantiate()
+	get_tree().root.add_child(main)
+	get_tree().current_scene = main
+	for ai: AIController in main.find_children("*", "AIController", false, false):
+		ai.enabled = false
+	await _physics_frames(10)
+	for ai: AIController in main.find_children("*", "AIController", false, false):
+		ai.enabled = false
+	return main
+
+
+func _reset_match_settings() -> void:
+	GameSettings.select_map(0)
+	GameSettings.player_count = 2
+	GameSettings.mode = GameSettings.Mode.FREE_FOR_ALL
+	Teams.setup([0, 1])
+
+
+func _test_teams_service() -> void:
+	print("teams")
+	Teams.setup([0, 1, 2, 3], {0: 0, 1: 0, 2: 1, 3: 1})
+	_check(Teams.are_allies(0, 1) and Teams.are_enemies(0, 2) and Teams.are_enemies(1, 3), "alliances decide who's an enemy")
+	_check(Teams.enemies_of(0) == [2, 3] and Teams.members(1) == [2, 3], "teams can list enemies and alliance members")
+	Teams.setup([0, 1, 2])
+	_check(Teams.are_enemies(1, 2) and Teams.enemies_of(0) == [1, 2], "without alliances it's every team for itself")
+	Teams.setup([0, 1])
+
+
+func _test_four_player_free_for_all() -> void:
+	print("4-player free-for-all")
+	var main := await _load_crossroads(4, GameSettings.Mode.FREE_FOR_ALL)
+	_check(Teams.active == [0, 1, 2, 3], "four teams play on Crossroads")
+	for team in 4:
+		_check(_building(team, "Lab") != null and _fighters(team).size() >= 3, "team %d has a base and an army" % team)
+	var ais := main.find_children("*", "AIController", false, false)
+	_check(ais.size() == 3 and ais.map(func(a: AIController) -> int: return a.team).has(3), "one computer opponent per other team")
+	var ai: AIController = ais.filter(func(a: AIController) -> bool: return a.team == 2)[0]
+	var target: Variant = ai.wave_target()
+	var nearest_start := Vector3.INF
+	for start: Node3D in get_tree().get_nodes_in_group("start_locations"):
+		if start.get_meta("team") != 2 and start.global_position.distance_to(_building(2, "Lab").global_position) < nearest_start.distance_to(_building(2, "Lab").global_position):
+			nearest_start = start.global_position
+	_check(target != null and target.distance_to(nearest_start) < 0.1, "unscouted, the AI heads for the nearest enemy start location")
+	var rules: GameRules = main.get_node("GameRules")
+	for target_node: Node3D in get_tree().get_nodes_in_group("targets"):
+		if target_node.team in [1, 2]:
+			target_node.take_damage(999999.0)
+	rules.check_now()
+	_check(rules.winner == -1 and rules.eliminated_teams() == [1, 2], "the match goes on while two teams remain")
+	for target_node: Node3D in get_tree().get_nodes_in_group("targets"):
+		if target_node.team == 3:
+			target_node.take_damage(999999.0)
+	rules.check_now()
+	_check(rules.winner == 0, "the last team standing wins")
+	await _unload(main)
+	_reset_match_settings()
+
+
+func _test_unused_bases_removed() -> void:
+	print("unused bases")
+	var main := await _load_crossroads(2, GameSettings.Mode.FREE_FOR_ALL)
+	_check(Teams.active == [0, 1], "a 2-player game on a 4-player map uses two bases")
+	_check(_building(2, "Lab") == null and _building(3, "Lab") == null and _team_units(3).is_empty(), "the other bases are removed")
+	var map := main.get_world_3d().navigation_map
+	var removed_lab := Vector3(38, 0, -38)
+	_check(_flat(NavigationServer3D.map_get_closest_point(map, removed_lab) - removed_lab) < 0.5, "and their ground is walkable")
+	await _unload(main)
+	_reset_match_settings()
+
+
+func _test_two_vs_two() -> void:
+	print("2 vs 2")
+	var main := await _load_crossroads(4, GameSettings.Mode.TEAMS)
+	_check(Teams.are_allies(0, 1) and Teams.are_enemies(0, 2), "you and team 1 are allies")
+	_check(Teams.color(0) == Teams.BLUE and Teams.color(1) == Teams.GREEN and Teams.color(2) == Teams.RED,
+			"you're blue, your ally green, enemies red")
+	_check((_building(1, "Lab").team_band.material_override as StandardMaterial3D).albedo_color == Teams.GREEN,
+			"your ally's buildings show the ally colour")
+	var mine := _fighters(0)[0]
+	var ally := _fighters(1)[0]
+	var enemy := _fighters(2)[0]
+	_place(mine, Vector3(0, 0, 20))
+	_place(ally, Vector3(3, 0, 20))
+	_place(enemy, Vector3(30, 0, -30))
+	_check(mine.find_best_enemy(20.0) == null, "allies aren't treated as enemies")
+	mine.command_attack(ally)
+	_check(mine.attack_target == null, "you can't order an attack on an ally")
+
+	var fog: FogOfWar = main.get_node("FogOfWar")
+	fog.reveal_all = false
+	_place(ally, Vector3(30, 0, -24))
+	await _fog_frames()
+	_check(fog.is_visible(0, Vector3(30, 0, -24)) and enemy.visible, "allies share vision")
+
+	var rules: GameRules = main.get_node("GameRules")
+	for target_node: Node3D in get_tree().get_nodes_in_group("targets"):
+		if target_node.team == 0:
+			target_node.take_damage(999999.0)
+	rules.check_now()
+	_check(rules.winner == -1, "your alliance survives while your ally does")
+	for target_node: Node3D in get_tree().get_nodes_in_group("targets"):
+		if target_node.team in [2, 3]:
+			target_node.take_damage(999999.0, ally)
+	rules.check_now()
+	var screen: EndScreen = main.get_node("UI/HUD").end_screen
+	_check(rules.winner == 0 and screen.title.text == "VICTORY", "beating both enemies wins for the whole alliance")
+	_check(screen.cell_text(0, 2) == "Ally" and screen.cell_text(0, 3).begins_with("Enemy"), "the end screen labels allies and enemies")
+	await _unload(main)
+	_reset_match_settings()
+
+
+func _test_setup_players() -> void:
+	print("setup: players")
+	var setup: SkirmishSetup = load("res://scenes/ui/skirmish_setup.tscn").instantiate()
+	get_tree().root.add_child(setup)
+	await _process_frames(2)
+	setup.select_map(2)
+	_check(setup.players_option.item_count == 3, "Crossroads offers 2, 3 or 4 players")
+	_check(setup.mode_option.disabled, "2 vs 2 needs four players")
+	setup.players_option.select(2)
+	setup.players_option.item_selected.emit(2)
+	_check(GameSettings.player_count == 4 and not setup.mode_option.disabled, "four players unlocks 2 vs 2")
+	setup.mode_option.select(1)
+	setup.mode_option.item_selected.emit(1)
+	_check(GameSettings.alliances() == {0: 0, 1: 0, 2: 1, 3: 1}, "2 vs 2 pairs you with team 1")
+	setup.select_map(0)
+	_check(GameSettings.player_count == 2 and GameSettings.mode == GameSettings.Mode.FREE_FOR_ALL and setup.players_option.item_count == 1,
+			"a 2-player map resets the player count")
+	setup.queue_free()
+	_reset_match_settings()
+	await _process_frames(1)
 
 
 func _test_starting_army() -> void:

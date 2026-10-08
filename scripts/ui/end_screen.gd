@@ -56,7 +56,7 @@ func _ready() -> void:
 ## Shows the results and pauses the game.
 func show_results(winner: int, player_team: int) -> void:
 	MatchStats.stop()
-	var won := winner == player_team
+	var won := winner == Teams.alliance(player_team)
 	title.text = "VICTORY" if won else "DEFEAT"
 	title.add_theme_color_override("font_color", Color(0.95, 0.8, 0.35) if won else Color(0.9, 0.35, 0.3))
 	var seconds := int(MatchStats.elapsed)
@@ -71,7 +71,7 @@ func show_results(winner: int, player_team: int) -> void:
 	table.columns = teams.size() + 1
 	_cell("")
 	for team: int in teams:
-		_cell("You" if team == player_team else "Enemy" if teams.size() == 2 else "Player %d" % (team + 1), true)
+		_cell(_team_label(team, player_team, teams.size()), true)
 	for key: String in MatchStats.LABELS:
 		_cell(MatchStats.LABELS[key])
 		for team: int in teams:
@@ -87,6 +87,14 @@ func show_results(winner: int, player_team: int) -> void:
 func cell_text(row: int, column: int) -> String:
 	var cells := table.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
 	return cells[row * table.columns + column].text
+
+
+static func _team_label(team: int, player_team: int, team_count: int) -> String:
+	if team == player_team:
+		return "You"
+	if Teams.are_allies(team, player_team):
+		return "Ally"
+	return "Enemy" if team_count == 2 else "Enemy %d" % (team + 1)
 
 
 func _cell(text: String, heading := false) -> void:

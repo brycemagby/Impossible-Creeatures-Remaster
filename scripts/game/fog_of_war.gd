@@ -1,6 +1,6 @@
 class_name FogOfWar
 extends Node
-## Per-team fog of war on a 1 m grid.
+## Fog of war on a 1 m grid, shared within each alliance (see Teams).
 ##
 ## Every UPDATE_INTERVAL seconds each team's creatures and buildings reveal
 ## the cells within their vision range. Cells a team has ever seen stay
@@ -30,7 +30,6 @@ const GHOST_COLOR := Color(0.6, 0.6, 0.6, 0.35)
 		reveal_all = value
 		_refresh_shader()
 @export var player_team := 0
-@export var teams: Array[int] = [0, 1]
 ## Map area the grid covers, in world XZ.
 @export var bounds := Rect2(-50, -50, 100, 100)
 ## Ground mesh whose ShaderMaterial (fog_ground.gdshader) shows the fog.
@@ -39,6 +38,7 @@ const GHOST_COLOR := Color(0.6, 0.6, 0.6, 0.35)
 var texture: ImageTexture
 var _width := 0
 var _depth := 0
+## Keyed by alliance id: allies share what they see.
 var _visible := {}
 var _explored := {}
 var _image: Image
@@ -53,11 +53,6 @@ func _ready() -> void:
 	add_to_group("building_watchers")
 	_width = int(bounds.size.x)
 	_depth = int(bounds.size.y)
-	for team in teams:
-		_visible[team] = PackedByteArray()
-		_visible[team].resize(_width * _depth)
-		_explored[team] = PackedByteArray()
-		_explored[team].resize(_width * _depth)
 	_image = Image.create(_width, _depth, false, Image.FORMAT_R8)
 	texture = ImageTexture.create_from_image(_image)
 	if ground and ground.mesh.surface_get_material(0) is ShaderMaterial:
@@ -77,28 +72,41 @@ func _physics_process(delta: float) -> void:
 
 
 func update_now() -> void:
-	for team in teams:
-		_visible[team].fill(0)
+	for alliance: int in _visible:
+		_visible[alliance].fill(0)
 	for target: Node3D in get_tree().get_nodes_in_group("targets"):
-		if target.is_alive() and _visible.has(target.team):
-			_reveal(target.team, target.global_position, target.vision_range())
+		if target.is_alive() and target.team in Teams.active:
+			_reveal(_grids(target.team), target.global_position, target.vision_range())
 	_update_texture()
 	_apply_to_player()
 	_clear_seen_ghosts()
 
 
 func is_visible(team: int, point: Vector3) -> bool:
-	if not enabled or not _visible.has(team):
+	if not enabled:
 		return true
 	var index := _index(point)
-	return index >= 0 and _visible[team][index] == 1
+	return index >= 0 and _grids(team)[0][index] == 1
 
 
 func is_explored(team: int, point: Vector3) -> bool:
-	if not enabled or not _explored.has(team):
+	if not enabled:
 		return true
 	var index := _index(point)
-	return index >= 0 and _explored[team][index] == 1
+	return index >= 0 and _grids(team)[1][index] == 1
+
+
+## [visible, explored] grids for [param team]'s alliance, created on demand.
+func _grids(team: int) -> Array[PackedByteArray]:
+	var alliance := Teams.alliance(team)
+	if not _visible.has(alliance):
+		var visible := PackedByteArray()
+		visible.resize(_width * _depth)
+		var explored := PackedByteArray()
+		explored.resize(_width * _depth)
+		_visible[alliance] = visible
+		_explored[alliance] = explored
+	return [_visible[alliance], _explored[alliance]]
 
 
 ## Whether the local player can see [param node] (used by picking and the HUD).
@@ -108,10 +116,11 @@ func player_can_see(node: Node3D) -> bool:
 
 ## Fraction of the map [param team] has explored, from 0 to 1.
 func explored_fraction(team: int) -> float:
+	var explored: PackedByteArray = _grids(team)[1]
 	var count := 0
-	for value in _explored[team]:
+	for value in explored:
 		count += value
-	return float(count) / _explored[team].size()
+	return float(count) / explored.size()
 
 
 func _refresh_shader() -> void:
@@ -122,13 +131,13 @@ func _refresh_shader() -> void:
 	_material.set_shader_parameter("fog_enabled", enabled and not reveal_all)
 
 
-func _reveal(team: int, point: Vector3, radius: float) -> void:
+func _reveal(grids: Array[PackedByteArray], point: Vector3, radius: float) -> void:
 	var cx := int(floor(point.x - bounds.position.x))
 	var cz := int(floor(point.z - bounds.position.y))
 	var r := int(ceil(radius))
 	var radius_squared := radius * radius
-	var visible: PackedByteArray = _visible[team]
-	var explored: PackedByteArray = _explored[team]
+	var visible: PackedByteArray = grids[0]
+	var explored: PackedByteArray = grids[1]
 	for z in range(maxi(cz - r, 0), mini(cz + r + 1, _depth)):
 		var dz := z - cz
 		for x in range(maxi(cx - r, 0), mini(cx + r + 1, _width)):
@@ -148,12 +157,11 @@ func _index(point: Vector3) -> int:
 
 
 func _update_texture() -> void:
-	if not _visible.has(player_team):
-		return
 	var data := PackedByteArray()
 	data.resize(_width * _depth)
-	var visible: PackedByteArray = _visible[player_team]
-	var explored: PackedByteArray = _explored[player_team]
+	var grids := _grids(player_team)
+	var visible: PackedByteArray = grids[0]
+	var explored: PackedByteArray = grids[1]
 	for i in data.size():
 		data[i] = VISIBLE if visible[i] == 1 else (EXPLORED if explored[i] == 1 else UNEXPLORED)
 	_image.set_data(_width, _depth, false, Image.FORMAT_R8, data)
@@ -163,10 +171,10 @@ func _update_texture() -> void:
 func _apply_to_player() -> void:
 	var see_all := not enabled or reveal_all
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if unit.team != player_team:
+		if Teams.are_enemies(unit.team, player_team):
 			unit.visible = see_all or is_visible(player_team, unit.global_position)
 	for building: Building in get_tree().get_nodes_in_group("buildings"):
-		if building.team != player_team:
+		if Teams.are_enemies(building.team, player_team):
 			building.visible = see_all or _footprint_explored(building)
 	for prop: Node3D in get_tree().get_nodes_in_group("fog_hidden"):
 		prop.visible = see_all or is_explored(player_team, prop.global_position)
@@ -174,7 +182,7 @@ func _apply_to_player() -> void:
 
 ## Called by buildings as they are destroyed (group "building_watchers").
 func building_destroyed(building: Building) -> void:
-	if not enabled or reveal_all or building.team == player_team or not building.visible:
+	if not enabled or reveal_all or not Teams.are_enemies(building.team, player_team) or not building.visible:
 		return
 	if is_visible(player_team, building.global_position):
 		return

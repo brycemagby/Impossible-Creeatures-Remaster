@@ -44,13 +44,13 @@ func get_stat(team: int, key: String) -> float:
 ## A creature of [param team] died; [param killer_team] is -1 if unknown.
 func record_death(team: int, killer_team: int) -> void:
 	add(team, "units_lost")
-	if killer_team >= 0 and killer_team != team:
+	if killer_team >= 0 and Teams.are_enemies(killer_team, team):
 		add(killer_team, "kills")
 
 
 func record_building_lost(team: int, killer_team: int) -> void:
 	add(team, "buildings_lost")
-	if killer_team >= 0 and killer_team != team:
+	if killer_team >= 0 and Teams.are_enemies(killer_team, team):
 		add(killer_team, "buildings_destroyed")
 
 

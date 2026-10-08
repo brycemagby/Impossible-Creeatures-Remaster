@@ -16,10 +16,10 @@ LAYOUTS = {
         "ground_color": (0.3, 0.42, 0.2),
         "rocks": [(-12, -6), (10, -4), (-4, -14), (16, 10), (-18, 12), (4, -24), (-26, -20), (24, -18)],
         "coal": [(15, 34), (17, 27), (-15, -34), (-17, -27), (-32, 4), (32, -4)],
-        "buildings": [("lab", 0, 0, 36), ("generator", 0, -10, 42), ("lab", 1, 0, -40), ("generator", 1, -10, -43)],
-        "henchmen": [(0, -3, 31), (0, -1, 31), (0, 1, 31), (0, 3, 31), (1, -2, -35), (1, 0, -35), (1, 2, -35)],
-        "army_spawns": [(0, 25), (0, -31)],
-        "camera": (0, 28),
+        "bases": [
+            {"lab": (0, 36), "generator": (-10, 42), "henchmen": [(-3, 31), (-1, 31), (1, 31), (3, 31)], "army": (0, 25)},
+            {"lab": (0, -40), "generator": (-10, -43), "henchmen": [(-2, -35), (0, -35), (2, -35)], "army": (0, -31)},
+        ],
     },
     "scenes/maps/canyon.tscn": {
         "name": "Canyon",
@@ -28,10 +28,26 @@ LAYOUTS = {
         "rocks": [(0, z) for z in (-46, -42, -38, -34, -30, -16, -12, -8, 8, 12, 16, 30, 34, 38, 42, 46)]
         + [(-20, -30), (20, 30), (-18, 22), (18, -22), (-12, 4), (12, -4)],
         "coal": [(-36, -14), (-28, 12), (36, 14), (28, -12), (0, -23), (0, 23)],
-        "buildings": [("lab", 0, -38, 0), ("generator", 0, -42, 10), ("lab", 1, 38, 0), ("generator", 1, 42, -10)],
-        "henchmen": [(0, -33, -3), (0, -33, -1), (0, -33, 1), (0, -33, 3), (1, 33, -2), (1, 33, 0), (1, 33, 2)],
-        "army_spawns": [(-27, 0), (27, 0)],
-        "camera": (-30, 0),
+        "bases": [
+            {"lab": (-38, 0), "generator": (-42, 10), "henchmen": [(-33, -3), (-33, -1), (-33, 1), (-33, 3)], "army": (-27, 0)},
+            {"lab": (38, 0), "generator": (42, -10), "henchmen": [(33, -2), (33, 0), (33, 2)], "army": (27, 0)},
+        ],
+    },
+    "scenes/maps/crossroads.tscn": {
+        "name": "Crossroads",
+        "ground_color": (0.36, 0.44, 0.24),
+        # Four corner bases; a rock ring in the middle splits the centre coal.
+        "rocks": [(0, 0), (5, 5), (-5, -5), (5, -5), (-5, 5), (0, 30), (0, -30), (30, 0), (-30, 0),
+                  (18, 18), (-18, 18), (18, -18), (-18, -18)],
+        "coal": [(-24, 42), (-42, 22), (24, 42), (42, 22), (24, -42), (42, -22), (-24, -42), (-42, -22),
+                 (0, 14), (0, -14), (14, 0), (-14, 0)],
+        # Teams 0 and 1 share the south edge, so they are neighbours (allies in 2v2).
+        "bases": [
+            {"lab": (-38, 38), "generator": (-44, 29), "henchmen": [(-32, 33), (-31, 31), (-33, 31), (-32, 29)], "army": (-26, 26)},
+            {"lab": (38, 38), "generator": (44, 29), "henchmen": [(32, 33), (31, 31), (33, 31)], "army": (26, 26)},
+            {"lab": (38, -38), "generator": (44, -29), "henchmen": [(32, -33), (31, -31), (33, -31)], "army": (26, -26)},
+            {"lab": (-38, -38), "generator": (-44, -29), "henchmen": [(-32, -33), (-31, -31), (-33, -31)], "army": (-26, -26)},
+        ],
     },
 }
 
@@ -148,31 +164,30 @@ mesh = SubResource("PlaneMesh_ground")
                  f'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {x}, 0, {z})\n')
     # Buildings live under the navigation region so rebakes include them.
     o.append('[node name="Buildings" type="Node3D" parent="NavigationRegion3D" groups=["building_container"]]\n')
-    seen = {}
-    for kind, team, x, z in layout["buildings"]:
-        label = ("Player" if team == 0 else "Enemy") + "".join(w.capitalize() for w in kind.split("_"))
-        seen[label] = seen.get(label, 0) + 1
-        suffix = str(seen[label]) if seen[label] > 1 else ""
-        o.append(f'[node name="{label}{suffix}" parent="NavigationRegion3D/Buildings" instance=ExtResource("{ids["building"]}")]\n'
-                 f'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {x}, 0, {z})\n'
-                 f'data = ExtResource("{ids["b_" + kind]}")' + (f"\nteam = {team}" if team else "") + "\n")
+    for team, base in enumerate(layout["bases"]):
+        for kind in ("lab", "generator"):
+            x, z = base[kind]
+            o.append(f'[node name="Team{team}{kind.capitalize()}" parent="NavigationRegion3D/Buildings" instance=ExtResource("{ids["building"]}")]\n'
+                     f'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {x}, 0, {z})\n'
+                     f'data = ExtResource("{ids["b_" + kind]}")' + (f"\nteam = {team}" if team else "") + "\n")
     o.append('[node name="Units" type="Node3D" parent="." groups=["unit_container"]]\n')
-    seen = {}
-    for team, x, z in layout["henchmen"]:
-        label = ("Player" if team == 0 else "Enemy") + "Henchman"
-        seen[label] = seen.get(label, 0) + 1
-        o.append(f'[node name="{label}{seen[label]}" parent="Units" instance=ExtResource("{ids["henchman_scene"]}")]\n'
-                 f'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {x}, 0, {z})\n'
-                 f'stats = ExtResource("{ids["henchman"]}")' + (f"\nteam = {team}" if team else "") + "\n")
-    (px, pz), (ex, ez) = layout["army_spawns"]
-    cx, cz = layout["camera"]
-    o.append(f'''[node name="PlayerArmySpawn" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {px}, 0, {pz})
-
-[node name="EnemyArmySpawn" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {ex}, 0, {ez})
-
-[node name="RTSCamera" parent="." instance=ExtResource("{ids["camera"]}")]
+    for team, base in enumerate(layout["bases"]):
+        for n, (x, z) in enumerate(base["henchmen"], 1):
+            o.append(f'[node name="Team{team}Henchman{n}" parent="Units" instance=ExtResource("{ids["henchman_scene"]}")]\n'
+                     f'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {x}, 0, {z})\n'
+                     f'stats = ExtResource("{ids["henchman"]}")' + (f"\nteam = {team}" if team else "") + "\n")
+    for team, base in enumerate(layout["bases"]):
+        ax, az = base["army"]
+        lx, lz = base["lab"]
+        # Start locations are public knowledge (the AI uses them to look for enemies).
+        o.append(f'[node name="ArmySpawn{team}" type="Marker3D" parent="."]\n'
+                 f'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {ax}, 0, {az})\n')
+        o.append(f'[node name="StartLocation{team}" type="Marker3D" parent="." groups=["start_locations"]]\n'
+                 f'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {lx}, 0, {lz})\n'
+                 f'metadata/team = {team}\n')
+    cx, cz = layout["bases"][0]["army"]
+    cz += 3 if cz > 0 else -3
+    o.append(f'''[node name="RTSCamera" parent="." instance=ExtResource("{ids["camera"]}")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {cx}, 0, {cz})
 
 [node name="BuildPlacer" type="Node3D" parent="."]

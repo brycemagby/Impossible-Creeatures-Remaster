@@ -117,4 +117,4 @@ func _draw_camera_view() -> void:
 
 
 static func _team_color(team: int) -> Color:
-	return Creature.TEAM_COLORS[team % Creature.TEAM_COLORS.size()]
+	return Teams.color(team)
