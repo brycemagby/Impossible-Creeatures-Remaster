@@ -26,6 +26,10 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
   appear as you explore. An enemy building destroyed out of sight leaves a grey "last seen" ghost
   until you look again. The AI plays by the same rules.
 - **Labs heal** friendly creatures within 10 m (4 health per second)
+- **Soundbeam Tower** (research level 2): a defensive tower that zaps enemy creatures within 10 m,
+  flyers included
+- **Workshop**: buy team-wide upgrades — Coal Sacks (Henchmen carry 15 coal), Thick Hides (+2 armor,
+  research level 2) and Fleet Feet (+10% speed, research level 3)
 - **Minimap**: terrain under the fog, coal, buildings, creatures and your camera's view; click to look,
   right click to send the selection there
 
@@ -201,6 +205,14 @@ Layers 1, 3 and 4 are baked into the navmesh.
 | Electrical Generator (+2 electricity/s) | 150 | — | 18 Henchman-seconds |
 | Creature Chamber | 200 | 50 | 30 Henchman-seconds |
 | Lab | 400 | — | 45 Henchman-seconds |
+| Workshop | 150 | 50 | 25 Henchman-seconds |
+| Soundbeam Tower (research L2; 14 damage / 1.2 s, 10 m) | 150 | 75 | 20 Henchman-seconds |
+
+| Workshop upgrade | Coal | Electricity | Time | Needs |
+| --- | --- | --- | --- | --- |
+| Coal Sacks: Henchmen carry 15 coal | 100 | 25 | 30 s | — |
+| Thick Hides: +2 armor for all creatures | 200 | 100 | 45 s | research L2 |
+| Fleet Feet: +10% speed for all creatures | 150 | 100 | 40 s | research L3 |
 
 Teams start with 300 coal and 100 electricity. Henchmen carry 10 coal per trip.
 

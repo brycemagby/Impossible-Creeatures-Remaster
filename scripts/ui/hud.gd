@@ -76,7 +76,7 @@ func _describe_selection() -> String:
 		lines.append("  Health  %d / %d" % [ceili(unit.health), s.max_health])
 		lines.append("  Damage  %d every %.1fs (%s)" % [s.attack_damage, s.attack_cooldown,
 				"ranged %dm" % s.attack_range if s.is_ranged() else "melee"])
-		lines.append("  Armor   %d    Speed  %.1f" % [s.armor, s.move_speed])
+		lines.append("  Armor   %d    Speed  %.1f" % [unit.armor(), unit.move_speed()])
 		if unit.order == Creature.Order.HOLD:
 			lines.append("  Holding position")
 		elif unit.order == Creature.Order.PATROL:
@@ -114,10 +114,11 @@ func _refresh_command_panel() -> void:
 	var building := selection_manager.selected_building
 	var context := "none"
 	if Creature.is_valid_target(building):
-		context = "building:%d:%s:%d:%d" % [building.get_instance_id(), building.is_complete,
-				Research.level(building.team), building.researching]
+		context = "building:%d:%s:%d:%d:%s:%d" % [building.get_instance_id(), building.is_complete,
+				Research.level(building.team), building.researching, building.upgrading != null,
+				_owned_upgrades(building.team)]
 	elif not selection_manager.selected_henchmen().is_empty():
-		context = "henchmen"
+		context = "henchmen:%d" % Research.level(selection_manager.player_team)
 	if context != _context:
 		_context = context
 		_rebuild_command_panel(building)
@@ -136,12 +137,14 @@ func _rebuild_command_panel(building: Building) -> void:
 	command_status.text = ""
 	command_panel.visible = _context != "none"
 
-	if _context == "henchmen":
+	if _context.begins_with("henchmen"):
 		command_title.text = "Build"
 		for data in selection_manager.buildable:
-			var button := _add_button("%s\n%s" % [data.display_name, _cost_text(data.cost_coal, data.cost_electricity)])
+			var locked := Research.level(selection_manager.player_team) < data.required_research
+			var button := _add_button("%s\n%s" % [data.display_name, "needs research L%d" % data.required_research if locked
+					else _cost_text(data.cost_coal, data.cost_electricity)])
 			button.pressed.connect(selection_manager.begin_placement.bind(data))
-			_cost_buttons.append([button, data.cost_coal, data.cost_electricity, 0])
+			_cost_buttons.append([button, data.cost_coal, data.cost_electricity, data.required_research])
 	elif _context.begins_with("building"):
 		command_title.text = building.data.display_name
 		if building.is_complete:
@@ -158,6 +161,21 @@ func _rebuild_command_panel(building: Building) -> void:
 			if not options.is_empty():
 				var cancel := _add_button("Cancel\nlast")
 				cancel.pressed.connect(building.cancel_last)
+			for upgrade in building.data.upgrades:
+				if Upgrades.has(building.team, upgrade.id):
+					continue
+				var upgrade_locked := Research.level(building.team) < upgrade.required_research
+				var upgrade_button := _add_button("%s\n%s" % [upgrade.display_name, "needs research L%d" % upgrade.required_research
+						if upgrade_locked else _cost_text(upgrade.cost_coal, upgrade.cost_electricity)])
+				upgrade_button.tooltip_text = upgrade.description
+				upgrade_button.pressed.connect(_on_upgrade_pressed.bind(building, upgrade))
+				if building.upgrading != null:
+					upgrade_button.disabled = true
+				else:
+					_cost_buttons.append([upgrade_button, upgrade.cost_coal, upgrade.cost_electricity, upgrade.required_research])
+			if building.upgrading != null:
+				var stop_upgrade := _add_button("Cancel\nupgrade")
+				stop_upgrade.pressed.connect(building.cancel_upgrade)
 			if building.data.can_research:
 				var next := Research.next_level(building.team)
 				if building.researching > 0:
@@ -180,6 +198,13 @@ func _building_status(building: Building) -> String:
 		lines.append("Producing %.1f electricity / s" % building.data.electricity_per_second)
 	if building.researching > 0:
 		lines.append("Researching level %d  %d%%" % [building.researching, roundi(building.research_fraction() * 100.0)])
+	if building.upgrading != null:
+		lines.append("Upgrading %s  %d%%" % [building.upgrading.display_name, roundi(building.upgrade_fraction() * 100.0)])
+	elif not building.data.upgrades.is_empty():
+		var owned := building.data.upgrades.filter(func(u: UpgradeData) -> bool: return Upgrades.has(building.team, u.id))
+		lines.append("Upgrades bought: %d / %d" % [owned.size(), building.data.upgrades.size()])
+	if building.data.attack_damage > 0.0:
+		lines.append("Defends: %d damage every %.1fs, %dm range" % [building.data.attack_damage, building.data.attack_cooldown, building.data.attack_range])
 	elif building.data.can_research and Research.next_level(building.team) == 0:
 		lines.append("Fully researched")
 	if not building.queue.is_empty():
@@ -200,6 +225,20 @@ func _recipe_tooltip(recipe: UnitRecipe) -> String:
 		s.display_name, s.level, s.max_health, s.armor, s.move_speed, s.attack_damage,
 		"  ranged" if s.is_ranged() else "", "  poison" if s.poison_dps > 0.0 else "",
 		"  flying" if s.can_fly else ""] + ("  charge" if s.can_charge else "") + ("  leap" if s.can_leap else "")
+
+
+func _on_upgrade_pressed(building: Building, upgrade: UpgradeData) -> void:
+	var error := building.start_upgrade(upgrade)
+	if error != "":
+		show_message(error)
+
+
+func _owned_upgrades(team: int) -> int:
+	var count := 0
+	for id in [Upgrades.COAL_SACKS, Upgrades.THICK_HIDES, Upgrades.FLEET_FEET]:
+		if Upgrades.has(team, id):
+			count += 1
+	return count
 
 
 func _on_research_pressed(building: Building) -> void:

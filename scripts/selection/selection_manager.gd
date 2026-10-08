@@ -289,6 +289,8 @@ func begin_placement(data: BuildingData) -> void:
 	if selected_henchmen().is_empty():
 		return
 	var reason := Economy.shortfall(player_team, data.cost_coal, data.cost_electricity)
+	if Research.level(player_team) < data.required_research:
+		reason = "Requires research level %d" % data.required_research
 	if reason != "":
 		message.emit(reason)
 		return
@@ -349,7 +351,7 @@ static func assign_formation(units: Array, target: Vector3, spacing: float, comm
 	var group_speed := INF
 	for unit: Creature in units:
 		center += unit.global_position
-		group_speed = minf(group_speed, unit.stats.move_speed)
+		group_speed = minf(group_speed, unit.move_speed())
 	center /= units.size()
 	var direction := target - center
 	direction.y = 0.0

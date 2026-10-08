@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://scripts/buildings/unit_recipe.gd" id="2_recipe"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Soundbeam Tower"
+max_health = 700.0
+armor = 6.0
+cost_coal = 150
+cost_electricity = 75
+build_time = 20.0
+size = Vector3(2.5, 6, 2.5)
+color = Color(0.45, 0.4, 0.55, 1)
+production = Array[ExtResource("2_recipe")]([])
+required_research = 2
+attack_damage = 14.0
+attack_range = 10.0
+attack_cooldown = 1.2

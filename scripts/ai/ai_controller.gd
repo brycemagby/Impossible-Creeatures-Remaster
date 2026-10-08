@@ -6,7 +6,9 @@ extends Node
 ## - keeps Henchmen busy: idle ones gather coal, and two help build any
 ##   unfinished construction site;
 ## - builds what's missing: a Creature Chamber first, then Generators to keep
-##   electricity flowing (one construction at a time), placed around its Lab;
+##   electricity flowing, then (from research level 2) a Workshop and a
+##   Soundbeam Tower per Lab; one construction at a time, placed around its Lab;
+## - buys Workshop upgrades when it can spare the coal;
 ## - researches the next level at the Lab: once its army is big enough for
 ##   its current level it stops making creatures and saves up for research;
 ## - keeps its Lab and Chambers producing Henchmen and creatures it has unlocked.
@@ -28,6 +30,11 @@ const BUILDERS_PER_SITE := 2
 const LAB_DATA := preload("res://resources/buildings/lab.tres")
 const GENERATOR_DATA := preload("res://resources/buildings/generator.tres")
 const CHAMBER_DATA := preload("res://resources/buildings/creature_chamber.tres")
+const WORKSHOP_DATA := preload("res://resources/buildings/workshop.tres")
+const TOWER_DATA := preload("res://resources/buildings/soundbeam_tower.tres")
+## The AI waits for this research level before building a Workshop, so the
+## coal goes into its first creatures instead.
+const AI_WORKSHOP_LEVEL := 2
 ## Distances from the Lab's centre to try when placing a building.
 const PLACEMENT_RADII := [9.0, 12.0, 15.0, 18.0, 21.0]
 const PLACEMENT_ANGLES := 16
@@ -117,6 +124,7 @@ func think() -> void:
 	manage_construction()
 	manage_workers()
 	manage_research()
+	manage_upgrades()
 	manage_production()
 	manage_retreats()
 	defend_base()
@@ -238,6 +246,8 @@ func manage_construction() -> void:
 			var pile := expansion_site()
 			if pile != null:
 				place_building(wanted, pile.global_position, EXPANSION_RADII)
+		elif wanted == TOWER_DATA:
+			place_building(wanted, _unguarded_lab().global_position, EXPANSION_RADII)
 		else:
 			place_building(wanted)
 
@@ -251,6 +261,10 @@ func next_building() -> BuildingData:
 		return CHAMBER_DATA
 	if _count(GENERATOR_DATA) < 1 + chambers * generators_per_chamber:
 		return GENERATOR_DATA
+	if Research.level(team) >= AI_WORKSHOP_LEVEL and _count(WORKSHOP_DATA) == 0:
+		return WORKSHOP_DATA
+	if Research.level(team) >= TOWER_DATA.required_research and _count(TOWER_DATA) < _count(LAB_DATA):
+		return TOWER_DATA
 	if wants_expansion():
 		return LAB_DATA
 	return null
@@ -365,6 +379,34 @@ func is_saving_for_expansion() -> bool:
 	if not _buildings(false).is_empty() or next_building() != LAB_DATA or _count(LAB_DATA) == 0:
 		return false
 	return not Economy.can_afford(team, LAB_DATA.cost_coal, LAB_DATA.cost_electricity)
+
+
+## Buys the next affordable Workshop upgrade, keeping some coal in reserve.
+func manage_upgrades() -> void:
+	if is_saving_for_expansion() or is_saving_for_research():
+		return
+	for workshop in _buildings(true):
+		if workshop.data.upgrades.is_empty() or workshop.upgrading != null:
+			continue
+		for upgrade in workshop.data.upgrades:
+			if Upgrades.has(team, upgrade.id) or Research.level(team) < upgrade.required_research:
+				continue
+			if Economy.coal(team) >= upgrade.cost_coal + research_reserve and workshop.start_upgrade(upgrade) == "":
+				return
+
+
+## A Lab with no Soundbeam Tower near it (the home Lab first).
+func _unguarded_lab() -> Building:
+	var labs := _buildings(true).filter(func(b: Building) -> bool: return b.data == LAB_DATA)
+	labs.sort_custom(func(a: Building, b: Building) -> bool: return a == _home())
+	for lab: Building in labs:
+		var guarded := false
+		for tower in _buildings(true) + _buildings(false):
+			if tower.data == TOWER_DATA and tower.global_position.distance_to(lab.global_position) < BASE_COAL_RADIUS:
+				guarded = true
+		if not guarded:
+			return lab
+	return _home()
 
 
 func manage_production() -> void:

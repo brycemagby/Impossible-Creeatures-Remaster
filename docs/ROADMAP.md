@@ -27,10 +27,10 @@ produces the strongest creatures it has unlocked.
 
 Follow-ups:
 - Enemy AI that expands to more coal ✅ (new Labs at unclaimed coal, saving up for them)
-- More buildings from the original (Workshop for upgrades, Lightning Rod, Soundbeam Tower, Aviary,
-  Water Chamber)
-- Research and upgrades (tie into creature levels in M4)
-- Minimap (M6)
+- More buildings from the original: Workshop ✅ and Soundbeam Tower ✅; Lightning Rod, Aviary and
+  Water Chamber still to come (the Water Chamber needs water on the maps first)
+- Research ✅ and upgrades ✅ (Coal Sacks, Thick Hides, Fleet Feet at the Workshop)
+- Minimap ✅ (M6)
 
 ## M4 — The creature combiner ✅
 8 animals with per-part stats, combination rules (size, leg load, level and cost), abilities from

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/upgrade_data.gd" id="1_upgrade"]
+
+[resource]
+script = ExtResource("1_upgrade")
+id = &"coal_sacks"
+display_name = "Coal Sacks"
+description = "Henchmen carry 15 coal per trip instead of 10."
+cost_coal = 100
+cost_electricity = 25
+duration = 30.0
+required_research = 1

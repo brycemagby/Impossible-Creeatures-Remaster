@@ -132,7 +132,7 @@ func _ready() -> void:
 	# Spread enemy scans across frames so large armies don't all scan at once.
 	_scan_timer = randf() * SCAN_INTERVAL
 	_apply_size(stats.size)
-	agent.max_speed = stats.move_speed * (CHARGE_SPEED_FACTOR if stats.can_charge else 1.0)
+	agent.max_speed = stats.move_speed * Upgrades.FLEET_SPEED * (CHARGE_SPEED_FACTOR if stats.can_charge else 1.0)
 	agent.velocity_computed.connect(_on_velocity_computed)
 	_apply_team_color()
 	if stats.design != null:
@@ -226,14 +226,15 @@ func command_patrol(point: Vector3, group_speed := INF) -> void:
 
 # --- Combat -------------------------------------------------------------------
 
-## Applies a hit, reduced by armor. [param source] is retaliated against.
-func take_damage(amount: float, source: Creature = null) -> void:
+## Applies a hit, reduced by armor. [param source] (a creature or a tower)
+## is retaliated against.
+func take_damage(amount: float, source: Node3D = null) -> void:
 	if _dead:
 		return
 	if is_valid_target(source):
 		_last_attacker_team = source.team
 	_flash()
-	_lose_health(maxf(amount - stats.armor, 1.0))
+	_lose_health(maxf(amount - armor(), 1.0))
 	if _dead:
 		return
 	if is_valid_target(source) and source.team != team:
@@ -278,7 +279,7 @@ func deal_hit(target: Node3D) -> void:
 
 
 ## Engages [param attacker] unless busy with an explicit order.
-func respond_to_attack(attacker: Creature) -> void:
+func respond_to_attack(attacker: Node3D) -> void:
 	if attack_target == null and _fights_automatically() and can_attack(attacker):
 		_engage(attacker, true)
 
@@ -322,7 +323,17 @@ func get_max_health() -> float:
 
 
 func get_armor() -> float:
-	return stats.armor
+	return armor()
+
+
+## Armor including the team's upgrades.
+func armor() -> float:
+	return stats.armor + Upgrades.armor_bonus(team)
+
+
+## Walking speed including the team's upgrades.
+func move_speed() -> float:
+	return stats.move_speed * Upgrades.speed_multiplier(team)
 
 
 ## How far this creature reveals the fog of war.
@@ -380,7 +391,7 @@ func find_best_enemy(max_distance: float) -> Node3D:
 ## attacking (focus fire, so groups kill one enemy at a time).
 func _target_score(target: Creature, allies_on_target := 0) -> float:
 	var distance := target.edge_distance_from(global_position)
-	var effectiveness := maxf(stats.attack_damage - target.stats.armor, 1.0) / maxf(stats.attack_damage, 1.0)
+	var effectiveness := maxf(stats.attack_damage - target.armor(), 1.0) / maxf(stats.attack_damage, 1.0)
 	var wounded := 1.0 - target.health / target.stats.max_health
 	var focus := mini(allies_on_target, FOCUS_MAX_ALLIES) * SCORE_FOCUS_WEIGHT
 	return distance - effectiveness * SCORE_DAMAGE_WEIGHT - wounded * SCORE_WOUNDED_WEIGHT - focus
@@ -617,7 +628,7 @@ func _desired_velocity() -> Vector3:
 	to_next.y = 0.0
 	if to_next.length_squared() < 0.0001:
 		return Vector3.ZERO
-	var speed := stats.move_speed if attack_target != null else minf(stats.move_speed, _group_speed)
+	var speed := move_speed() if attack_target != null else minf(move_speed(), _group_speed)
 	if is_charging and attack_target != null:
 		speed *= CHARGE_SPEED_FACTOR
 	return to_next.normalized() * speed
@@ -631,7 +642,7 @@ func _flying_velocity() -> Vector3:
 		is_moving = false
 		_on_arrived()
 		return Vector3.ZERO
-	var speed := stats.move_speed if attack_target != null else minf(stats.move_speed, _group_speed)
+	var speed := move_speed() if attack_target != null else minf(move_speed(), _group_speed)
 	return to_target.normalized() * speed
 
 

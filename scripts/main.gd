@@ -24,6 +24,7 @@ func _ready() -> void:
 	Economy.reset([0, 1], starting_coal, starting_electricity)
 	Research.reset([0, 1])
 	MatchStats.reset([0, 1])
+	Upgrades.reset([0, 1])
 	_apply_settings()
 	navigation_region.bake_finished.connect(_on_bake_finished)
 	# Bake from the ground, rock, building and coal colliders.

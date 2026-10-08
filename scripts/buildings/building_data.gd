@@ -24,3 +24,14 @@ extends Resource
 ## Heals friendly creatures within this many metres of the footprint (0 = no).
 @export var heal_radius := 0.0
 @export var heal_per_second := 0.0
+## Research level needed before it can be built.
+@export var required_research := 1
+## Upgrades that can be bought here (Workshop).
+@export var upgrades: Array[UpgradeData] = []
+
+@export_group("Defence")
+## Towers: damage per shot at enemy creatures in range (0 = doesn't attack).
+@export var attack_damage := 0.0
+## Reach from the footprint's edge to the target's edge.
+@export var attack_range := 0.0
+@export var attack_cooldown := 1.0

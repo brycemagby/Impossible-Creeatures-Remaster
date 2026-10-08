@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://scripts/buildings/unit_recipe.gd" id="2_recipe"]
+[ext_resource type="Script" path="res://scripts/buildings/upgrade_data.gd" id="3_upgrade"]
+[ext_resource type="Resource" path="res://resources/upgrades/coal_sacks.tres" id="4_sacks"]
+[ext_resource type="Resource" path="res://resources/upgrades/thick_hides.tres" id="5_hides"]
+[ext_resource type="Resource" path="res://resources/upgrades/fleet_feet.tres" id="6_fleet"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Workshop"
+max_health = 900.0
+armor = 5.0
+cost_coal = 150
+cost_electricity = 50
+build_time = 25.0
+size = Vector3(4, 3, 4)
+color = Color(0.5, 0.38, 0.22, 1)
+production = Array[ExtResource("2_recipe")]([])
+upgrades = Array[ExtResource("3_upgrade")]([ExtResource("4_sacks"), ExtResource("5_hides"), ExtResource("6_fleet")])

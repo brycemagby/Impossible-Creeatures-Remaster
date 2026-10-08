@@ -16,6 +16,7 @@ const SITE_HEALTH_FRACTION := 0.1
 const DEFEND_RADIUS := 15.0
 const SPAWN_GAP := 1.2
 const HEAL_INTERVAL := 0.5
+const BEAM_COLOR := Color(0.45, 0.75, 1.0, 0.95)
 
 @export var data: BuildingData
 @export var team := 0
@@ -39,6 +40,10 @@ var _dead := false
 var _body_material: StandardMaterial3D
 var _last_attacker_team := -1
 var _heal_timer := 0.0
+var _attack_timer := 0.0
+## Workshop: the upgrade being bought, and progress in seconds.
+var upgrading: UpgradeData = null
+var upgrade_time := 0.0
 
 @onready var collision: CollisionShape3D = $CollisionShape3D
 @onready var body: MeshInstance3D = $Body
@@ -65,6 +70,15 @@ func _physics_process(delta: float) -> void:
 		return
 	if data.electricity_per_second > 0.0:
 		Economy.add(team, 0.0, data.electricity_per_second * delta)
+	if data.attack_damage > 0.0:
+		_update_tower(delta)
+	if upgrading != null:
+		upgrade_time += delta
+		if upgrade_time >= upgrading.duration:
+			Upgrades.grant(team, upgrading.id)
+			upgrading = null
+			upgrade_time = 0.0
+			production_changed.emit(self)
 	if data.heal_radius > 0.0:
 		_heal_timer += delta
 		if _heal_timer >= HEAL_INTERVAL:
@@ -117,6 +131,100 @@ func cancel_last() -> void:
 	if queue.is_empty():
 		production_time = 0.0
 	production_changed.emit(self)
+
+
+# --- Towers -------------------------------------------------------------------
+
+func _update_tower(delta: float) -> void:
+	_attack_timer = maxf(_attack_timer - delta, 0.0)
+	if _attack_timer > 0.0:
+		return
+	var target := find_tower_target()
+	if target == null:
+		return
+	_attack_timer = data.attack_cooldown
+	_fire_beam(target)
+	target.take_damage(data.attack_damage, self)
+
+
+## The nearest enemy creature in range (flyers included), or null.
+func find_tower_target() -> Creature:
+	var best: Creature = null
+	var best_gap := data.attack_range
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if unit.team == team or not unit.is_alive():
+			continue
+		var gap := edge_distance_from(unit.global_position) - unit.radius()
+		if gap <= best_gap:
+			best_gap = gap
+			best = unit
+	return best
+
+
+func _fire_beam(target: Creature) -> void:
+	var from := global_position + Vector3.UP * data.size.y * 0.9
+	var to := target.global_position + Vector3.UP * target.center_height()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.18
+	mesh.bottom_radius = 0.18
+	mesh.height = from.distance_to(to)
+	mesh.radial_segments = 6
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = BEAM_COLOR
+	var beam := MeshInstance3D.new()
+	beam.mesh = mesh
+	beam.material_override = material
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	get_tree().current_scene.add_child(beam)
+	beam.global_position = (from + to) / 2.0
+	if not from.is_equal_approx(to):
+		beam.look_at(to, Vector3.UP if absf((to - from).normalized().y) < 0.99 else Vector3.RIGHT)
+		beam.rotate_object_local(Vector3.RIGHT, PI / 2.0)
+	var tween := beam.create_tween()
+	tween.tween_property(material, "albedo_color:a", 0.0, 0.35)
+	tween.tween_callback(beam.queue_free)
+
+
+# --- Upgrades -----------------------------------------------------------------
+
+## Pays for and starts [param upgrade]. Returns "" or the reason it can't.
+func start_upgrade(upgrade: UpgradeData) -> String:
+	if not is_complete:
+		return "Still under construction"
+	if upgrading != null:
+		return "Already upgrading"
+	if Upgrades.has(team, upgrade.id) or _team_is_upgrading(upgrade.id):
+		return "Already bought"
+	if Research.level(team) < upgrade.required_research:
+		return "Requires research level %d" % upgrade.required_research
+	if not Economy.spend(team, upgrade.cost_coal, upgrade.cost_electricity):
+		return Economy.shortfall(team, upgrade.cost_coal, upgrade.cost_electricity)
+	upgrading = upgrade
+	upgrade_time = 0.0
+	production_changed.emit(self)
+	return ""
+
+
+func cancel_upgrade() -> void:
+	if upgrading == null:
+		return
+	Economy.add(team, upgrading.cost_coal, upgrading.cost_electricity)
+	upgrading = null
+	upgrade_time = 0.0
+	production_changed.emit(self)
+
+
+func upgrade_fraction() -> float:
+	return upgrade_time / upgrading.duration if upgrading != null else 0.0
+
+
+func _team_is_upgrading(id: StringName) -> bool:
+	for building: Building in get_tree().get_nodes_in_group("buildings"):
+		if building.team == team and building.upgrading != null and building.upgrading.id == id:
+			return true
+	return false
 
 
 func _heal_nearby(amount: float) -> void:
@@ -197,7 +305,7 @@ func add_build_work(seconds: float) -> void:
 
 # --- Combat -------------------------------------------------------------------
 
-func take_damage(amount: float, source: Creature = null) -> void:
+func take_damage(amount: float, source: Node3D = null) -> void:
 	if _dead:
 		return
 	if Creature.is_valid_target(source):
@@ -303,6 +411,7 @@ func _die() -> void:
 	while not queue.is_empty():
 		cancel_last()
 	cancel_research()
+	cancel_upgrade()
 	MatchStats.record_building_lost(team, _last_attacker_team)
 	get_tree().call_group("building_watchers", "building_destroyed", self)
 	died.emit(self)

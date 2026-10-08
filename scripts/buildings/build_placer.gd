@@ -86,6 +86,9 @@ func can_place_at(spot: Vector3) -> bool:
 ## the new building, or null (see [member last_error]).
 func place(world_point: Vector3) -> Building:
 	var spot := snap(world_point)
+	if Research.level(team) < data.required_research:
+		last_error = "Requires research level %d" % data.required_research
+		return null
 	if not can_place_at(spot):
 		last_error = "Can't build there"
 		return null

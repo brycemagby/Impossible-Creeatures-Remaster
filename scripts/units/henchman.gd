@@ -6,7 +6,8 @@ extends Creature
 ## to the nearest finished drop-off building (the Lab), and go back. When a
 ## pile runs out the Henchman looks for another one nearby.
 
-const CARRY_CAPACITY := 10
+## Coal carried per trip without the Coal Sacks upgrade (see Upgrades).
+const CARRY_CAPACITY := Upgrades.BASE_CARRY
 const GATHER_TIME := 1.5
 ## How close (edge to edge) a Henchman must be to mine, drop off or build.
 const WORK_REACH := 0.8
@@ -88,7 +89,8 @@ func _update_gather(delta: float) -> void:
 	if not is_instance_valid(gather_target) or gather_target.is_depleted():
 		gather_target = find_coal_pile(PILE_SEARCH_RADIUS)
 
-	if carried_coal >= CARRY_CAPACITY or (gather_target == null and carried_coal > 0):
+	var capacity := Upgrades.carry_capacity(team)
+	if carried_coal >= capacity or (gather_target == null and carried_coal > 0):
 		_return_coal()
 		return
 	if gather_target == null:
@@ -101,7 +103,7 @@ func _update_gather(delta: float) -> void:
 		_work_timer += delta
 		if _work_timer >= GATHER_TIME:
 			_work_timer = 0.0
-			carried_coal += gather_target.take(CARRY_CAPACITY - carried_coal)
+			carried_coal += gather_target.take(capacity - carried_coal)
 	elif not is_moving:
 		_work_timer = 0.0
 		_navigate(gather_target.global_position)

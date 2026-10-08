@@ -77,6 +77,9 @@ func _run() -> void:
 	await _test_lab_healing()
 	await _test_ai_retreat()
 	await _test_ai_expansion()
+	await _test_soundbeam_tower()
+	await _test_workshop_upgrades()
+	await _test_ai_builds_defences()
 	await _test_target_choice()
 	await _test_kiting()
 	await _test_hold_position()
@@ -597,7 +600,7 @@ func _test_hud_command_panel() -> void:
 	manager.select_units([_first(0, "Henchman")])
 	await _process_frames(2)
 	var buttons: Array = hud.command_grid.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
-	_check(hud.command_panel.visible and buttons.size() == 3, "Henchmen show a build menu with 3 buildings")
+	_check(hud.command_panel.visible and buttons.size() == 5, "Henchmen show a build menu with 5 buildings")
 	buttons[1].pressed.emit()
 	_check(manager.build_placer.is_active() and manager.build_placer.data.display_name == "Electrical Generator",
 			"clicking a build button starts placement")
@@ -1236,6 +1239,95 @@ func _test_ai_expansion() -> void:
 		if building.team == 1 and building.data.display_name == "Lab" and not building.is_complete:
 			new_lab = building
 	_check(new_lab != null and new_lab.global_position.distance_to(site_pile.global_position) < 15.0, "it builds the new Lab next to that coal")
+	await _unload(main)
+
+
+func _test_soundbeam_tower() -> void:
+	print("Soundbeam Tower")
+	var main := await _load_map()
+	var tower_data: BuildingData = load("res://resources/buildings/soundbeam_tower.tres")
+	var placer: BuildPlacer = main.get_node("SelectionManager").build_placer
+	placer.start(tower_data, 0)
+	Economy.add(0, 1000, 1000)
+	_check(placer.place(Vector3(-20, 0, 20)) == null and placer.last_error == "Requires research level 2", "towers need research level 2")
+	placer.cancel()
+	var tower := _add_building("res://resources/buildings/soundbeam_tower.tres", 0, Vector3(0, 0, 0))
+	var near := _first(1, "Brute")
+	var far := _first(1, "Runner")
+	_isolate([near, far])
+	_place(near, Vector3(0, 0, -8))
+	_place(far, Vector3(0, 0, -25))
+	near.command_hold()
+	await _physics_frames(10)
+	_check(near.health < near.stats.max_health and is_equal_approx(near.stats.max_health - near.health, tower_data.attack_damage - near.armor()),
+			"the tower hits enemies in range")
+	_check(far.health == far.stats.max_health, "but not ones out of range")
+	var flyer := _spawn(main, _stats("lion", "eagle", [0, 0, 1, 0, 0, 1]), 1, Vector3(6, 0, 0))
+	near.global_position = Vector3(0, 0, -30)
+	await _physics_frames(100)
+	_check(flyer.health < flyer.stats.max_health, "towers shoot flyers too")
+	_check(main.find_children("*", "MeshInstance3D", false, false).size() >= 0, "beams are drawn")
+	await _unload(main)
+
+
+func _test_workshop_upgrades() -> void:
+	print("Workshop upgrades")
+	var main := await _load_map()
+	# Clear of the Henchmen's route to the coal (test buildings skip the navmesh rebake).
+	var workshop := _add_building("res://resources/buildings/workshop.tres", 0, Vector3(-22, 0, 22))
+	await _physics_frames(2)
+	Economy.add(0, 2000, 2000)
+	var sacks: UpgradeData = workshop.data.upgrades[0]
+	var hides: UpgradeData = workshop.data.upgrades[1]
+	var fleet: UpgradeData = workshop.data.upgrades[2]
+	_check(workshop.start_upgrade(hides) == "Requires research level 2", "upgrades can need research")
+	var coal: float = Economy.coal(0)
+	_check(workshop.start_upgrade(sacks) == "" and Economy.coal(0) == coal - sacks.cost_coal, "the Workshop sells upgrades")
+	_check(workshop.start_upgrade(fleet) == "Already upgrading", "one upgrade at a time")
+	workshop.cancel_upgrade()
+	_check(Economy.coal(0) == coal and workshop.upgrading == null, "cancelling refunds it")
+	workshop.start_upgrade(sacks)
+	workshop.upgrade_time = sacks.duration - 0.05
+	await _physics_frames(5)
+	_check(Upgrades.has(0, Upgrades.COAL_SACKS) and not Upgrades.has(1, Upgrades.COAL_SACKS), "the upgrade completes for that team only")
+	_check(workshop.start_upgrade(sacks) == "Already bought", "upgrades are bought once")
+
+	var henchman: Henchman = _first(0, "Henchman")
+	var deliveries := MatchStats.get_stat(0, "coal_gathered")
+	henchman.command_gather(_nearest_pile(henchman.global_position))
+	await _wait_until(func() -> bool: return MatchStats.get_stat(0, "coal_gathered") > deliveries, 20.0)
+	_check(MatchStats.get_stat(0, "coal_gathered") - deliveries == 15, "Coal Sacks: Henchmen carry 15 coal (delivered %d)" % (MatchStats.get_stat(0, "coal_gathered") - deliveries))
+
+	var brute := _first(0, "Brute")
+	var before := brute.armor()
+	Upgrades.grant(0, Upgrades.THICK_HIDES)
+	Upgrades.grant(0, Upgrades.FLEET_FEET)
+	_check(brute.armor() == before + 2.0, "Thick Hides: +2 armor")
+	_check(is_equal_approx(brute.move_speed(), brute.stats.move_speed * 1.1), "Fleet Feet: 10% faster")
+	_check(_first(1, "Brute").armor() == _first(1, "Brute").stats.armor, "the enemy doesn't get your upgrades")
+	await _unload(main)
+
+
+func _test_ai_builds_defences() -> void:
+	print("AI builds defences")
+	var main := await _load_map()
+	var ai: AIController = main.get_node("EnemyAI")
+	var lab := _building(1, "Lab")
+	_add_building("res://resources/buildings/creature_chamber.tres", 1, lab.global_position + Vector3(12, 0, 0))
+	_add_building("res://resources/buildings/generator.tres", 1, lab.global_position + Vector3(-12, 0, 6))
+	await _physics_frames(2)
+	_check(ai.next_building() == null, "at research level 1 the base is complete")
+	Research.set_level(1, 2)
+	_check(ai.next_building() == AIController.WORKSHOP_DATA, "at level 2 the AI wants a Workshop")
+	_add_building("res://resources/buildings/workshop.tres", 1, lab.global_position + Vector3(-12, 0, -2))
+	await _physics_frames(2)
+	_check(ai.next_building() == AIController.TOWER_DATA, "then a Soundbeam Tower")
+	Economy.add(1, 1000, 1000)
+	ai.manage_construction()
+	var tower := _building(1, "Soundbeam Tower")
+	_check(tower != null and tower.global_position.distance_to(lab.global_position) < 15.0, "it guards its Lab with the tower")
+	ai.manage_upgrades()
+	_check(_building(1, "Workshop").upgrading != null, "it buys upgrades at its Workshop")
 	await _unload(main)
 
 
