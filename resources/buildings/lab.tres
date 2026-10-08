@@ -16,6 +16,7 @@ size = Vector3(6, 4, 6)
 color = Color(0.42, 0.33, 0.25, 1)
 is_drop_off = true
 can_research = true
+population = 10
 heal_radius = 10.0
 heal_per_second = 4.0
 electricity_per_second = 0.0

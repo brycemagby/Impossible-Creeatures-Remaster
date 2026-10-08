@@ -34,6 +34,9 @@ const GENERATOR_DATA := preload("res://resources/buildings/generator.tres")
 const CHAMBER_DATA := preload("res://resources/buildings/creature_chamber.tres")
 const WORKSHOP_DATA := preload("res://resources/buildings/workshop.tres")
 const TOWER_DATA := preload("res://resources/buildings/soundbeam_tower.tres")
+const HOUSE_DATA := preload("res://resources/buildings/house.tres")
+## Build a House when population is within this many slots of the cap.
+const HOUSE_MARGIN := 3
 ## The AI waits for this research level before building a Workshop, so the
 ## coal goes into its first creatures instead.
 const AI_WORKSHOP_LEVEL := 2
@@ -258,6 +261,8 @@ func next_building() -> BuildingData:
 	var chambers := _count(CHAMBER_DATA)
 	if _count(LAB_DATA) == 0:
 		return LAB_DATA
+	if needs_house():
+		return HOUSE_DATA
 	if chambers == 0:
 		return CHAMBER_DATA
 	if _count(GENERATOR_DATA) < 1 + chambers * generators_per_chamber:
@@ -269,6 +274,12 @@ func next_building() -> BuildingData:
 	if wants_expansion():
 		return LAB_DATA
 	return null
+
+
+## True when population is close to the cap and the cap can still grow.
+func needs_house() -> bool:
+	var cap := Population.cap(team)
+	return cap < Population.MAX_POPULATION and Population.used(team) + HOUSE_MARGIN >= cap
 
 
 ## True when the coal around its Labs is running low, or when it's rich and

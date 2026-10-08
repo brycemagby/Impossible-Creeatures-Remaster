@@ -85,6 +85,7 @@ func _run() -> void:
 	await _test_unused_bases_removed()
 	await _test_two_vs_two()
 	await _test_setup_players()
+	await _test_population()
 	await _test_target_choice()
 	await _test_kiting()
 	await _test_hold_position()
@@ -569,6 +570,9 @@ func _test_ai_economy() -> void:
 	var main := await _load_map()
 	var ai: AIController = main.get_node("EnemyAI")
 	ai.wave_interval = 0.0
+	_check(ai.needs_house() and ai.next_building() == AIController.HOUSE_DATA, "near its population cap the AI builds a House first")
+	_add_houses(1, 2)
+	await _physics_frames(2)
 	_check(_building(1, "Creature Chamber") == null, "the enemy starts without a Creature Chamber")
 	_check(ai.next_building().display_name == "Creature Chamber", "a Creature Chamber is the AI's first build")
 	ai.enabled = true
@@ -581,6 +585,9 @@ func _test_ai_economy() -> void:
 	_check(site != null and not site.is_complete, "AI places a Creature Chamber")
 	_check(site != null and site.edge_distance_from(_building(1, "Lab").global_position) < 20.0, "it builds near its Lab")
 	_check(not _building(1, "Lab").queue.is_empty(), "AI produces more Henchmen")
+	if site == null:
+		await _unload(main)
+		return
 
 	# Fast-forward a couple of minutes of game time.
 	Engine.time_scale = 4.0
@@ -605,8 +612,8 @@ func _test_hud_command_panel() -> void:
 	manager.select_units([_first(0, "Henchman")])
 	await _process_frames(2)
 	var buttons: Array = hud.command_grid.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
-	_check(hud.command_panel.visible and buttons.size() == 5, "Henchmen show a build menu with 5 buildings")
-	buttons[1].pressed.emit()
+	_check(hud.command_panel.visible and buttons.size() == 6, "Henchmen show a build menu with 6 buildings")
+	buttons[2].pressed.emit()
 	_check(manager.build_placer.is_active() and manager.build_placer.data.display_name == "Electrical Generator",
 			"clicking a build button starts placement")
 	_key(KEY_ESCAPE)
@@ -702,6 +709,13 @@ func _test_army_roster() -> void:
 	_check(loaded.size() == 2 and loaded[0].display_name() == "Kong" and loaded[0].animal_a.display_name == "Gorilla"
 			and loaded[1].picks == saved[1].picks, "the saved army loads back the same")
 	Armies.set_designs(0, Armies.default_designs())
+
+
+## Finished Houses for [param team] in a row along the map's west edge,
+## out of everyone's way (test buildings skip the navmesh rebake).
+func _add_houses(team: int, count: int) -> void:
+	for i in count:
+		_add_building("res://resources/buildings/house.tres", team, Vector3(-46, 0, -20 + team * 12 + i * 3.5))
 
 
 func _add_building(data_path: String, team: int, at: Vector3) -> Building:
@@ -1225,6 +1239,7 @@ func _test_ai_expansion() -> void:
 	var main := await _load_map()
 	var ai: AIController = main.get_node("EnemyAI")
 	var lab := _building(1, "Lab")
+	_add_houses(1, 3)
 	_add_building("res://resources/buildings/creature_chamber.tres", 1, lab.global_position + Vector3(12, 0, 0))
 	_add_building("res://resources/buildings/generator.tres", 1, lab.global_position + Vector3(-12, 0, 6))
 	await _physics_frames(2)
@@ -1318,6 +1333,7 @@ func _test_ai_builds_defences() -> void:
 	var main := await _load_map()
 	var ai: AIController = main.get_node("EnemyAI")
 	var lab := _building(1, "Lab")
+	_add_houses(1, 3)
 	_add_building("res://resources/buildings/creature_chamber.tres", 1, lab.global_position + Vector3(12, 0, 0))
 	_add_building("res://resources/buildings/generator.tres", 1, lab.global_position + Vector3(-12, 0, 6))
 	await _physics_frames(2)
@@ -1471,6 +1487,45 @@ func _test_setup_players() -> void:
 	setup.queue_free()
 	_reset_match_settings()
 	await _process_frames(1)
+
+
+func _test_population() -> void:
+	print("population")
+	var main := await _load_map()
+	var lab := _building(0, "Lab")
+	_check(Population.cap(0) == 10 and Population.used(0) == 9, "the Lab houses 10; 4 Henchmen + 5 creatures use 9")
+	var site_house := _add_building("res://resources/buildings/house.tres", 0, Vector3(-20, 0, 20))
+	site_house.start_complete = false
+	site_house.is_complete = false
+	_check(Population.cap(0) == 10, "unfinished Houses don't count")
+	site_house.add_build_work(site_house.data.build_time)
+	_check(Population.cap(0) == 15, "a finished House adds 5")
+	site_house.take_damage(99999.0)
+	_check(Population.cap(0) == 10, "losing a House lowers the cap")
+
+	Economy.add(0, 2000, 2000)
+	var recipe: UnitRecipe = lab.data.production[0]
+	var chamber := _add_building("res://resources/buildings/creature_chamber.tres", 0, Vector3(14, 0, 22))
+	Research.set_level(0, 5)
+	lab.enqueue(recipe)
+	chamber.enqueue(chamber.production_options()[0])
+	await _physics_frames(3)
+	_check(Population.used(0) == 10 and [lab.production_reserved, chamber.production_reserved].count(true) == 1,
+			"two buildings can't both take the last slot")
+	var waiting := chamber if lab.production_reserved else lab
+	_check(waiting.population_blocked, "the other one waits for room")
+	var hud := main.get_node("UI/HUD")
+	await _process_frames(2)
+	_check(hud.message_label.visible and hud.message_label.text.begins_with("Need more Houses"), "the HUD says to build more Houses")
+	_check(hud.resource_label.text.contains("Pop  10 / 10"), "the top bar shows population")
+	var house := _add_building("res://resources/buildings/house.tres", 0, Vector3(-24, 0, 20))
+	await _physics_frames(3)
+	_check(not waiting.population_blocked and waiting.production_reserved, "a new House lets production continue")
+	var before := _team_units(0).size()
+	await _wait_until(func() -> bool: return lab.queue.is_empty() and chamber.queue.is_empty(), 20.0)
+	_check(_team_units(0).size() == before + 2 and Population.used(0) == 11, "both units come out")
+	_check(Population.cap(0) <= Population.MAX_POPULATION, "the cap never passes %d" % Population.MAX_POPULATION)
+	await _unload(main)
 
 
 func _test_starting_army() -> void:

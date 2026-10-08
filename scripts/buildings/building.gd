@@ -30,6 +30,10 @@ var build_progress := 0.0
 var queue: Array[UnitRecipe] = []
 ## Seconds spent on the unit at the front of the queue.
 var production_time := 0.0
+## The unit at the front of the queue has a population slot and is in progress.
+var production_reserved := false
+## The front unit is waiting for population room (build more Houses).
+var population_blocked := false
 ## Research level being studied here, or 0.
 var researching := 0
 var research_time := 0.0
@@ -92,11 +96,18 @@ func _physics_process(delta: float) -> void:
 			research_time = 0.0
 			production_changed.emit(self)
 	if not queue.is_empty():
-		production_time += delta
-		if production_time >= queue[0].build_time:
-			production_time = 0.0
-			_spawn(queue.pop_front())
-			production_changed.emit(self)
+		if not production_reserved:
+			production_reserved = Population.has_room(team)
+			if population_blocked == production_reserved:
+				population_blocked = not production_reserved
+				production_changed.emit(self)
+		if production_reserved:
+			production_time += delta
+			if production_time >= queue[0].build_time:
+				production_time = 0.0
+				production_reserved = false
+				_spawn(queue.pop_front())
+				production_changed.emit(self)
 
 
 # --- Production ---------------------------------------------------------------
@@ -130,6 +141,8 @@ func cancel_last() -> void:
 	Economy.add(team, recipe.cost_coal, recipe.cost_electricity)
 	if queue.is_empty():
 		production_time = 0.0
+		production_reserved = false
+		population_blocked = false
 	production_changed.emit(self)
 
 

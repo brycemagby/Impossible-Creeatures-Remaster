@@ -1,4 +1,4 @@
-[gd_scene load_steps=32 format=3]
+[gd_scene load_steps=33 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/props/rock.tscn" id="2_rock"]
@@ -12,17 +12,18 @@
 [ext_resource type="Script" path="res://scripts/ui/health_bars.gd" id="10_health_bars"]
 [ext_resource type="PackedScene" path="res://scenes/buildings/building.tscn" id="11_building"]
 [ext_resource type="Resource" path="res://resources/buildings/lab.tres" id="12_b_lab"]
-[ext_resource type="Resource" path="res://resources/buildings/generator.tres" id="13_b_generator"]
-[ext_resource type="Resource" path="res://resources/buildings/creature_chamber.tres" id="14_b_creature_chamber"]
-[ext_resource type="Resource" path="res://resources/buildings/workshop.tres" id="15_b_workshop"]
-[ext_resource type="Resource" path="res://resources/buildings/soundbeam_tower.tres" id="16_b_soundbeam_tower"]
-[ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="17_building_data"]
-[ext_resource type="PackedScene" path="res://scenes/world/coal_pile.tscn" id="18_coal_pile"]
-[ext_resource type="Script" path="res://scripts/buildings/build_placer.gd" id="19_build_placer"]
-[ext_resource type="Script" path="res://scripts/game/game_rules.gd" id="20_game_rules"]
-[ext_resource type="Script" path="res://scripts/game/fog_of_war.gd" id="21_fog"]
-[ext_resource type="Shader" path="res://shaders/fog_ground.gdshader" id="22_fog_shader"]
-[ext_resource type="Script" path="res://scripts/ui/minimap.gd" id="23_minimap"]
+[ext_resource type="Resource" path="res://resources/buildings/house.tres" id="13_b_house"]
+[ext_resource type="Resource" path="res://resources/buildings/generator.tres" id="14_b_generator"]
+[ext_resource type="Resource" path="res://resources/buildings/creature_chamber.tres" id="15_b_creature_chamber"]
+[ext_resource type="Resource" path="res://resources/buildings/workshop.tres" id="16_b_workshop"]
+[ext_resource type="Resource" path="res://resources/buildings/soundbeam_tower.tres" id="17_b_soundbeam_tower"]
+[ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="18_building_data"]
+[ext_resource type="PackedScene" path="res://scenes/world/coal_pile.tscn" id="19_coal_pile"]
+[ext_resource type="Script" path="res://scripts/buildings/build_placer.gd" id="20_build_placer"]
+[ext_resource type="Script" path="res://scripts/game/game_rules.gd" id="21_game_rules"]
+[ext_resource type="Script" path="res://scripts/game/fog_of_war.gd" id="22_fog"]
+[ext_resource type="Shader" path="res://shaders/fog_ground.gdshader" id="23_fog_shader"]
+[ext_resource type="Script" path="res://scripts/ui/minimap.gd" id="24_minimap"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.38, 0.56, 0.78, 1)
@@ -55,7 +56,7 @@ size = Vector3(100, 1, 100)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ground"]
 render_priority = 0
-shader = ExtResource("22_fog_shader")
+shader = ExtResource("23_fog_shader")
 shader_parameter/albedo = Color(0.3, 0.42, 0.2, 1)
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
@@ -115,22 +116,22 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, -18)
 
 [node name="CoalPiles" type="Node3D" parent="NavigationRegion3D"]
 
-[node name="CoalPile1" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("18_coal_pile")]
+[node name="CoalPile1" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("19_coal_pile")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 0, 34)
 
-[node name="CoalPile2" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("18_coal_pile")]
+[node name="CoalPile2" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("19_coal_pile")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17, 0, 27)
 
-[node name="CoalPile3" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("18_coal_pile")]
+[node name="CoalPile3" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("19_coal_pile")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 0, -34)
 
-[node name="CoalPile4" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("18_coal_pile")]
+[node name="CoalPile4" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("19_coal_pile")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17, 0, -27)
 
-[node name="CoalPile5" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("18_coal_pile")]
+[node name="CoalPile5" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("19_coal_pile")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32, 0, 4)
 
-[node name="CoalPile6" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("18_coal_pile")]
+[node name="CoalPile6" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("19_coal_pile")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32, 0, -4)
 
 [node name="Buildings" type="Node3D" parent="NavigationRegion3D" groups=["building_container"]]
@@ -141,7 +142,7 @@ data = ExtResource("12_b_lab")
 
 [node name="Team0Generator" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, 42)
-data = ExtResource("13_b_generator")
+data = ExtResource("14_b_generator")
 
 [node name="Team1Lab" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
@@ -150,7 +151,7 @@ team = 1
 
 [node name="Team1Generator" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -43)
-data = ExtResource("13_b_generator")
+data = ExtResource("14_b_generator")
 team = 1
 
 [node name="Units" type="Node3D" parent="." groups=["unit_container"]]
@@ -204,23 +205,23 @@ metadata/team = 1
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 28)
 
 [node name="BuildPlacer" type="Node3D" parent="."]
-script = ExtResource("19_build_placer")
+script = ExtResource("20_build_placer")
 
 [node name="SelectionManager" type="Node" parent="." node_paths=PackedStringArray("camera", "selection_box", "build_placer")]
 script = ExtResource("6_selection")
 camera = NodePath("../RTSCamera/Camera3D")
 selection_box = NodePath("../UI/SelectionBox")
 build_placer = NodePath("../BuildPlacer")
-buildable = Array[ExtResource("17_building_data")]([ExtResource("12_b_lab"), ExtResource("13_b_generator"), ExtResource("14_b_creature_chamber"), ExtResource("15_b_workshop"), ExtResource("16_b_soundbeam_tower")])
+buildable = Array[ExtResource("18_building_data")]([ExtResource("12_b_lab"), ExtResource("13_b_house"), ExtResource("14_b_generator"), ExtResource("15_b_creature_chamber"), ExtResource("16_b_workshop"), ExtResource("17_b_soundbeam_tower")])
 
 [node name="EnemyAI" type="Node" parent="."]
 script = ExtResource("9_ai")
 
 [node name="GameRules" type="Node" parent="."]
-script = ExtResource("20_game_rules")
+script = ExtResource("21_game_rules")
 
 [node name="FogOfWar" type="Node" parent="." node_paths=PackedStringArray("ground")]
-script = ExtResource("21_fog")
+script = ExtResource("22_fog")
 ground = NodePath("../NavigationRegion3D/Ground/MeshInstance3D")
 
 [node name="UI" type="CanvasLayer" parent="."]
@@ -287,7 +288,7 @@ offset_top = -216.0
 offset_right = 216.0
 offset_bottom = -16.0
 grow_vertical = 0
-script = ExtResource("23_minimap")
+script = ExtResource("24_minimap")
 camera_rig = NodePath("../../../RTSCamera")
 selection_manager = NodePath("../../../SelectionManager")
 fog = NodePath("../../../FogOfWar")

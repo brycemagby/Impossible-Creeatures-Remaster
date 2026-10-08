@@ -31,6 +31,8 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
   enemy buildings stay marked once found, enemy creatures only show while in sight, and rocks and coal
   appear as you explore. An enemy building destroyed out of sight leaves a grey "last seen" ghost
   until you look again. The AI plays by the same rules.
+- **Population** (AoE2-style): every creature and Henchman takes one slot. A Lab houses 10 and each
+  **House** 5, up to 100. At the cap, production waits and the HUD says to build more Houses.
 - **Labs heal** friendly creatures within 10 m (4 health per second)
 - **Soundbeam Tower** (research level 2): a defensive tower that zaps enemy creatures within 10 m,
   flyers included
@@ -212,7 +214,8 @@ Layers 1, 3 and 4 are baked into the navmesh.
 | Hybrids | ~80–200 | 0–100 (by level) | ~8–15 s |
 | Electrical Generator (+2 electricity/s) | 150 | — | 18 Henchman-seconds |
 | Creature Chamber | 200 | 50 | 30 Henchman-seconds |
-| Lab | 400 | — | 45 Henchman-seconds |
+| Lab (+10 population) | 400 | — | 45 Henchman-seconds |
+| House (+5 population) | 50 | — | 12 Henchman-seconds |
 | Workshop | 150 | 50 | 25 Henchman-seconds |
 | Soundbeam Tower (research L2; 14 damage / 1.2 s, 10 m) | 150 | 75 | 20 Henchman-seconds |
 

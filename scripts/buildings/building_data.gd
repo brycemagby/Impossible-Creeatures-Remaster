@@ -26,6 +26,8 @@ extends Resource
 @export var heal_per_second := 0.0
 ## Research level needed before it can be built.
 @export var required_research := 1
+## Population room this building provides once finished (see Population).
+@export var population := 0
 ## Upgrades that can be bought here (Workshop).
 @export var upgrades: Array[UpgradeData] = []
 

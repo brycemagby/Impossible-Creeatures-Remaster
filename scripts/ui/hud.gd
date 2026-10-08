@@ -33,8 +33,9 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var team := selection_manager.player_team
-	resource_label.text = "Coal  %d      Electricity  %d      Research  L%d" % [
-			Economy.coal(team), Economy.electricity(team), Research.level(team)]
+	resource_label.text = "Coal  %d      Electricity  %d      Pop  %d / %d      Research  L%d" % [
+			Economy.coal(team), Economy.electricity(team), Population.used(team), Population.cap(team), Research.level(team)]
+	_warn_if_population_blocked(team)
 	if not is_equal_approx(Engine.time_scale, 1.0):
 		resource_label.text += "      Speed  %sx" % Engine.time_scale
 	selection_label.text = _describe_selection()
@@ -207,7 +208,11 @@ func _building_status(building: Building) -> String:
 		lines.append("Defends: %d damage every %.1fs, %dm range" % [building.data.attack_damage, building.data.attack_cooldown, building.data.attack_range])
 	elif building.data.can_research and Research.next_level(building.team) == 0:
 		lines.append("Fully researched")
-	if not building.queue.is_empty():
+	if building.data.population > 0:
+		lines.append("Houses %d population" % building.data.population)
+	if building.population_blocked:
+		lines.append("Waiting for population room: build more Houses")
+	elif not building.queue.is_empty():
 		lines.append("Making %s  %d%%" % [building.queue[0].display_name(), roundi(building.production_fraction() * 100.0)])
 		if building.queue.size() > 1:
 			var waiting := PackedStringArray()
@@ -239,6 +244,21 @@ func _owned_upgrades(team: int) -> int:
 		if Upgrades.has(team, id):
 			count += 1
 	return count
+
+
+var _was_blocked := false
+
+
+## Flashes "Need more Houses" when production first gets stuck on population.
+func _warn_if_population_blocked(team: int) -> void:
+	var blocked := false
+	for building: Building in get_tree().get_nodes_in_group("buildings"):
+		if building.team == team and building.population_blocked:
+			blocked = true
+			break
+	if blocked and not _was_blocked:
+		show_message("Need more Houses (population %d / %d)" % [Population.used(team), Population.cap(team)])
+	_was_blocked = blocked
 
 
 func _on_research_pressed(building: Building) -> void:
