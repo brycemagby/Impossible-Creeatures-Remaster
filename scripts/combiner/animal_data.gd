@@ -19,7 +19,10 @@ enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP }
 
 @export_group("Torso")
 @export var health := 100.0
+## Melee armor from the torso (the head adds some too).
 @export var torso_armor := 0.0
+## Ranged armor from the torso: thick hides and shells shrug off quills.
+@export var ranged_armor := 0.0
 
 @export_group("Legs")
 ## Damage added by the front legs (claws, pincers, fists, talons).

@@ -8,7 +8,7 @@ extends Node
 ## - builds what's missing: a Creature Chamber first, then Generators to keep
 ##   electricity flowing, then (from research level 2) a Workshop and a
 ##   Soundbeam Tower per Lab; one construction at a time, placed around its Lab;
-## - buys Workshop upgrades when it can spare the coal;
+## - buys Workshop and Research Center upgrades when it can spare the coal;
 ## - researches the next level at the Lab: once its army is big enough for
 ##   its current level it stops making creatures and saves up for research;
 ## - keeps its Lab and Chambers producing Henchmen and creatures it has unlocked.
@@ -33,6 +33,7 @@ const LAB_DATA := preload("res://resources/buildings/lab.tres")
 const GENERATOR_DATA := preload("res://resources/buildings/generator.tres")
 const CHAMBER_DATA := preload("res://resources/buildings/creature_chamber.tres")
 const WORKSHOP_DATA := preload("res://resources/buildings/workshop.tres")
+const RESEARCH_CENTER_DATA := preload("res://resources/buildings/research_center.tres")
 const TOWER_DATA := preload("res://resources/buildings/soundbeam_tower.tres")
 const HOUSE_DATA := preload("res://resources/buildings/house.tres")
 ## Build a House when population is within this many slots of the cap.
@@ -269,6 +270,8 @@ func next_building() -> BuildingData:
 		return GENERATOR_DATA
 	if Research.level(team) >= AI_WORKSHOP_LEVEL and _count(WORKSHOP_DATA) == 0:
 		return WORKSHOP_DATA
+	if Research.level(team) >= AI_WORKSHOP_LEVEL and _count(RESEARCH_CENTER_DATA) == 0:
+		return RESEARCH_CENTER_DATA
 	if Research.level(team) >= TOWER_DATA.required_research and _count(TOWER_DATA) < _count(LAB_DATA):
 		return TOWER_DATA
 	if wants_expansion():
@@ -393,7 +396,7 @@ func is_saving_for_expansion() -> bool:
 	return not Economy.can_afford(team, LAB_DATA.cost_coal, LAB_DATA.cost_electricity)
 
 
-## Buys the next affordable Workshop upgrade, keeping some coal in reserve.
+## Buys the next affordable Workshop or Research Center upgrade, keeping some coal in reserve.
 func manage_upgrades() -> void:
 	if is_saving_for_expansion() or is_saving_for_research():
 		return
@@ -402,6 +405,8 @@ func manage_upgrades() -> void:
 			continue
 		for upgrade in workshop.data.upgrades:
 			if Upgrades.has(team, upgrade.id) or Research.level(team) < upgrade.required_research:
+				continue
+			if upgrade.requires != &"" and not Upgrades.has(team, upgrade.requires):
 				continue
 			if Economy.coal(team) >= upgrade.cost_coal + research_reserve and workshop.start_upgrade(upgrade) == "":
 				return

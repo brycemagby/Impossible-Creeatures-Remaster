@@ -127,7 +127,8 @@ func _ready() -> void:
 	# Spread enemy scans across frames so large armies don't all scan at once.
 	_scan_timer = randf() * SCAN_INTERVAL
 	_apply_size(stats.size)
-	agent.max_speed = stats.move_speed * Upgrades.FLEET_SPEED * (CHARGE_SPEED_FACTOR if stats.can_charge else 1.0)
+	# Headroom for speed upgrades; the actual speed comes from move_speed().
+	agent.max_speed = stats.move_speed * 1.5 * (CHARGE_SPEED_FACTOR if stats.can_charge else 1.0)
 	agent.velocity_computed.connect(_on_velocity_computed)
 	_apply_team_color()
 	if stats.design != null:
@@ -221,15 +222,15 @@ func command_patrol(point: Vector3, group_speed := INF) -> void:
 
 # --- Combat -------------------------------------------------------------------
 
-## Applies a hit, reduced by armor. [param source] (a creature or a tower)
-## is retaliated against.
-func take_damage(amount: float, source: Node3D = null) -> void:
+## Applies a hit, reduced by melee or ([param ranged]) ranged armor.
+## [param source] (a creature or a tower) is retaliated against.
+func take_damage(amount: float, source: Node3D = null, ranged := false) -> void:
 	if _dead:
 		return
 	if is_valid_target(source):
 		_last_attacker_team = source.team
 	_flash()
-	_lose_health(maxf(amount - armor(), 1.0))
+	_lose_health(maxf(amount - (ranged_armor() if ranged else armor()), 1.0))
 	if _dead:
 		return
 	if is_valid_target(source) and Teams.are_enemies(source.team, team):
@@ -263,12 +264,12 @@ func is_poisoned() -> bool:
 func deal_hit(target: Node3D) -> void:
 	if not is_valid_target(target):
 		return
-	var damage := stats.attack_damage
+	var damage := attack_damage()
 	if is_charging:
 		damage *= CHARGE_DAMAGE_FACTOR
 		is_charging = false
 		_charge_cooldown = CHARGE_COOLDOWN
-	target.take_damage(damage, self)
+	target.take_damage(damage, self, stats.is_ranged())
 	if stats.poison_dps > 0.0 and target is Creature:
 		target.apply_poison(stats.poison_dps, stats.poison_duration)
 
@@ -321,9 +322,20 @@ func get_armor() -> float:
 	return armor()
 
 
-## Armor including the team's upgrades.
+## Melee armor including the team's upgrades.
 func armor() -> float:
-	return stats.armor + Upgrades.armor_bonus(team)
+	return stats.armor + Upgrades.melee_armor_bonus(team)
+
+
+## Ranged armor including the team's upgrades.
+func ranged_armor() -> float:
+	return stats.ranged_armor + Upgrades.ranged_armor_bonus(team)
+
+
+## Damage per hit including the team's melee or ranged damage upgrades.
+func attack_damage() -> float:
+	var bonus := Upgrades.ranged_damage_bonus(team) if stats.is_ranged() else Upgrades.melee_damage_bonus(team)
+	return stats.attack_damage + bonus
 
 
 ## Walking speed including the team's upgrades.
@@ -386,7 +398,8 @@ func find_best_enemy(max_distance: float) -> Node3D:
 ## attacking (focus fire, so groups kill one enemy at a time).
 func _target_score(target: Creature, allies_on_target := 0) -> float:
 	var distance := target.edge_distance_from(global_position)
-	var effectiveness := maxf(stats.attack_damage - target.armor(), 1.0) / maxf(stats.attack_damage, 1.0)
+	var their_armor := target.ranged_armor() if stats.is_ranged() else target.armor()
+	var effectiveness := maxf(attack_damage() - their_armor, 1.0) / maxf(attack_damage(), 1.0)
 	var wounded := 1.0 - target.health / target.stats.max_health
 	var focus := mini(allies_on_target, FOCUS_MAX_ALLIES) * SCORE_FOCUS_WEIGHT
 	return distance - effectiveness * SCORE_DAMAGE_WEIGHT - wounded * SCORE_WOUNDED_WEIGHT - focus

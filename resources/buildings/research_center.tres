@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=17 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://scripts/buildings/unit_recipe.gd" id="2_recipe"]
+[ext_resource type="Script" path="res://scripts/buildings/upgrade_data.gd" id="3_upgrade"]
+[ext_resource type="Resource" path="res://resources/upgrades/bite_claw_1.tres" id="4_bite_claw_1"]
+[ext_resource type="Resource" path="res://resources/upgrades/bite_claw_2.tres" id="5_bite_claw_2"]
+[ext_resource type="Resource" path="res://resources/upgrades/bite_claw_3.tres" id="6_bite_claw_3"]
+[ext_resource type="Resource" path="res://resources/upgrades/sharp_quills_1.tres" id="7_sharp_quills_1"]
+[ext_resource type="Resource" path="res://resources/upgrades/sharp_quills_2.tres" id="8_sharp_quills_2"]
+[ext_resource type="Resource" path="res://resources/upgrades/sharp_quills_3.tres" id="9_sharp_quills_3"]
+[ext_resource type="Resource" path="res://resources/upgrades/tough_hide_1.tres" id="10_tough_hide_1"]
+[ext_resource type="Resource" path="res://resources/upgrades/tough_hide_2.tres" id="11_tough_hide_2"]
+[ext_resource type="Resource" path="res://resources/upgrades/tough_hide_3.tres" id="12_tough_hide_3"]
+[ext_resource type="Resource" path="res://resources/upgrades/scales_1.tres" id="13_scales_1"]
+[ext_resource type="Resource" path="res://resources/upgrades/scales_2.tres" id="14_scales_2"]
+[ext_resource type="Resource" path="res://resources/upgrades/scales_3.tres" id="15_scales_3"]
+[ext_resource type="Resource" path="res://resources/upgrades/fleet_feet.tres" id="16_fleet_feet"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Research Center"
+max_health = 1000.0
+armor = 6.0
+cost_coal = 175
+cost_electricity = 75
+build_time = 30.0
+size = Vector3(4.5, 4, 4.5)
+color = Color(0.28, 0.45, 0.5, 1)
+production = Array[ExtResource("2_recipe")]([])
+required_research = 1
+upgrades = Array[ExtResource("3_upgrade")]([ExtResource("4_bite_claw_1"), ExtResource("5_bite_claw_2"), ExtResource("6_bite_claw_3"), ExtResource("7_sharp_quills_1"), ExtResource("8_sharp_quills_2"), ExtResource("9_sharp_quills_3"), ExtResource("10_tough_hide_1"), ExtResource("11_tough_hide_2"), ExtResource("12_tough_hide_3"), ExtResource("13_scales_1"), ExtResource("14_scales_2"), ExtResource("15_scales_3"), ExtResource("16_fleet_feet")])

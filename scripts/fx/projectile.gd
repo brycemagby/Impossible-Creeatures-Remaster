@@ -29,7 +29,7 @@ func _physics_process(delta: float) -> void:
 		if Creature.is_valid_target(_source):
 			_source.deal_hit(_target)
 		elif Creature.is_valid_target(_target):
-			_target.take_damage(_damage)
+			_target.take_damage(_damage, null, true)
 		queue_free()
 		return
 	global_position += to_target.normalized() * step

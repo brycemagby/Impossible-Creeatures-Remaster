@@ -4,10 +4,11 @@
 
 [resource]
 script = ExtResource("1_upgrade")
-id = &"thick_hides"
-display_name = "Thick Hides"
-description = "All your creatures get +2 armor."
-cost_coal = 200
-cost_electricity = 100
-duration = 45.0
-required_research = 2
+id = &"sturdy_boots"
+display_name = "Sturdy Boots"
+description = "Henchmen walk 20% faster."
+cost_coal = 75
+cost_electricity = 25
+duration = 25.0
+required_research = 1
+henchman_speed = 0.2

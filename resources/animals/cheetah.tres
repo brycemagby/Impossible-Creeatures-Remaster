@@ -12,6 +12,7 @@ head_armor = 0.0
 head_ability = 0
 health = 80.0
 torso_armor = 0.0
+ranged_armor = 0.0
 claw_damage = 3.0
 front_leg_speed = 11.0
 back_leg_speed = 11.0

@@ -1,17 +1,13 @@
 extends Node
-## Upgrades each team has bought at a Workshop, and their effects.
+## Upgrades each team has bought, and their combined effects.
 
 signal changed(team: int)
 
-const COAL_SACKS := &"coal_sacks"
-const THICK_HIDES := &"thick_hides"
-const FLEET_FEET := &"fleet_feet"
-
 const BASE_CARRY := 10
-const SACKS_CARRY := 15
-const HIDES_ARMOR := 2.0
-const FLEET_SPEED := 1.1
+## Gathering can't get faster than this fraction of the normal time.
+const MIN_GATHER_FACTOR := 0.4
 
+## team -> {id: UpgradeData}
 var _owned := {}
 
 
@@ -26,21 +22,58 @@ func has(team: int, id: StringName) -> bool:
 	return _owned.has(team) and _owned[team].has(id)
 
 
-func grant(team: int, id: StringName) -> void:
+func grant(team: int, upgrade: UpgradeData) -> void:
 	if not _owned.has(team):
 		_owned[team] = {}
-	_owned[team][id] = true
+	_owned[team][upgrade.id] = upgrade
 	changed.emit(team)
+
+
+func owned(team: int) -> Array:
+	return _owned[team].values() if _owned.has(team) else []
+
+
+## Sum of [param property] over the team's upgrades.
+func total(team: int, property: StringName) -> float:
+	var sum := 0.0
+	for upgrade in owned(team):
+		sum += upgrade.get(property)
+	return sum
+
+
+func melee_damage_bonus(team: int) -> float:
+	return total(team, &"melee_damage")
+
+
+func ranged_damage_bonus(team: int) -> float:
+	return total(team, &"ranged_damage")
+
+
+func melee_armor_bonus(team: int) -> float:
+	return total(team, &"melee_armor")
+
+
+func ranged_armor_bonus(team: int) -> float:
+	return total(team, &"ranged_armor")
+
+
+func speed_multiplier(team: int) -> float:
+	return 1.0 + total(team, &"creature_speed")
+
+
+func henchman_speed_multiplier(team: int) -> float:
+	return 1.0 + total(team, &"henchman_speed")
 
 
 ## Coal a Henchman of [param team] carries per trip.
 func carry_capacity(team: int) -> int:
-	return SACKS_CARRY if has(team, COAL_SACKS) else BASE_CARRY
+	return BASE_CARRY + int(total(team, &"carry"))
 
 
-func armor_bonus(team: int) -> float:
-	return HIDES_ARMOR if has(team, THICK_HIDES) else 0.0
+## Multiplier on the time a Henchman takes to mine one load.
+func gather_time_factor(team: int) -> float:
+	return maxf(1.0 - total(team, &"gather_speed"), MIN_GATHER_FACTOR)
 
 
-func speed_multiplier(team: int) -> float:
-	return FLEET_SPEED if has(team, FLEET_FEET) else 1.0
+func build_speed_multiplier(team: int) -> float:
+	return 1.0 + total(team, &"build_speed")

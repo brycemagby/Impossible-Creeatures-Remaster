@@ -79,6 +79,7 @@ func _run() -> void:
 	await _test_ai_expansion()
 	await _test_soundbeam_tower()
 	await _test_workshop_upgrades()
+	await _test_research_center()
 	await _test_ai_builds_defences()
 	_test_teams_service()
 	await _test_four_player_free_for_all()
@@ -612,7 +613,7 @@ func _test_hud_command_panel() -> void:
 	manager.select_units([_first(0, "Henchman")])
 	await _process_frames(2)
 	var buttons: Array = hud.command_grid.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
-	_check(hud.command_panel.visible and buttons.size() == 6, "Henchmen show a build menu with 6 buildings")
+	_check(hud.command_panel.visible and buttons.size() == 7, "Henchmen show a build menu with 7 buildings")
 	buttons[2].pressed.emit()
 	_check(manager.build_placer.is_active() and manager.build_placer.data.display_name == "Electrical Generator",
 			"clicking a build button starts placement")
@@ -649,6 +650,8 @@ func _test_combiner_rules() -> void:
 	_check(cheetah_legs.move_speed > pure_elephant.move_speed and cheetah_legs.move_speed < pure_cheetah.move_speed,
 			"cheetah legs speed up an elephant, but not to cheetah speed (%.1f)" % cheetah_legs.move_speed)
 	_check(_stats("elephant", "rhino", [1, 0, 0, 0, 0, -1]).armor > pure_elephant.armor, "a rhino head adds armor")
+	var croc_body := _stats("lion", "crocodile", [0, 1, 0, 0, 0, -1])
+	_check(croc_body.ranged_armor > _stats("lion", "lion", [0, 0, 0, 0, 0, -1]).ranged_armor, "a crocodile torso adds ranged armor")
 
 	var stinger := _stats("lion", "scorpion", [0, 0, 0, 0, 1, -1])
 	_check(stinger.poison_dps > 0.0 and not stinger.is_ranged(), "a scorpion tail adds poison")
@@ -718,9 +721,10 @@ func _add_houses(team: int, count: int) -> void:
 		_add_building("res://resources/buildings/house.tres", team, Vector3(-46, 0, -20 + team * 12 + i * 3.5))
 
 
-func _add_building(data_path: String, team: int, at: Vector3) -> Building:
+func _add_building(data_path: String, team: int, at: Vector3, complete := true) -> Building:
 	var building: Building = load("res://scenes/buildings/building.tscn").instantiate()
 	building.data = load(data_path)
+	building.start_complete = complete
 	building.team = team
 	building.position = at
 	get_tree().get_first_node_in_group("building_container").add_child(building)
@@ -1279,8 +1283,8 @@ func _test_soundbeam_tower() -> void:
 	_place(far, Vector3(0, 0, -25))
 	near.command_hold()
 	await _physics_frames(10)
-	_check(near.health < near.stats.max_health and is_equal_approx(near.stats.max_health - near.health, tower_data.attack_damage - near.armor()),
-			"the tower hits enemies in range")
+	_check(near.health < near.stats.max_health and is_equal_approx(near.stats.max_health - near.health, tower_data.attack_damage - near.ranged_armor()),
+			"the tower hits enemies in range (through ranged armor)")
 	_check(far.health == far.stats.max_health, "but not ones out of range")
 	var flyer := _spawn(main, _stats("lion", "eagle", [0, 0, 1, 0, 0, 1]), 1, Vector3(6, 0, 0))
 	near.global_position = Vector3(0, 0, -30)
@@ -1298,18 +1302,21 @@ func _test_workshop_upgrades() -> void:
 	await _physics_frames(2)
 	Economy.add(0, 2000, 2000)
 	var sacks: UpgradeData = workshop.data.upgrades[0]
-	var hides: UpgradeData = workshop.data.upgrades[1]
-	var fleet: UpgradeData = workshop.data.upgrades[2]
-	_check(workshop.start_upgrade(hides) == "Requires research level 2", "upgrades can need research")
+	var wagons: UpgradeData = workshop.data.upgrades[1]
+	var boots: UpgradeData = workshop.data.upgrades[2]
+	var hands: UpgradeData = workshop.data.upgrades[3]
+	_check(workshop.start_upgrade(hands) == "Requires research level 2", "upgrades can need research")
+	Research.set_level(0, 3)
+	_check(workshop.start_upgrade(wagons) == "Needs the previous tier first", "Coal Wagons need Coal Sacks first")
 	var coal: float = Economy.coal(0)
 	_check(workshop.start_upgrade(sacks) == "" and Economy.coal(0) == coal - sacks.cost_coal, "the Workshop sells upgrades")
-	_check(workshop.start_upgrade(fleet) == "Already upgrading", "one upgrade at a time")
+	_check(workshop.start_upgrade(boots) == "Already upgrading", "one upgrade at a time")
 	workshop.cancel_upgrade()
 	_check(Economy.coal(0) == coal and workshop.upgrading == null, "cancelling refunds it")
 	workshop.start_upgrade(sacks)
 	workshop.upgrade_time = sacks.duration - 0.05
 	await _physics_frames(5)
-	_check(Upgrades.has(0, Upgrades.COAL_SACKS) and not Upgrades.has(1, Upgrades.COAL_SACKS), "the upgrade completes for that team only")
+	_check(Upgrades.has(0, &"coal_sacks") and not Upgrades.has(1, &"coal_sacks"), "the upgrade completes for that team only")
 	_check(workshop.start_upgrade(sacks) == "Already bought", "upgrades are bought once")
 
 	var henchman: Henchman = _first(0, "Henchman")
@@ -1317,15 +1324,86 @@ func _test_workshop_upgrades() -> void:
 	henchman.command_gather(_nearest_pile(henchman.global_position))
 	await _wait_until(func() -> bool: return MatchStats.get_stat(0, "coal_gathered") > deliveries, 20.0)
 	_check(MatchStats.get_stat(0, "coal_gathered") - deliveries == 15, "Coal Sacks: Henchmen carry 15 coal (delivered %d)" % (MatchStats.get_stat(0, "coal_gathered") - deliveries))
+	Upgrades.grant(0, wagons)
+	_check(Upgrades.carry_capacity(0) == 20 and Upgrades.carry_capacity(1) == Upgrades.BASE_CARRY, "Coal Wagons: 20 coal, for that team only")
+
+	var base_speed := henchman.move_speed()
+	Upgrades.grant(0, boots)
+	Upgrades.grant(0, hands)
+	Upgrades.grant(0, load("res://resources/upgrades/builders_tools.tres"))
+	_check(is_equal_approx(henchman.move_speed(), base_speed * 1.2), "Sturdy Boots: Henchmen 20% faster")
+	_check(is_equal_approx(Upgrades.gather_time_factor(0), 0.7) and Upgrades.gather_time_factor(1) == 1.0, "Quick Hands: gathering 30% quicker")
+	_check(is_equal_approx(Upgrades.build_speed_multiplier(0), 1.3), "Builder's Tools: building 30% faster")
+	_check(_first(1, "Brute").move_speed() == _first(1, "Brute").stats.move_speed, "Henchman upgrades don't touch creatures")
+	var site := _add_building("res://resources/buildings/house.tres", 0, Vector3(-30, 0, 30), false)
+	var enemy_site := _add_building("res://resources/buildings/house.tres", 1, Vector3(30, 0, -30), false)
+	var friendly: Henchman = _first(0, "Henchman")
+	var enemy: Henchman = _first(1, "Henchman")
+	_isolate([friendly, enemy])
+	friendly.global_position = site.global_position + Vector3(2.5, 0, 0)
+	enemy.global_position = enemy_site.global_position + Vector3(2.5, 0, 0)
+	friendly.command_build(site)
+	enemy.command_build(enemy_site)
+	await _physics_frames(240)
+	_check(site.build_progress > enemy_site.build_progress * 1.15, "upgraded Henchmen build faster (%.2f vs %.2f)" % [site.build_progress, enemy_site.build_progress])
+	await _unload(main)
+
+
+func _test_research_center() -> void:
+	print("Research Center")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var hud := main.get_node("UI/HUD")
+	var center := _add_building("res://resources/buildings/research_center.tres", 0, Vector3(-22, 0, 22))
+	await _physics_frames(2)
+	Economy.add(0, 5000, 5000)
+	var bite_1: UpgradeData = load("res://resources/upgrades/bite_claw_1.tres")
+	var bite_2: UpgradeData = load("res://resources/upgrades/bite_claw_2.tres")
+	_check(center.start_upgrade(bite_1) == "Requires research level 2", "tier I needs research level 2")
+	Research.set_level(0, 3)
+	_check(center.start_upgrade(bite_2) == "Needs the previous tier first", "tier II needs tier I")
+
+	manager.select_building(center)
+	await _process_frames(2)
+	var names := _button_names(hud)
+	_check(names.has("Bite & Claw I") and not names.has("Bite & Claw II"), "the panel shows only the next tier (%s)" % [names])
+	_check(names.has("Sharp Quills I") and names.has("Tough Hide I") and names.has("Scales I"), "melee/ranged damage and armor lines are offered")
+	center.start_upgrade(bite_1)
+	center.upgrade_time = bite_1.duration - 0.05
+	await _physics_frames(5)
+	_check(Upgrades.has(0, &"bite_claw_1"), "tier I completes")
+	manager.select_building(null)
+	await _process_frames(2)
+	manager.select_building(center)
+	await _process_frames(2)
+	names = _button_names(hud)
+	_check(names.has("Bite & Claw II") and not names.has("Bite & Claw I"), "then tier II appears (%s)" % [names])
 
 	var brute := _first(0, "Brute")
-	var before := brute.armor()
-	Upgrades.grant(0, Upgrades.THICK_HIDES)
-	Upgrades.grant(0, Upgrades.FLEET_FEET)
-	_check(brute.armor() == before + 2.0, "Thick Hides: +2 armor")
-	_check(is_equal_approx(brute.move_speed(), brute.stats.move_speed * 1.1), "Fleet Feet: 10% faster")
-	_check(_first(1, "Brute").armor() == _first(1, "Brute").stats.armor, "the enemy doesn't get your upgrades")
+	var skirmisher := _first(0, "Skirmisher")
+	_check(brute.attack_damage() == brute.stats.attack_damage + 1.0, "Bite & Claw I: melee +1 damage")
+	_check(skirmisher.attack_damage() == skirmisher.stats.attack_damage, "melee upgrades don't help ranged attackers")
+	for id in ["sharp_quills_1", "tough_hide_1", "scales_1", "scales_2"]:
+		Upgrades.grant(0, load("res://resources/upgrades/%s.tres" % id))
+	_check(skirmisher.attack_damage() == skirmisher.stats.attack_damage + 1.0, "Sharp Quills I: ranged +1 damage")
+	_check(brute.armor() == brute.stats.armor + 1.0 and brute.ranged_armor() == brute.stats.ranged_armor + 2.0,
+			"Tough Hide adds melee armor and Scales ranged armor")
+	var enemy := _first(1, "Brute")
+	_check(enemy.attack_damage() == enemy.stats.attack_damage and enemy.armor() == enemy.stats.armor, "the enemy doesn't get your upgrades")
+
+	_isolate([brute])
+	var before := brute.health
+	brute.take_damage(10.0, null, true)
+	_check(is_equal_approx(before - brute.health, 10.0 - brute.ranged_armor()), "ranged hits are reduced by ranged armor")
+	before = brute.health
+	brute.take_damage(10.0)
+	_check(is_equal_approx(before - brute.health, 10.0 - brute.armor()), "melee hits are reduced by melee armor")
 	await _unload(main)
+
+
+func _button_names(hud: Node) -> Array:
+	return hud.command_grid.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion()).map(
+			func(b: Button) -> String: return b.text.split("\n")[0])
 
 
 func _test_ai_builds_defences() -> void:
@@ -1342,6 +1420,9 @@ func _test_ai_builds_defences() -> void:
 	_check(ai.next_building() == AIController.WORKSHOP_DATA, "at level 2 the AI wants a Workshop")
 	_add_building("res://resources/buildings/workshop.tres", 1, lab.global_position + Vector3(-12, 0, -2))
 	await _physics_frames(2)
+	_check(ai.next_building() == AIController.RESEARCH_CENTER_DATA, "then a Research Center")
+	_add_building("res://resources/buildings/research_center.tres", 1, lab.global_position + Vector3(0, 0, 24))
+	await _physics_frames(2)
 	_check(ai.next_building() == AIController.TOWER_DATA, "then a Soundbeam Tower")
 	Economy.add(1, 1000, 1000)
 	ai.manage_construction()
@@ -1349,6 +1430,16 @@ func _test_ai_builds_defences() -> void:
 	_check(tower != null and tower.global_position.distance_to(lab.global_position) < 15.0, "it guards its Lab with the tower")
 	ai.manage_upgrades()
 	_check(_building(1, "Workshop").upgrading != null, "it buys upgrades at its Workshop")
+	ai.manage_upgrades()
+	var center := _building(1, "Research Center")
+	_check(center.upgrading != null and center.upgrading.requires == &"", "and tier I upgrades at its Research Center")
+	center.upgrade_time = center.upgrading.duration
+	await _physics_frames(3)
+	Research.set_level(1, 3)
+	Economy.add(1, 2000, 2000)
+	ai.manage_upgrades()
+	ai.manage_upgrades()
+	_check(center.upgrading != null, "it keeps buying (%s)" % (center.upgrading.id if center.upgrading else &"none"))
 	await _unload(main)
 
 

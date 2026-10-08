@@ -138,7 +138,7 @@ func refresh() -> void:
 			"  %d electricity" % recipe.cost_electricity if recipe.cost_electricity > 0 else "", recipe.build_time])
 	lines.append("")
 	lines.append("Health   %d" % stats.max_health)
-	lines.append("Armor    %d" % stats.armor)
+	lines.append("Armor    %d melee / %d ranged" % [stats.armor, stats.ranged_armor])
 	if stats.is_ranged():
 		lines.append("Attack   %.1f ranged (quills, %dm) every %.2fs" % [stats.attack_damage, stats.attack_range, stats.attack_cooldown])
 	else:

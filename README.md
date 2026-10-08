@@ -36,8 +36,13 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - **Labs heal** friendly creatures within 10 m (4 health per second)
 - **Soundbeam Tower** (research level 2): a defensive tower that zaps enemy creatures within 10 m,
   flyers included
-- **Workshop**: buy team-wide upgrades — Coal Sacks (Henchmen carry 15 coal), Thick Hides (+2 armor,
-  research level 2) and Fleet Feet (+10% speed, research level 3)
+- **Research Center** (AoE2 Blacksmith-style): tiered creature upgrades — Bite & Claw (melee damage),
+  Sharp Quills (ranged damage), Tough Hide (melee armor) and Scales (ranged armor), three tiers each,
+  plus Fleet Feet (+10% speed). Each tier needs the one before it and a higher research level.
+- **Melee and ranged armor**: creatures have separate armor against bites/claws and against quills
+  and tower beams. Crocodile, Rhino, Scorpion, Elephant and Porcupine torsos resist ranged hits.
+- **Workshop**: Henchman upgrades — Coal Sacks and Coal Wagons (carry 15, then 20 coal), Sturdy Boots
+  (+20% speed), Quick Hands (gather 30% faster) and Builder's Tools (build 30% faster)
 - **Minimap**: terrain under the fog, coal, buildings, creatures and your camera's view; click to look,
   right click to send the selection there
 
@@ -89,7 +94,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 | Body part | Contributes |
 | --- | --- |
 | Head | Bite damage, some armor (Rhino, Elephant, Crocodile); Rhino head: **charge** |
-| Torso | Health and most of the armor; most of the hybrid's size |
+| Torso | Health, most of the melee armor and all of the ranged armor; most of the hybrid's size |
 | Front legs | Claw damage (Gorilla fists, Scorpion pincers, Eagle talons) and half the speed |
 | Back legs | The other half of the speed; Kangaroo legs: **leap** |
 | Tail | Poison (Scorpion) or a ranged quill attack (Porcupine) |
@@ -217,13 +222,23 @@ Layers 1, 3 and 4 are baked into the navmesh.
 | Lab (+10 population) | 400 | — | 45 Henchman-seconds |
 | House (+5 population) | 50 | — | 12 Henchman-seconds |
 | Workshop | 150 | 50 | 25 Henchman-seconds |
+| Research Center (research L1) | 175 | 75 | 30 Henchman-seconds |
 | Soundbeam Tower (research L2; 14 damage / 1.2 s, 10 m) | 150 | 75 | 20 Henchman-seconds |
+
+| Research Center upgrade | Coal | Electricity | Time | Needs |
+| --- | --- | --- | --- | --- |
+| Tier I: +1 (Bite & Claw, Sharp Quills, Tough Hide, Scales) | 100 | 50 | 30 s | research L2 |
+| Tier II: another +1 | 200 | 100 | 45 s | research L3, tier I |
+| Tier III: another +2 | 300 | 175 | 60 s | research L4, tier II |
+| Fleet Feet: +10% speed for all creatures | 150 | 100 | 40 s | research L3 |
 
 | Workshop upgrade | Coal | Electricity | Time | Needs |
 | --- | --- | --- | --- | --- |
 | Coal Sacks: Henchmen carry 15 coal | 100 | 25 | 30 s | — |
-| Thick Hides: +2 armor for all creatures | 200 | 100 | 45 s | research L2 |
-| Fleet Feet: +10% speed for all creatures | 150 | 100 | 40 s | research L3 |
+| Coal Wagons: Henchmen carry 20 coal | 200 | 75 | 45 s | research L3, Coal Sacks |
+| Sturdy Boots: Henchmen +20% speed | 75 | 25 | 25 s | — |
+| Quick Hands: gather 30% faster | 150 | 50 | 35 s | research L2 |
+| Builder's Tools: build 30% faster | 100 | 50 | 30 s | research L2 |
 
 Teams start with 300 coal and 100 electricity. Henchmen carry 10 coal per trip.
 

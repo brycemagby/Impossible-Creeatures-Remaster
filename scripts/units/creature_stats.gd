@@ -17,8 +17,10 @@ extends Resource
 @export var design: CreatureDesign
 
 @export_group("Combat")
-## Flat reduction applied to every incoming hit (minimum 1 damage gets through).
+## Melee armor: flat reduction on every melee hit (minimum 1 damage gets through).
 @export var armor := 0.0
+## Ranged armor: flat reduction on quills, projectiles and tower beams.
+@export var ranged_armor := 0.0
 @export var attack_damage := 10.0
 ## Reach in metres, measured from this creature's edge to the target's edge.
 @export var attack_range := 0.6

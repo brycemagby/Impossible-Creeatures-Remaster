@@ -4,11 +4,11 @@
 
 [resource]
 script = ExtResource("1_upgrade")
-id = &"fleet_feet"
-display_name = "Fleet Feet"
-description = "All your creatures move 10% faster."
-cost_coal = 150
-cost_electricity = 100
-duration = 40.0
-required_research = 3
-creature_speed = 0.1
+id = &"bite_claw_1"
+display_name = "Bite & Claw I"
+description = "Melee creatures deal +1 damage."
+cost_coal = 100
+cost_electricity = 50
+duration = 30.0
+required_research = 2
+melee_damage = 1.0

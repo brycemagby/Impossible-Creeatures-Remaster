@@ -75,9 +75,9 @@ func _describe_selection() -> String:
 		var s := unit.stats
 		lines.append(s.display_name)
 		lines.append("  Health  %d / %d" % [ceili(unit.health), s.max_health])
-		lines.append("  Damage  %d every %.1fs (%s)" % [s.attack_damage, s.attack_cooldown,
+		lines.append("  Damage  %d every %.1fs (%s)" % [unit.attack_damage(), s.attack_cooldown,
 				"ranged %dm" % s.attack_range if s.is_ranged() else "melee"])
-		lines.append("  Armor   %d    Speed  %.1f" % [unit.armor(), unit.move_speed()])
+		lines.append("  Armor   %d melee / %d ranged    Speed  %.1f" % [unit.armor(), unit.ranged_armor(), unit.move_speed()])
 		if unit.order == Creature.Order.HOLD:
 			lines.append("  Holding position")
 		elif unit.order == Creature.Order.PATROL:
@@ -165,6 +165,8 @@ func _rebuild_command_panel(building: Building) -> void:
 			for upgrade in building.data.upgrades:
 				if Upgrades.has(building.team, upgrade.id):
 					continue
+				if upgrade.requires != &"" and not Upgrades.has(building.team, upgrade.requires):
+					continue
 				var upgrade_locked := Research.level(building.team) < upgrade.required_research
 				var upgrade_button := _add_button("%s\n%s" % [upgrade.display_name, "needs research L%d" % upgrade.required_research
 						if upgrade_locked else _cost_text(upgrade.cost_coal, upgrade.cost_electricity)])
@@ -226,8 +228,8 @@ func _building_status(building: Building) -> String:
 
 func _recipe_tooltip(recipe: UnitRecipe) -> String:
 	var s := recipe.stats
-	return "%s (level %d)\nHealth %d  Armor %d  Speed %.1f\nDamage %.0f%s%s%s" % [
-		s.display_name, s.level, s.max_health, s.armor, s.move_speed, s.attack_damage,
+	return "%s (level %d)\nHealth %d  Armor %d / %d ranged  Speed %.1f\nDamage %.0f%s%s%s" % [
+		s.display_name, s.level, s.max_health, s.armor, s.ranged_armor, s.move_speed, s.attack_damage,
 		"  ranged" if s.is_ranged() else "", "  poison" if s.poison_dps > 0.0 else "",
 		"  flying" if s.can_fly else ""] + ("  charge" if s.can_charge else "") + ("  leap" if s.can_leap else "")
 
@@ -239,11 +241,7 @@ func _on_upgrade_pressed(building: Building, upgrade: UpgradeData) -> void:
 
 
 func _owned_upgrades(team: int) -> int:
-	var count := 0
-	for id in [Upgrades.COAL_SACKS, Upgrades.THICK_HIDES, Upgrades.FLEET_FEET]:
-		if Upgrades.has(team, id):
-			count += 1
-	return count
+	return Upgrades.owned(team).size()
 
 
 var _was_blocked := false

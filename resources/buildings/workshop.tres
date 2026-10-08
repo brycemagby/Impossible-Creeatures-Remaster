@@ -1,11 +1,13 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="BuildingData" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="1_data"]
 [ext_resource type="Script" path="res://scripts/buildings/unit_recipe.gd" id="2_recipe"]
 [ext_resource type="Script" path="res://scripts/buildings/upgrade_data.gd" id="3_upgrade"]
-[ext_resource type="Resource" path="res://resources/upgrades/coal_sacks.tres" id="4_sacks"]
-[ext_resource type="Resource" path="res://resources/upgrades/thick_hides.tres" id="5_hides"]
-[ext_resource type="Resource" path="res://resources/upgrades/fleet_feet.tres" id="6_fleet"]
+[ext_resource type="Resource" path="res://resources/upgrades/coal_sacks.tres" id="4_coal_sacks"]
+[ext_resource type="Resource" path="res://resources/upgrades/coal_wagons.tres" id="5_coal_wagons"]
+[ext_resource type="Resource" path="res://resources/upgrades/sturdy_boots.tres" id="6_sturdy_boots"]
+[ext_resource type="Resource" path="res://resources/upgrades/quick_hands.tres" id="7_quick_hands"]
+[ext_resource type="Resource" path="res://resources/upgrades/builders_tools.tres" id="8_builders_tools"]
 
 [resource]
 script = ExtResource("1_data")
@@ -18,4 +20,5 @@ build_time = 25.0
 size = Vector3(4, 3, 4)
 color = Color(0.5, 0.38, 0.22, 1)
 production = Array[ExtResource("2_recipe")]([])
-upgrades = Array[ExtResource("3_upgrade")]([ExtResource("4_sacks"), ExtResource("5_hides"), ExtResource("6_fleet")])
+required_research = 1
+upgrades = Array[ExtResource("3_upgrade")]([ExtResource("4_coal_sacks"), ExtResource("5_coal_wagons"), ExtResource("6_sturdy_boots"), ExtResource("7_quick_hands"), ExtResource("8_builders_tools")])

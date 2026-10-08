@@ -6,8 +6,9 @@
 script = ExtResource("1_upgrade")
 id = &"coal_sacks"
 display_name = "Coal Sacks"
-description = "Henchmen carry 15 coal per trip instead of 10."
+description = "Henchmen carry 5 more coal per trip (15)."
 cost_coal = 100
 cost_electricity = 25
 duration = 30.0
 required_research = 1
+carry = 5

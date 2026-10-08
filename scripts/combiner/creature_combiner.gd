@@ -1,7 +1,8 @@
 class_name CreatureCombiner
 ## Rules that turn a CreatureDesign into CreatureStats and a production cost.
 ##
-## - Torso: health and most of the armor; dominates overall size.
+## - Torso: health, most of the melee armor and all the ranged armor;
+##   dominates overall size.
 ## - Head: bite damage, some armor, maybe poison or a charge (horn).
 ## - Front legs: claw damage and half the walking speed.
 ## - Back legs: the other half of the walking speed, maybe a leap.
@@ -48,6 +49,7 @@ static func build_stats(design: CreatureDesign) -> CreatureStats:
 	# A torso keeps most of its health, scaled a little by the hybrid's size.
 	stats.max_health = torso.health * lerpf(1.0, size / torso.size, 0.5)
 	stats.armor = torso.torso_armor + head.head_armor
+	stats.ranged_armor = torso.ranged_armor
 
 	var leg_speed := (front.front_leg_speed + back.back_leg_speed) / 2.0
 	var leg_size := (front.size + back.size) / 2.0
@@ -88,7 +90,7 @@ static func build_stats(design: CreatureDesign) -> CreatureStats:
 ## A single number for how strong a creature is; drives level and cost.
 static func power_rating(stats: CreatureStats) -> float:
 	var dps := stats.attack_damage / stats.attack_cooldown
-	var power := stats.max_health / 8.0 + stats.armor * 4.0 + dps * 3.0 + stats.move_speed * 2.5
+	var power := stats.max_health / 8.0 + stats.armor * 4.0 + stats.ranged_armor * 3.0 + dps * 3.0 + stats.move_speed * 2.5
 	power += stats.poison_dps * stats.poison_duration * 0.75
 	if stats.is_ranged():
 		power += 10.0

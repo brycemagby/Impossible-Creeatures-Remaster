@@ -71,6 +71,10 @@ func command_patrol(point: Vector3, group_speed := INF) -> void:
 	super(point, group_speed)
 
 
+func move_speed() -> float:
+	return stats.move_speed * Upgrades.henchman_speed_multiplier(team)
+
+
 func is_working() -> bool:
 	return order == Order.GATHER or order == Order.BUILD
 
@@ -101,7 +105,7 @@ func _update_gather(delta: float) -> void:
 		_halt()
 		_face(gather_target.global_position)
 		_work_timer += delta
-		if _work_timer >= GATHER_TIME:
+		if _work_timer >= GATHER_TIME * Upgrades.gather_time_factor(team):
 			_work_timer = 0.0
 			carried_coal += gather_target.take(capacity - carried_coal)
 	elif not is_moving:
@@ -130,7 +134,7 @@ func _update_build(delta: float) -> void:
 	if build_target.edge_distance_from(global_position) - radius() <= WORK_REACH:
 		_halt()
 		_face(build_target.global_position)
-		build_target.add_build_work(delta)
+		build_target.add_build_work(delta * Upgrades.build_speed_multiplier(team))
 	elif not is_moving:
 		_navigate(build_target.global_position)
 

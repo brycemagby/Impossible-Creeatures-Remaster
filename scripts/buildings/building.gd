@@ -79,7 +79,7 @@ func _physics_process(delta: float) -> void:
 	if upgrading != null:
 		upgrade_time += delta
 		if upgrade_time >= upgrading.duration:
-			Upgrades.grant(team, upgrading.id)
+			Upgrades.grant(team, upgrading)
 			upgrading = null
 			upgrade_time = 0.0
 			production_changed.emit(self)
@@ -157,7 +157,7 @@ func _update_tower(delta: float) -> void:
 		return
 	_attack_timer = data.attack_cooldown
 	_fire_beam(target)
-	target.take_damage(data.attack_damage, self)
+	target.take_damage(data.attack_damage, self, true)
 
 
 ## The nearest enemy creature in range (flyers included), or null.
@@ -210,6 +210,8 @@ func start_upgrade(upgrade: UpgradeData) -> String:
 		return "Already upgrading"
 	if Upgrades.has(team, upgrade.id) or _team_is_upgrading(upgrade.id):
 		return "Already bought"
+	if upgrade.requires != &"" and not Upgrades.has(team, upgrade.requires):
+		return "Needs the previous tier first"
 	if Research.level(team) < upgrade.required_research:
 		return "Requires research level %d" % upgrade.required_research
 	if not Economy.spend(team, upgrade.cost_coal, upgrade.cost_electricity):
@@ -318,7 +320,7 @@ func add_build_work(seconds: float) -> void:
 
 # --- Combat -------------------------------------------------------------------
 
-func take_damage(amount: float, source: Node3D = null) -> void:
+func take_damage(amount: float, source: Node3D = null, _ranged := false) -> void:
 	if _dead:
 		return
 	if Creature.is_valid_target(source):
