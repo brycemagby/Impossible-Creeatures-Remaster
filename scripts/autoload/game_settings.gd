@@ -14,6 +14,8 @@ const DIFFICULTY_NAMES := ["Easy", "Normal", "Hard"]
 var map_index := 0
 var difficulty := Difficulty.NORMAL
 var fog_enabled := true
+## Engine.time_scale during matches (changed from the pause menu or - / =).
+var game_speed := 1.0
 
 
 func map_path() -> String:

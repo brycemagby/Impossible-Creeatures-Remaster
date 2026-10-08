@@ -23,6 +23,7 @@ func _ready() -> void:
 	add_to_group("navmesh")
 	Economy.reset([0, 1], starting_coal, starting_electricity)
 	Research.reset([0, 1])
+	MatchStats.reset([0, 1])
 	_apply_settings()
 	navigation_region.bake_finished.connect(_on_bake_finished)
 	# Bake from the ground, rock, building and coal colliders.
@@ -40,6 +41,14 @@ func _apply_settings() -> void:
 	var ai := get_node_or_null("EnemyAI") as AIController
 	if ai:
 		ai.apply_difficulty(GameSettings.difficulty)
+	Engine.time_scale = GameSettings.game_speed
+
+
+func _exit_tree() -> void:
+	# Leaving a match (menu, restart, end screen) never leaves the game paused
+	# or sped up.
+	get_tree().paused = false
+	Engine.time_scale = 1.0
 
 
 ## Spawns [param team]'s starting army in a grid around [param marker],

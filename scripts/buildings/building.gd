@@ -36,6 +36,7 @@ var is_selected := false
 
 var _dead := false
 var _body_material: StandardMaterial3D
+var _last_attacker_team := -1
 
 @onready var collision: CollisionShape3D = $CollisionShape3D
 @onready var body: MeshInstance3D = $Body
@@ -181,6 +182,8 @@ func add_build_work(seconds: float) -> void:
 func take_damage(amount: float, source: Creature = null) -> void:
 	if _dead:
 		return
+	if Creature.is_valid_target(source):
+		_last_attacker_team = source.team
 	health = maxf(health - maxf(amount - data.armor, 1.0), 0.0)
 	_flash()
 	if health <= 0.0:
@@ -241,6 +244,7 @@ func _finish_construction(notify: bool) -> void:
 	build_progress = 1.0
 	_update_construction_visual()
 	if notify:
+		MatchStats.add(team, "buildings_built")
 		completed.emit(self)
 
 
@@ -261,6 +265,8 @@ func _spawn(recipe: UnitRecipe) -> void:
 		container = get_tree().current_scene
 	unit.position = global_position + direction * (reach + SPAWN_GAP)
 	container.add_child(unit)
+	if not recipe.is_worker:
+		MatchStats.add(team, "units_produced")
 	if rally_point != null:
 		unit.command_move(rally_point)
 
@@ -276,6 +282,7 @@ func _die() -> void:
 	while not queue.is_empty():
 		cancel_last()
 	cancel_research()
+	MatchStats.record_building_lost(team, _last_attacker_team)
 	died.emit(self)
 	get_tree().call_group("navmesh", "request_rebake")
 	var tween := create_tween()

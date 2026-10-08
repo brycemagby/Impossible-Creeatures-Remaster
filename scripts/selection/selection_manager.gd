@@ -16,6 +16,8 @@ extends Node
 signal selection_changed()
 ## A short message for the player, e.g. "Not enough coal".
 signal message(text: String)
+## Esc was pressed with nothing to cancel or deselect.
+signal menu_requested()
 
 const DRAG_THRESHOLD := 6.0
 const CLICK_PICK_RADIUS := 24.0
@@ -420,8 +422,10 @@ func _handle_key(event: InputEventKey) -> void:
 			cancel_placement()
 		elif targeting_order != &"":
 			set_targeting(&"")
-		else:
+		elif not selected.is_empty() or selected_building != null:
 			clear_selection()
+		else:
+			menu_requested.emit()
 	elif event.is_action_pressed("attack_move"):
 		set_targeting(ATTACK_MOVE)
 	elif event.is_action_pressed("patrol"):

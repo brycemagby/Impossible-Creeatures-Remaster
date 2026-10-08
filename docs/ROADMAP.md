@@ -59,7 +59,7 @@ Follow-ups:
 - Hide coal piles and rocks under unexplored fog; "last seen" ghosts for destroyed enemy buildings
 - AI that expands to distant coal with a second Lab, retreats wounded units, and focuses fire
 - More maps, 2v2 / free-for-all with more AI players
-- Pause menu, game speed setting, end-of-match statistics
+- Pause menu, game speed setting, end-of-match statistics ✅
 
 ## Later
 - Single-player campaign (an original story in the spirit of the 1930s pulp-adventure setting)

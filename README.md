@@ -110,7 +110,9 @@ Animals are data files in `resources/animals/`; add a `.tres` there and it shows
 | P then left click | Patrol between here and there (Shift: keep picking) |
 | G | Hold position: stay put, only attack what's in reach |
 | H | Stop |
-| Esc | Cancel placement or attack-move targeting, otherwise deselect |
+| Esc | Cancel placement or order targeting, then deselect, then open the pause menu |
+| F10 / Menu button | Pause menu (resume, restart, game speed, quit) |
+| - / = | Slower / faster game (0.5×–2×) |
 | Ctrl+1–9 / 1–9 | Assign / recall control group |
 | WASD, arrows, screen edge, middle drag | Pan camera |
 | Q / E | Rotate camera |

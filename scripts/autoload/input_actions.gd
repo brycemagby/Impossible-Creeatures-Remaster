@@ -16,6 +16,9 @@ const KEY_BINDINGS := {
 	"stop": [KEY_H],
 	"hold": [KEY_G],
 	"patrol": [KEY_P],
+	"pause_menu": [KEY_F10],
+	"speed_up": [KEY_EQUAL, KEY_KP_ADD],
+	"speed_down": [KEY_MINUS, KEY_KP_SUBTRACT],
 }
 
 

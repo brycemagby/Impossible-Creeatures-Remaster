@@ -20,19 +20,23 @@ var command_title: Label
 var command_grid: GridContainer
 var command_status: Label
 var message_label: Label
-var game_over_label: Label
+var pause_menu: PauseMenu
+var end_screen: EndScreen
 
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_IGNORE
 	_build_layout()
 	game_rules.game_over.connect(_on_game_over)
+	selection_manager.menu_requested.connect(pause_menu.open)
 
 
 func _process(delta: float) -> void:
 	var team := selection_manager.player_team
 	resource_label.text = "Coal  %d      Electricity  %d      Research  L%d" % [
 			Economy.coal(team), Economy.electricity(team), Research.level(team)]
+	if not is_equal_approx(Engine.time_scale, 1.0):
+		resource_label.text += "      Speed  %sx" % Engine.time_scale
 	selection_label.text = _describe_selection()
 	_refresh_command_panel()
 	_message_timer -= delta
@@ -211,8 +215,7 @@ func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:
 
 
 func _on_game_over(winner: int) -> void:
-	game_over_label.text = "VICTORY" if winner == selection_manager.player_team else "DEFEAT"
-	game_over_label.visible = true
+	end_screen.show_results(winner, selection_manager.player_team)
 
 
 func _cost_text(coal: int, electricity: int) -> String:
@@ -246,12 +249,6 @@ func _build_layout() -> void:
 	message_label.add_theme_color_override("font_color", Color(1.0, 0.75, 0.4))
 	message_label.visible = false
 
-	game_over_label = _make_label(72)
-	game_over_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	game_over_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	game_over_label.grow_vertical = Control.GROW_DIRECTION_BOTH
-	game_over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	game_over_label.visible = false
 
 	var menu_button := Button.new()
 	menu_button.text = "Menu"
@@ -260,7 +257,6 @@ func _build_layout() -> void:
 	menu_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	menu_button.offset_top = 44
 	menu_button.offset_right = -16
-	menu_button.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn"))
 	add_child(menu_button)
 
 	command_panel = PanelContainer.new()
@@ -280,6 +276,12 @@ func _build_layout() -> void:
 	column.add_child(command_grid)
 	command_status = Label.new()
 	column.add_child(command_status)
+
+	end_screen = EndScreen.new()
+	add_child(end_screen)
+	pause_menu = PauseMenu.new()
+	add_child(pause_menu)
+	menu_button.pressed.connect(pause_menu.open)
 
 
 func _make_label(font_size: int) -> Label:

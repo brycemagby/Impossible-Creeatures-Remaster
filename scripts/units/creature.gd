@@ -105,6 +105,8 @@ var _model: CreatureModel
 ## Whichever node shows the creature: the hybrid model or the capsule body.
 var _visual: Node3D
 var _nav_target := Vector3.ZERO
+## Team of whoever hit this creature last (for kill statistics), or -1.
+var _last_attacker_team := -1
 var _poison_dps := 0.0
 var _poison_time := 0.0
 var is_charging := false
@@ -228,6 +230,8 @@ func command_patrol(point: Vector3, group_speed := INF) -> void:
 func take_damage(amount: float, source: Creature = null) -> void:
 	if _dead:
 		return
+	if is_valid_target(source):
+		_last_attacker_team = source.team
 	_flash()
 	_lose_health(maxf(amount - stats.armor, 1.0))
 	if _dead:
@@ -563,6 +567,7 @@ func _die() -> void:
 	velocity = Vector3.ZERO
 	_clear_target()
 	set_selected(false)
+	MatchStats.record_death(team, _last_attacker_team)
 	died.emit(self)
 
 	var tween := create_tween()

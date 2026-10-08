@@ -41,7 +41,9 @@ func set_income_multiplier(team: int, multiplier: float) -> void:
 
 ## Coal delivered by a Henchman, scaled by the team's income multiplier.
 func deposit_coal(team: int, amount: float) -> void:
-	add(team, amount * _income.get(team, 1.0))
+	var delivered: float = amount * _income.get(team, 1.0)
+	add(team, delivered)
+	MatchStats.add(team, "coal_gathered", delivered)
 
 
 func can_afford(team: int, coal_cost: float, electricity_cost: float) -> bool:

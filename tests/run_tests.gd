@@ -70,6 +70,9 @@ func _run() -> void:
 	await _test_difficulty_and_settings()
 	await _test_canyon_map()
 	await _test_skirmish_setup()
+	await _test_match_stats()
+	await _test_pause_and_speed()
+	await _test_end_screen()
 	await _test_target_choice()
 	await _test_kiting()
 	await _test_hold_position()
@@ -544,8 +547,8 @@ func _test_victory() -> void:
 			target.take_damage(999999.0)
 	rules.check_now()
 	_check(rules.winner == 0, "destroying every enemy unit and building wins")
-	var banner: Label = main.get_node("UI/HUD").game_over_label
-	_check(banner.visible and banner.text == "VICTORY", "the HUD shows VICTORY")
+	var screen: EndScreen = main.get_node("UI/HUD").end_screen
+	_check(screen.visible and screen.title.text == "VICTORY", "the HUD shows VICTORY")
 	await _unload(main)
 
 
@@ -1038,6 +1041,89 @@ func _test_skirmish_setup() -> void:
 	GameSettings.difficulty = GameSettings.Difficulty.NORMAL
 	GameSettings.fog_enabled = true
 	await _process_frames(1)
+
+
+func _test_match_stats() -> void:
+	print("match stats")
+	var main := await _load_map()
+	var brute := _first(0, "Brute")
+	var runner := _first(1, "Runner")
+	_isolate([brute, runner, _first(0, "Henchman")])
+	_place(brute, Vector3(0, 0, 0))
+	_place(runner, Vector3(0, 0, -3))
+	brute.command_attack(runner)
+	await _wait_until(func() -> bool: return not runner.is_alive(), 15.0)
+	_check(MatchStats.get_stat(0, "kills") == 1 and MatchStats.get_stat(1, "units_lost") == 1, "kills and losses are counted")
+	Economy.deposit_coal(0, 10)
+	_check(MatchStats.get_stat(0, "coal_gathered") == 10, "delivered coal is counted")
+	var lab := _building(0, "Lab")
+	lab.production_time = 0.0
+	Economy.add(0, 500)
+	var chamber := _add_building("res://resources/buildings/creature_chamber.tres", 0, Vector3(12, 0, 30))
+	Research.set_level(0, 5)
+	var recipe: UnitRecipe = chamber.production_options()[0]
+	chamber.enqueue(recipe)
+	await _wait_until(func() -> bool: return chamber.queue.is_empty(), recipe.build_time + 2.0)
+	_check(MatchStats.get_stat(0, "units_produced") == 1, "produced creatures are counted")
+	_building(1, "Electrical Generator").take_damage(99999.0, brute)
+	_check(MatchStats.get_stat(1, "buildings_lost") == 1 and MatchStats.get_stat(0, "buildings_destroyed") == 1,
+			"destroyed buildings are counted for both sides")
+	_check(MatchStats.elapsed > 1.0, "match time is tracked")
+	await _unload(main)
+
+
+func _test_pause_and_speed() -> void:
+	print("pause and speed")
+	var main := await _load_map()
+	var hud := main.get_node("UI/HUD")
+	var menu: PauseMenu = hud.pause_menu
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	manager.select_units([_first(0, "Runner")])
+	_key(KEY_ESCAPE)
+	_check(not menu.visible and manager.selected.is_empty(), "Esc first clears the selection")
+	_key(KEY_ESCAPE)
+	_check(menu.visible and get_tree().paused, "Esc with nothing selected opens the pause menu")
+	var runner := _first(0, "Runner")
+	var at := runner.global_position
+	runner.command_move(at + Vector3(10, 0, 0))
+	await _physics_frames(20)
+	_check(runner.global_position.distance_to(at) < 0.01, "nothing moves while paused")
+	_key(KEY_ESCAPE)
+	_check(not menu.visible and not get_tree().paused, "Esc closes the pause menu")
+	_key(KEY_F10)
+	_check(menu.visible, "F10 opens it too")
+	menu.close()
+
+	_key(KEY_EQUAL)
+	_check(is_equal_approx(Engine.time_scale, 1.5) and is_equal_approx(GameSettings.game_speed, 1.5), "= speeds the game up")
+	_key(KEY_MINUS)
+	_key(KEY_MINUS)
+	_check(is_equal_approx(Engine.time_scale, 0.5), "- slows it down")
+	menu.set_speed(2.0)
+	await _process_frames(2)
+	_check(hud.resource_label.text.contains("Speed  2"), "the HUD shows a non-normal speed")
+	menu.set_speed(1.0)
+	await _unload(main)
+	_check(not get_tree().paused and is_equal_approx(Engine.time_scale, 1.0), "leaving a match unpauses and resets speed")
+
+
+func _test_end_screen() -> void:
+	print("end screen")
+	var main := await _load_map()
+	var rules: GameRules = main.get_node("GameRules")
+	var brute := _first(0, "Brute")
+	for target: Node3D in get_tree().get_nodes_in_group("targets"):
+		if target.team == 1:
+			target.take_damage(999999.0, brute)
+	rules.check_now()
+	var screen: EndScreen = main.get_node("UI/HUD").end_screen
+	_check(screen.visible and screen.title.text == "VICTORY" and get_tree().paused, "the end screen shows the result and pauses")
+	_check(screen.cell_text(0, 1) == "You" and screen.cell_text(0, 2) == "Enemy", "it compares you with the enemy")
+	var kills_row := MatchStats.LABELS.keys().find("kills") + 1
+	_check(screen.cell_text(kills_row, 1) == str(int(MatchStats.get_stat(0, "kills"))) and MatchStats.get_stat(0, "kills") >= 6,
+			"it lists the match statistics")
+	_check(not MatchStats.running, "match time stops at the end")
+	await _unload(main)
 
 
 func _test_starting_army() -> void:
