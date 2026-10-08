@@ -15,11 +15,12 @@ A fan remake of Relic Entertainment's *Impossible Creatures* (2003), built in **
 Milestones 1 (**core RTS loop**), 2 (**combat**), 3 (**economy and base building**) and 4 (**the
 creature combiner**) are working with placeholder art:
 
-- **Creature combiner**: pick two of 8 animals (Lion, Elephant, Cheetah, Rhino, Scorpion, Eagle,
-  Porcupine, Gorilla), choose which one each body part comes from, see the hybrid and its stats live,
-  and save an army of up to 9 designs. The Creature Chamber produces your saved army.
-- Part-based abilities: flying (Eagle wings, for hybrids light enough), poison (Scorpion tail) and
-  ranged quills (Porcupine tail)
+- **Creature combiner**: pick two of 12 animals (Bat, Cheetah, Crocodile, Eagle, Elephant, Gorilla,
+  Kangaroo, Lion, Porcupine, Rhino, Scorpion, Wolf), choose which one each body part comes from, see
+  the hybrid and its stats live, and save an army of up to 9 designs. Matches start with 600 coal's
+  worth of your army, and the Creature Chamber produces more.
+- Part-based abilities: flying (Eagle or Bat wings, for hybrids light enough), poison (Scorpion
+  tail), ranged quills (Porcupine tail), charge (Rhino head) and leap (Kangaroo hind legs)
 - Hybrid models assembled from their parts, coloured by animal, with a team-coloured base disc
 
 - Top-down RTS camera: keyboard, screen-edge and middle-drag panning, rotation and smooth zoom, clamped to the map
@@ -53,12 +54,17 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 
 | Body part | Contributes |
 | --- | --- |
-| Head | Bite damage, some armor (Rhino, Elephant) |
+| Head | Bite damage, some armor (Rhino, Elephant, Crocodile); Rhino head: **charge** |
 | Torso | Health and most of the armor; most of the hybrid's size |
 | Front legs | Claw damage (Gorilla fists, Scorpion pincers, Eagle talons) and half the speed |
-| Back legs | The other half of the speed |
+| Back legs | The other half of the speed; Kangaroo legs: **leap** |
 | Tail | Poison (Scorpion) or a ranged quill attack (Porcupine) |
-| Wings | Flight, if the hybrid's size is 1.1 or less |
+| Wings | Flight (Eagle, Bat), if the hybrid's size is 1.1 or less |
+
+- **Charge**: sprints (1.8× speed) at a target at least 4 m away; the first hit does double damage.
+  8 s cooldown.
+- **Leap**: jumps a 1.5–7 m gap to land in reach of the target. 6 s cooldown. Flyers don't leap.
+- Ranged creatures don't charge or leap.
 
 Legs from a small animal under a big body are slowed down. A strength rating sets each hybrid's
 level (1–5) and cost. Flyers pass over buildings and rocks, and only ranged or flying creatures can
@@ -98,8 +104,11 @@ godot --headless --path . res://tests/test_runner.tscn
 
 The tests load the skirmish map and drive selection and orders through real input events. They
 cover movement, combat, the leash, allies helping, the enemy AI, gathering, production, costs and
-refunds, building placement and construction, navmesh updates, attacking buildings, victory, and the
-HUD buttons. They exit non-zero on failure.
+refunds, building placement and construction, navmesh updates, attacking buildings, victory, the HUD
+buttons, the combiner rules for every animal pair, rosters and saving, flying, poison, charge, leap,
+starting armies and the combiner screen. Combat tests use the hand-tuned units in `tests/fixtures/`
+so they don't depend on combiner balance. They exit non-zero on failure, including when the test
+script itself doesn't compile.
 
 ## Project layout
 
@@ -128,10 +137,10 @@ scripts/
   units/                 Creature behaviour, orders, combat, Henchman work, CreatureStats data
   ui/                    HUD, health bars, drag-select box, main menu, combiner screen
 resources/animals/       The animals the combiner draws parts from
-resources/creatures/     Stat sheets for the starting units and Henchmen
+resources/creatures/     Henchman stats
 resources/buildings/     Building definitions (cost, size, production)
 resources/recipes/       What each unit costs to produce
-tests/                   Headless smoke tests
+tests/                   Headless tests (fixtures/: hand-tuned test units)
 ```
 
 Physics layers: 1 = `world` (ground, rocks), 2 = `units`, 3 = `buildings`, 4 = `resources` (coal).

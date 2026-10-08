@@ -76,6 +76,10 @@ func _describe_selection() -> String:
 			traits.append("Flying")
 		if s.poison_dps > 0.0:
 			traits.append("Poison")
+		if s.can_charge:
+			traits.append("Charge")
+		if s.can_leap:
+			traits.append("Leap")
 		if unit.is_poisoned():
 			traits.append("POISONED")
 		if not traits.is_empty():
@@ -163,7 +167,7 @@ func _recipe_tooltip(recipe: UnitRecipe) -> String:
 	return "%s (level %d)\nHealth %d  Armor %d  Speed %.1f\nDamage %.0f%s%s%s" % [
 		s.display_name, s.level, s.max_health, s.armor, s.move_speed, s.attack_damage,
 		"  ranged" if s.is_ranged() else "", "  poison" if s.poison_dps > 0.0 else "",
-		"  flying" if s.can_fly else ""]
+		"  flying" if s.can_fly else ""] + ("  charge" if s.can_charge else "") + ("  leap" if s.can_leap else "")
 
 
 func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:

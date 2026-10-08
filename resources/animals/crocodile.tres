@@ -4,18 +4,19 @@
 
 [resource]
 script = ExtResource("1_animal")
-display_name = "Rhino"
-color = Color(0.5, 0.45, 0.4, 1)
-size = 1.6
-bite_damage = 14.0
-head_armor = 4.0
-head_ability = 3
-health = 240.0
+display_name = "Crocodile"
+color = Color(0.3, 0.42, 0.25, 1)
+size = 1.5
+bite_damage = 20.0
+head_armor = 3.0
+head_ability = 0
+health = 220.0
 torso_armor = 5.0
 claw_damage = 2.0
-front_leg_speed = 5.5
-back_leg_speed = 5.5
-tail_damage = 0.0
+front_leg_speed = 4.0
+back_leg_speed = 4.0
+back_leg_ability = 0
+tail_damage = 6.0
 tail_ability = 0
 has_wings = false
 flight_speed = 0.0

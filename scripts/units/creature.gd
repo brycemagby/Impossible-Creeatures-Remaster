@@ -17,7 +17,8 @@ extends CharacterBody3D
 ##
 ## Abilities come from stats: flying creatures hover above the ground, fly
 ## straight over obstacles and can only be hit by ranged or flying attackers;
-## poisonous creatures add damage over time to each hit.
+## poisonous creatures add damage over time to each hit; chargers sprint at
+## distant targets and hit harder on arrival; leapers jump the last few metres.
 ##
 ## Hybrids (stats with a design) get a CreatureModel built from their parts;
 ## hand-authored creatures fall back to a team-coloured capsule.
@@ -50,6 +51,17 @@ const CLIMB_RATE := 4.0
 ## Target scoring weights (see _target_score).
 const SCORE_DAMAGE_WEIGHT := 4.0
 const SCORE_WOUNDED_WEIGHT := 3.0
+## Charge: starts when the target is at least this far away.
+const CHARGE_MIN_DISTANCE := 4.0
+const CHARGE_SPEED_FACTOR := 1.8
+const CHARGE_DAMAGE_FACTOR := 2.0
+const CHARGE_COOLDOWN := 8.0
+## Leap: jumps when the gap to the target is within this range.
+const LEAP_MAX_DISTANCE := 7.0
+const LEAP_MIN_DISTANCE := 1.5
+const LEAP_DURATION := 0.4
+const LEAP_HEIGHT := 1.2
+const LEAP_COOLDOWN := 6.0
 const ProjectileScene := preload("res://scenes/fx/projectile.tscn")
 
 @export var stats: CreatureStats
@@ -78,6 +90,11 @@ var _visual: Node3D
 var _nav_target := Vector3.ZERO
 var _poison_dps := 0.0
 var _poison_time := 0.0
+var is_charging := false
+var _charge_cooldown := 0.0
+var _leap_cooldown := 0.0
+var _leap_time := 0.0
+var _leap_velocity := Vector3.ZERO
 
 @onready var agent: NavigationAgent3D = $NavigationAgent3D
 @onready var body: MeshInstance3D = $Body
@@ -96,7 +113,7 @@ func _ready() -> void:
 	# Spread enemy scans across frames so large armies don't all scan at once.
 	_scan_timer = randf() * SCAN_INTERVAL
 	_apply_size(stats.size)
-	agent.max_speed = stats.move_speed
+	agent.max_speed = stats.move_speed * (CHARGE_SPEED_FACTOR if stats.can_charge else 1.0)
 	agent.velocity_computed.connect(_on_velocity_computed)
 	_apply_team_color()
 	if stats.design != null:
@@ -110,12 +127,17 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_cooldown = maxf(_cooldown - delta, 0.0)
+	_charge_cooldown = maxf(_charge_cooldown - delta, 0.0)
+	_leap_cooldown = maxf(_leap_cooldown - delta, 0.0)
 	_scan_timer -= delta
 	if _poison_time > 0.0:
 		_poison_time -= delta
 		_lose_health(_poison_dps * delta)
 		if _dead:
 			return
+	if _leap_time > 0.0:
+		_update_leap(delta)
+		return
 	_update_orders()
 
 	var desired := _desired_velocity()
@@ -197,7 +219,12 @@ func is_poisoned() -> bool:
 func deal_hit(target: Node3D) -> void:
 	if not is_valid_target(target):
 		return
-	target.take_damage(stats.attack_damage, self)
+	var damage := stats.attack_damage
+	if is_charging:
+		damage *= CHARGE_DAMAGE_FACTOR
+		is_charging = false
+		_charge_cooldown = CHARGE_COOLDOWN
+	target.take_damage(damage, self)
 	if stats.poison_dps > 0.0 and target is Creature:
 		target.apply_poison(stats.poison_dps, stats.poison_duration)
 
@@ -355,16 +382,54 @@ func _engage(target: Node3D, automatic: bool) -> void:
 func _clear_target() -> void:
 	attack_target = null
 	_auto_target = false
+	is_charging = false
 
 
 func _pursue_and_attack(target: Node3D) -> void:
-	if surface_distance_to(target) <= stats.attack_range:
+	var gap := surface_distance_to(target)
+	if gap <= stats.attack_range:
 		_halt()
 		if _cooldown <= 0.0:
 			_cooldown = stats.attack_cooldown
 			_perform_attack(target)
-	elif not is_moving or agent.target_position.distance_to(target.global_position) > REPATH_DISTANCE:
+		return
+	if stats.can_leap and _leap_cooldown <= 0.0 and gap >= LEAP_MIN_DISTANCE and gap <= LEAP_MAX_DISTANCE:
+		_start_leap(target, gap)
+		return
+	if stats.can_charge and not is_charging and _charge_cooldown <= 0.0 and gap >= CHARGE_MIN_DISTANCE:
+		is_charging = true
+	if not is_moving or agent.target_position.distance_to(target.global_position) > REPATH_DISTANCE:
 		_navigate(target.global_position)
+
+
+## Jumps straight at [param target], landing within attack reach.
+func _start_leap(target: Node3D, gap: float) -> void:
+	var direction := target.global_position - global_position
+	direction.y = 0.0
+	direction = direction.normalized()
+	var distance := gap - stats.attack_range * 0.5
+	_leap_velocity = direction * (distance / LEAP_DURATION)
+	_leap_time = LEAP_DURATION
+	_leap_cooldown = LEAP_COOLDOWN
+	_halt()
+	rotation.y = atan2(-direction.x, -direction.z)
+	var hop := create_tween()
+	hop.tween_property(_visual, "position:y", _visual.position.y + LEAP_HEIGHT * stats.size, LEAP_DURATION / 2.0) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	hop.tween_property(_visual, "position:y", _visual.position.y, LEAP_DURATION / 2.0) \
+			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+
+
+func _update_leap(delta: float) -> void:
+	_leap_time -= delta
+	velocity = _leap_velocity
+	move_and_slide()
+	if _leap_time <= 0.0:
+		velocity = Vector3.ZERO
+
+
+func is_leaping() -> bool:
+	return _leap_time > 0.0
 
 
 func _perform_attack(target: Node3D) -> void:
@@ -441,6 +506,8 @@ func _desired_velocity() -> Vector3:
 	if to_next.length_squared() < 0.0001:
 		return Vector3.ZERO
 	var speed := stats.move_speed if attack_target != null else minf(stats.move_speed, _group_speed)
+	if is_charging and attack_target != null:
+		speed *= CHARGE_SPEED_FACTOR
 	return to_next.normalized() * speed
 
 

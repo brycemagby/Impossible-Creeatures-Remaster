@@ -1,9 +1,17 @@
 extends Node3D
-## Root of the skirmish map: sets up the economy and keeps the navmesh in sync
-## with buildings being placed or destroyed.
+## Root of the skirmish map: sets up the economy, spawns each side's starting
+## army from its roster, and keeps the navmesh in sync with buildings being
+## placed or destroyed.
+
+const CreatureScene := preload("res://scenes/units/creature.tscn")
+const ARMY_SPACING := 2.4
 
 @export var starting_coal := 300.0
 @export var starting_electricity := 100.0
+## Spawn each team's starting creatures from its army roster.
+@export var spawn_starting_army := true
+## Starting creatures are picked from the roster until this much coal is spent.
+@export var starting_army_budget := 600
 
 var _baking := false
 var _rebake_pending := false
@@ -17,6 +25,44 @@ func _ready() -> void:
 	navigation_region.bake_finished.connect(_on_bake_finished)
 	# Bake from the ground, rock, building and coal colliders.
 	navigation_region.bake_navigation_mesh(false)
+	if spawn_starting_army:
+		spawn_army(0, $PlayerArmySpawn)
+		spawn_army(1, $EnemyArmySpawn)
+
+
+## Spawns [param team]'s starting army in a grid around [param marker],
+## facing the way the marker faces. Returns the new creatures.
+func spawn_army(team: int, marker: Node3D) -> Array[Creature]:
+	var picks := pick_starting_army(Armies.recipes(team), starting_army_budget)
+	var yaw := marker.global_rotation.y
+	var spawned: Array[Creature] = []
+	var offsets := SelectionManager.formation_offsets(picks.size(), ARMY_SPACING, yaw)
+	for i in picks.size():
+		var unit: Creature = CreatureScene.instantiate()
+		unit.stats = picks[i].stats
+		unit.team = team
+		unit.position = marker.global_position + offsets[i]
+		unit.rotation.y = yaw
+		$Units.add_child(unit)
+		spawned.append(unit)
+	return spawned
+
+
+## Walks the roster in order, over and over, taking each design that still
+## fits in [param budget] coal, until nothing more fits. This keeps starting
+## armies fair whatever mix of cheap and expensive designs a roster has.
+static func pick_starting_army(recipes: Array[UnitRecipe], budget: int) -> Array[UnitRecipe]:
+	var picks: Array[UnitRecipe] = []
+	var remaining := budget
+	var added := true
+	while added:
+		added = false
+		for recipe in recipes:
+			if recipe.cost_coal <= remaining:
+				picks.append(recipe)
+				remaining -= recipe.cost_coal
+				added = true
+	return picks
 
 
 ## Rebakes the navmesh in the background, coalescing overlapping requests.

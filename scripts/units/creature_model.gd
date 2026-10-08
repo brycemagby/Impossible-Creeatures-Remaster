@@ -27,12 +27,22 @@ func build(design: CreatureDesign) -> void:
 	_add_sphere(head, 0.28 * head_scale, Vector3(0, 1.0 + 0.05 * head_scale, -0.62 - 0.12 * head_scale))
 	if head.head_ability == AnimalData.Ability.POISON:
 		_add_box(null, Vector3(0.12, 0.08, 0.12), Vector3(0, 0.95, -0.95), 1.0, Color(0.4, 0.9, 0.2))
+	elif head.head_ability == AnimalData.Ability.CHARGE:
+		var horn := _add_cone(Color(0.9, 0.88, 0.8), 0.08 * head_scale, 0.4 * head_scale,
+				Vector3(0, 1.05 + 0.05 * head_scale, -0.8 - 0.3 * head_scale))
+		horn.rotation_degrees.x = -70.0
 
 	var front := design.source(Slot.FRONT_LEGS)
 	var back := design.source(Slot.BACK_LEGS)
 	for side in [-1.0, 1.0]:
 		_add_leg(front, _part_scale(front, overall), Vector3(0.24 * side, 0, -0.35))
-		_add_leg(back, _part_scale(back, overall), Vector3(0.24 * side, 0, 0.35))
+		var hind_scale := _part_scale(back, overall)
+		if back.back_leg_ability == AnimalData.Ability.LEAP:
+			# Big jumping thighs.
+			_add_sphere(back, 0.17 * hind_scale, Vector3(0.26 * side, 0.6, 0.38))
+			_add_leg(back, hind_scale * 1.3, Vector3(0.24 * side, 0, 0.45))
+		else:
+			_add_leg(back, hind_scale, Vector3(0.24 * side, 0, 0.35))
 
 	var tail := design.source(Slot.TAIL)
 	var tail_scale := _part_scale(tail, overall)
@@ -78,6 +88,15 @@ func _add_leg(animal: AnimalData, scale_factor: float, at: Vector3) -> void:
 	var length := 0.55
 	var radius := 0.08 * scale_factor
 	_add_cylinder(animal, radius, length, at + Vector3(0, length / 2.0, 0))
+
+
+func _add_cone(color: Color, radius: float, height: float, at: Vector3) -> MeshInstance3D:
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.0
+	mesh.bottom_radius = radius
+	mesh.height = height
+	mesh.radial_segments = 8
+	return _add_mesh(mesh, at, color)
 
 
 func _add_box(animal: AnimalData, box_size: Vector3, at: Vector3, scale_factor: float, color := Color.WHITE) -> MeshInstance3D:

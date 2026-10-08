@@ -2,9 +2,9 @@ class_name CreatureCombiner
 ## Rules that turn a CreatureDesign into CreatureStats and a production cost.
 ##
 ## - Torso: health and most of the armor; dominates overall size.
-## - Head: bite damage, some armor, maybe poison.
+## - Head: bite damage, some armor, maybe poison or a charge (horn).
 ## - Front legs: claw damage and half the walking speed.
-## - Back legs: the other half of the walking speed.
+## - Back legs: the other half of the walking speed, maybe a leap.
 ## - Tail: extra damage, poison (stinger) or a ranged attack (quills).
 ## - Wings: flight, but only for hybrids no bigger than MAX_FLYING_SIZE.
 ## Legs from a small animal under a big body are slowed down; legs from a big
@@ -67,8 +67,15 @@ static func build_stats(design: CreatureDesign) -> CreatureStats:
 		stats.poison_dps = POISON_DPS
 		stats.poison_duration = POISON_DURATION
 
+	# Melee-only abilities: a quill-shooter doesn't charge or leap in.
+	if head.head_ability == AnimalData.Ability.CHARGE and not stats.is_ranged():
+		stats.can_charge = true
+	if back.back_leg_ability == AnimalData.Ability.LEAP and not stats.is_ranged():
+		stats.can_leap = true
+
 	if wings != null and size <= MAX_FLYING_SIZE:
 		stats.can_fly = true
+		stats.can_leap = false
 		stats.move_speed = maxf(stats.move_speed, wings.flight_speed * clampf(wings.size / size, MIN_LEG_LOAD, 1.0))
 		stats.max_health *= FLYER_HEALTH_FACTOR
 
@@ -87,6 +94,10 @@ static func power_rating(stats: CreatureStats) -> float:
 		power += 10.0
 	if stats.can_fly:
 		power += 12.0
+	if stats.can_charge:
+		power += 6.0
+	if stats.can_leap:
+		power += 6.0
 	return power
 
 

@@ -153,6 +153,10 @@ func refresh() -> void:
 		abilities.append("Poison (%d/s for %ds)" % [stats.poison_dps, stats.poison_duration])
 	if stats.is_ranged():
 		abilities.append("Ranged")
+	if stats.can_charge:
+		abilities.append("Charge")
+	if stats.can_leap:
+		abilities.append("Leap")
 	lines.append("")
 	lines.append("Abilities: " + (", ".join(abilities) if not abilities.is_empty() else "none"))
 	if CreatureCombiner.too_heavy_to_fly(design):

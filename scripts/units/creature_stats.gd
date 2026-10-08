@@ -38,6 +38,10 @@ extends Resource
 ## Poison damage per second applied by each hit (ignores armor).
 @export var poison_dps := 0.0
 @export var poison_duration := 0.0
+## Sprints at targets a few metres away; the first hit does double damage.
+@export var can_charge := false
+## Jumps the last few metres to a target.
+@export var can_leap := false
 
 
 func is_ranged() -> bool:

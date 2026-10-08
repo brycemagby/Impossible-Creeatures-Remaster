@@ -33,10 +33,12 @@ parts (flying, poison, ranged quills), hybrid models assembled from parts, a com
 live preview, saved armies of up to 9 that the Creature Chamber produces, smarter target choice, and
 a main menu.
 
+Polish pass ✅: 12 animals (added Wolf, Kangaroo, Bat, Crocodile), charge and leap abilities, and
+matches start with a budgeted army from each side's roster.
+
 Follow-ups:
-- More animals and abilities from the original (swimming, charge, leap, sonic, electric, herding...)
+- More abilities from the original (swimming, sonic, electric, herding, stink...)
 - Research: gate creature levels behind Lab research, like the original
-- Start skirmishes with hybrids from your army instead of the placeholder Runner/Skirmisher/Brute
 - Water, so swimmers and the Water Chamber make sense; Aviary for flyers
 - Ranged units keeping their distance from melee
 

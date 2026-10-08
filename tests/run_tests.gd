@@ -7,6 +7,13 @@ extends Node
 ## Exits with a non-zero code if any check fails.
 
 const TEST_ARMY_PATH := "user://test_army.tres"
+## Hand-tuned units the combat tests rely on, spawned instead of the roster
+## army so results don't depend on combiner balance: [stats, team, x, z].
+const FIXTURE_UNITS := [
+	["runner", 0, -4, 26], ["runner", 0, -2, 26], ["skirmisher", 0, 0, 26], ["skirmisher", 0, 2, 26], ["brute", 0, 4, 26],
+	["brute", 1, -2, -30], ["brute", 1, 2, -30], ["runner", 1, -6, -31], ["runner", 1, 6, -31],
+	["skirmisher", 1, -3, -33], ["skirmisher", 1, 3, -33],
+]
 
 var _failures := 0
 var _checks := 0
@@ -50,6 +57,9 @@ func _run() -> void:
 	await _test_hybrid_production()
 	await _test_flying()
 	await _test_poison()
+	await _test_charge()
+	await _test_leap()
+	await _test_starting_army()
 	await _test_target_choice()
 	await _test_combiner_screen()
 	await _test_main_menu()
@@ -580,6 +590,11 @@ func _test_combiner_rules() -> void:
 	var quills := _stats("gorilla", "porcupine", [0, 0, 0, 0, 1, -1])
 	_check(quills.is_ranged() and quills.attack_range >= 8.0, "a porcupine tail gives a ranged attack")
 	_check(_stats("lion", "eagle", [0, 0, 0, 0, 0, 1]).can_fly, "eagle wings let a lion fly")
+	_check(_stats("lion", "rhino", [1, 0, 0, 0, 0, -1]).can_charge, "a rhino head gives a charge")
+	_check(_stats("lion", "kangaroo", [0, 0, 0, 1, 0, -1]).can_leap, "kangaroo hind legs give a leap")
+	_check(not _stats("rhino", "porcupine", [0, 0, 0, 0, 1, -1]).can_charge, "quill-shooters don't charge")
+	_check(not _stats("kangaroo", "eagle", [0, 0, 0, 0, 0, 1]).can_leap, "flyers don't leap")
+	_check(Armies.all_animals().size() == 12, "12 animals are available")
 	_check(not _stats("lion", "eagle", [0, 0, 0, 0, 0, -1]).can_fly, "no wings, no flight")
 	var heavy := _design("rhino", "eagle", [0, 0, 0, 0, 0, 1])
 	_check(not CreatureCombiner.build_stats(heavy).can_fly and CreatureCombiner.too_heavy_to_fly(heavy), "a rhino is too heavy for eagle wings")
@@ -710,6 +725,65 @@ func _test_poison() -> void:
 	await _unload(main)
 
 
+func _test_charge() -> void:
+	print("charge")
+	var main := await _load_map()
+	var brute := _first(1, "Brute")
+	_isolate([brute])
+	_place(brute, Vector3(0, 0, -10))
+	var charger := _spawn(main, _stats("lion", "rhino", [1, 0, 0, 0, 0, -1]), 0, Vector3(0, 0, 4))
+	await _physics_frames(5)
+	charger.command_attack(brute)
+	await _physics_frames(20)
+	_check(charger.is_charging, "a charger sprints at a distant target")
+	var speed := Vector2(charger.velocity.x, charger.velocity.z).length()
+	_check(speed > charger.stats.move_speed * 1.3, "charging is faster than walking (%.1f vs %.1f)" % [speed, charger.stats.move_speed])
+	var health := brute.health
+	await _wait_until(func() -> bool: return brute.health < health, 5.0)
+	var expected := charger.stats.attack_damage * Creature.CHARGE_DAMAGE_FACTOR - brute.stats.armor
+	_check(is_equal_approx(health - brute.health, expected), "the charge hit does double damage (%.0f)" % (health - brute.health))
+	_check(not charger.is_charging, "the charge ends on impact")
+	health = brute.health
+	await _wait_until(func() -> bool: return brute.health < health, 3.0)
+	_check(is_equal_approx(health - brute.health, charger.stats.attack_damage - brute.stats.armor), "later hits are normal")
+	await _unload(main)
+
+
+func _test_leap() -> void:
+	print("leap")
+	var main := await _load_map()
+	var brute := _first(1, "Brute")
+	_isolate([brute])
+	_place(brute, Vector3(0, 0, -6))
+	var leaper := _spawn(main, _stats("lion", "kangaroo", [0, 0, 0, 1, 0, -1]), 0, Vector3(0, 0, 0))
+	await _physics_frames(5)
+	var gap := leaper.surface_distance_to(brute)
+	leaper.command_attack(brute)
+	await _physics_frames(2)
+	_check(leaper.is_leaping(), "a leaper jumps at a target %.1f m away" % gap)
+	await _physics_frames(int(Creature.LEAP_DURATION * 60) + 2)
+	_check(leaper.surface_distance_to(brute) <= leaper.stats.attack_range + 0.3, "it lands within reach")
+	_check(not leaper.is_leaping(), "the leap ends")
+	await _unload(main)
+
+
+func _test_starting_army() -> void:
+	print("starting army")
+	var main := await _load_map(false)
+	for team in [0, 1]:
+		var expected: Array = main.pick_starting_army(Armies.recipes(team), main.starting_army_budget)
+		var spent := 0
+		for recipe in expected:
+			spent += recipe.cost_coal
+		var fighters := _fighters(team)
+		_check(fighters.size() == expected.size() and fighters.size() >= 3, "team %d starts with %d creatures from its roster" % [team, fighters.size()])
+		_check(fighters.all(func(u: Creature) -> bool: return u.stats.design != null), "team %d's starting creatures are hybrids" % team)
+		_check(spent <= main.starting_army_budget, "team %d's starting army fits the budget (%d coal)" % [team, spent])
+	var cheap: Array[UnitRecipe] = [CreatureCombiner.make_recipe(_design("bat", "bat", [0, 0, 0, 0, 0, 0]))]
+	_check(main.pick_starting_army(cheap, 600).size() == 600 / cheap[0].cost_coal, "a roster of one design repeats it to fill the budget")
+	await _unload(main)
+
+
 func _test_target_choice() -> void:
 	print("target choice")
 	var main := await _load_map()
@@ -773,11 +847,17 @@ func _test_main_menu() -> void:
 
 # --- Helpers ------------------------------------------------------------------
 
-func _load_map() -> Node3D:
+func _load_map(with_fixtures := true) -> Node3D:
 	var main: Node3D = load("res://scenes/main.tscn").instantiate()
 	main.get_node("EnemyAI").enabled = false
+	main.spawn_starting_army = not with_fixtures
 	get_tree().root.add_child(main)
 	get_tree().current_scene = main
+	if with_fixtures:
+		for fixture in FIXTURE_UNITS:
+			var unit := _spawn(main, load("res://tests/fixtures/%s.tres" % fixture[0]), fixture[1], Vector3(fixture[2], 0, fixture[3]))
+			if fixture[1] == 1:
+				unit.rotation.y = PI
 	await _physics_frames(10)
 	return main
 
