@@ -33,6 +33,7 @@ func _ready() -> void:
 	Research.reset(teams)
 	MatchStats.reset(teams)
 	Upgrades.reset(teams)
+	Alerts.reset()
 	_apply_settings()
 	navigation_region.bake_finished.connect(_on_bake_finished)
 	# Bake from the ground, rock, building and coal colliders.

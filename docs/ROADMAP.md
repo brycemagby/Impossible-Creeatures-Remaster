@@ -31,8 +31,9 @@ Follow-ups:
   Water Chamber still to come (the Water Chamber needs water on the maps first)
 - Research ✅ and upgrades ✅: tiered creature upgrades at the Research Center (melee/ranged damage
   and melee/ranged armor), Henchman upgrades at the Workshop; research levels stay at the Lab
-- AoE2-style QoL: population and Houses ✅, Research Center ✅, split melee/ranged armor ✅; idle
-  Henchman key, under-attack alerts, select-all-of-type, queued orders and hotkeys next
+- AoE2-style QoL ✅: population and Houses, Research Center, split melee/ranged armor, idle
+  Henchman key, under-attack alerts, select-all-of-type, Shift-queued orders, command hotkeys,
+  Shift + click to make 5, rally on coal. Still open: unit stances, an idle-building indicator
 - Minimap ✅ (M6)
 
 ## M4 — The creature combiner ✅

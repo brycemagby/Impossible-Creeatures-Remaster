@@ -55,13 +55,14 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - Hybrid models assembled from their parts, coloured by animal, with a team-coloured base disc
 
 - Top-down RTS camera: keyboard, screen-edge and middle-drag panning, rotation and smooth zoom, clamped to the map
-- Unit selection: click, shift-click, drag box, control groups
+- Unit selection: click, shift-click, drag box, control groups, double click for all of a type
 - Move orders: navmesh pathfinding around obstacles, local avoidance between units, grid formations that move at the slowest unit's speed
 - Combat: health, armor, melee hits, homing projectiles for ranged units, poison, death animation
 - Target choice: units prefer targets their attacks get through, finish off wounded ones, and focus
   on what nearby allies are already attacking
 - Ranged creatures back off from melee attackers that come for them, then keep shooting
-- Orders: move, attack, attack-move, patrol, hold position, stop
+- Orders: move, attack, attack-move, patrol, hold position, stop; Shift queues them
+- Alerts when your creatures or buildings are attacked (Space looks there), idle Henchman key
 - Unit behavior: idle units engage enemies in sight, chase up to a leash range and then return to their post; units fight back when hit and call nearby allies to help
 - Economy: coal (gathered from coal piles by Henchmen) and electricity (made by Electrical Generators)
 - Base building: Lab, Electrical Generator and Creature Chamber, placed with a ghost preview and
@@ -116,13 +117,19 @@ Animals are data files in `resources/animals/`; add a `.tres` there and it shows
 | Input | Action |
 | --- | --- |
 | Left click | Select unit (Shift: add/remove) |
+| Double click / Ctrl + click a unit | Select every unit of that type on screen (Shift: add) |
 | Left drag | Box select (Shift: add) |
 | Right click ground | Move selected units |
 | Right click enemy unit or building | Attack it |
 | Right click coal (Henchmen selected) | Gather coal |
 | Right click unfinished building (Henchmen selected) | Help build it |
-| Right click with a building selected | Set rally point (click the building itself to clear) |
-| Command panel buttons (bottom right) | Build (Henchmen selected) or produce units (building selected) |
+| Shift + right click | Queue the order after the current ones (waypoints, attack then move on, ...) |
+| Right click with a building selected | Set rally point (click the building itself to clear; on coal, new Henchmen gather there) |
+| Command panel buttons (bottom right) | Build (Henchmen selected) or produce units (building selected); Shift + click makes 5 |
+| Z X C V B N M, then T Y U I O | Press the command panel buttons in order (Shift: make 5) |
+| Period (.) | Select and look at the next idle Henchman |
+| Home | Select and look at your Lab (press again for the next one) |
+| Space | Jump to the latest "under attack" alert |
 | Minimap: left click / drag | Move the camera there |
 | Minimap: right click (Ctrl: attack-move) | Order the selection there (or set a building's rally point) |
 | Left click while placing | Place the building (Shift: keep placing) |

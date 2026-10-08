@@ -3,9 +3,12 @@ extends Node
 ## Handles RTS selection and orders for the local player.
 ##
 ## - Left click: select a unit or building (Shift to add/remove units)
+## - Double click or Ctrl + click: select every unit of that type on screen
 ## - Left drag: box select units (Shift to add)
 ## - Right click with units: move / attack enemy / gather coal / help build
-## - Right click with a building: set its rally point
+##   (hold Shift to queue the order after the current ones)
+## - Right click with a building: set its rally point (on coal: new Henchmen gather)
+## - Period: next idle Henchman; Home: next Lab; Space: jump to the latest alert
 ## - F then left click, or Ctrl + right click: attack-move
 ## - P then left click: patrol between here and there
 ## - G: hold position
@@ -55,6 +58,7 @@ var _control_groups := {}
 var _press_position := Vector2.ZERO
 var _pressing := false
 var _dragging := false
+var _double_click := false
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -119,6 +123,56 @@ func select_in_rect(rect: Rect2, additive := false) -> void:
 	select_units(inside, additive)
 
 
+## Selects every player unit of the same kind as [param unit] that is on screen.
+func select_same_type(unit: Creature, additive := false) -> void:
+	if not _is_selectable(unit):
+		return
+	var view := get_viewport().get_visible_rect()
+	var matches: Array[Creature] = []
+	for other: Creature in get_tree().get_nodes_in_group("units"):
+		if not _is_selectable(other) or other.stats.display_name != unit.stats.display_name:
+			continue
+		if camera.is_position_behind(other.global_position) or not view.has_point(camera.unproject_position(other.global_position)):
+			continue
+		matches.append(other)
+	if unit not in matches:
+		matches.append(unit)
+	select_units(matches, additive)
+
+
+## Selects and centres on the next idle Henchman. Returns it, or null.
+func select_idle_henchman() -> Henchman:
+	var idle: Array = get_tree().get_nodes_in_group("units").filter(
+			func(u: Creature) -> bool: return u is Henchman and _is_selectable(u) and u.is_idle() and u.queued_orders() == 0)
+	if idle.is_empty():
+		message.emit("No idle Henchmen")
+		return null
+	var henchman: Henchman = _next_after(idle, selected[0] if selected.size() == 1 else null)
+	_set_selection([henchman], null)
+	_focus(henchman.global_position)
+	return henchman
+
+
+## Selects and centres on the next of the player's Labs. Returns it, or null.
+func select_next_lab() -> Building:
+	var labs: Array = get_tree().get_nodes_in_group("buildings").filter(
+			func(b: Building) -> bool: return b.team == player_team and b.data.can_research and b.is_alive())
+	if labs.is_empty():
+		return null
+	var lab: Building = _next_after(labs, selected_building)
+	select_building(lab)
+	_focus(lab.global_position)
+	return lab
+
+
+## Centres the camera on the player's latest "under attack" alert.
+func jump_to_alert() -> bool:
+	if not Alerts.has_alert(player_team):
+		return false
+	_focus(Alerts.latest(player_team))
+	return true
+
+
 func selected_henchmen() -> Array[Henchman]:
 	var result: Array[Henchman] = []
 	for unit in _valid_selected():
@@ -169,65 +223,84 @@ func ground_at_screen(screen_position: Vector2) -> Variant:
 # --- Orders -------------------------------------------------------------------
 
 ## Orders the selected units to move to [param target] in formation.
-func issue_move(target: Vector3) -> void:
-	_issue_formation_order(_valid_selected(), target, &"command_move", MOVE_COLOR)
+func issue_move(target: Vector3, queue := false) -> void:
+	_issue_formation_order(_valid_selected(), target, &"command_move", MOVE_COLOR, queue)
 
 
 ## Orders the selected units to move to [param target] in formation, fighting
 ## any enemies they meet on the way.
-func issue_attack_move(target: Vector3) -> void:
-	_issue_formation_order(_valid_selected(), target, &"command_attack_move", ATTACK_COLOR)
+func issue_attack_move(target: Vector3, queue := false) -> void:
+	_issue_formation_order(_valid_selected(), target, &"command_attack_move", ATTACK_COLOR, queue)
 
 
 ## Orders every selected unit to attack [param target] (creature or building).
-func issue_attack(target: Node3D) -> void:
+func issue_attack(target: Node3D, queue := false) -> void:
 	if not Creature.is_valid_target(target) or not Teams.are_enemies(player_team, target.team):
 		return
 	var units := _valid_selected()
 	if units.is_empty():
 		return
+	# A weak reference, since the target may be gone by the time a queued order runs.
+	var target_ref: WeakRef = weakref(target)
 	for unit in units:
-		unit.command_attack(target)
+		var attack := func() -> void:
+			var current: Variant = target_ref.get_ref()
+			if Creature.is_valid_target(current):
+				unit.command_attack(current)
+		_dispatch(unit, attack, queue)
 	_spawn_marker(target.global_position, ATTACK_COLOR)
 
 
 ## Selected Henchmen gather from [param pile]; everyone else walks over.
-func issue_gather(pile: CoalPile) -> void:
+func issue_gather(pile: CoalPile, queue := false) -> void:
 	var others := _valid_selected()
+	var pile_ref: WeakRef = weakref(pile)
 	for henchman in selected_henchmen():
-		henchman.command_gather(pile)
+		var gather := func() -> void:
+			var current: Variant = pile_ref.get_ref()
+			if current != null:
+				henchman.command_gather(current)
+		_dispatch(henchman, gather, queue)
 		others.erase(henchman)
-	_issue_formation_order(others, pile.global_position, &"command_move", MOVE_COLOR)
+	_issue_formation_order(others, pile.global_position, &"command_move", MOVE_COLOR, queue)
 	_spawn_marker(pile.global_position, WORK_COLOR)
 
 
 ## Selected Henchmen help construct [param site]; everyone else walks over.
-func issue_build(site: Building) -> void:
+func issue_build(site: Building, queue := false) -> void:
 	var others := _valid_selected()
+	var site_ref: WeakRef = weakref(site)
 	for henchman in selected_henchmen():
-		henchman.command_build(site)
+		var build := func() -> void:
+			var current: Variant = site_ref.get_ref()
+			if Creature.is_valid_target(current) and not current.is_complete:
+				henchman.command_build(current)
+		_dispatch(henchman, build, queue)
 		others.erase(henchman)
-	_issue_formation_order(others, site.global_position, &"command_move", MOVE_COLOR)
+	_issue_formation_order(others, site.global_position, &"command_move", MOVE_COLOR, queue)
 	_spawn_marker(site.global_position, WORK_COLOR)
 
 
 func issue_stop() -> void:
 	for unit in _valid_selected():
+		unit.clear_order_queue()
 		unit.command_stop()
 
 
 func issue_hold() -> void:
 	for unit in _valid_selected():
+		unit.clear_order_queue()
 		unit.command_hold()
 
 
 ## Orders the selected units to patrol between where they are and [param target].
-func issue_patrol(target: Vector3) -> void:
-	_issue_formation_order(_valid_selected(), target, &"command_patrol", PATROL_COLOR)
+func issue_patrol(target: Vector3, queue := false) -> void:
+	_issue_formation_order(_valid_selected(), target, &"command_patrol", PATROL_COLOR, queue)
 
 
 ## Handles a right click (or attack-move click) at [param screen_position].
-func issue_order_at_screen(screen_position: Vector2, attack_move := false) -> void:
+## With [param queue], units do it after finishing their current orders.
+func issue_order_at_screen(screen_position: Vector2, attack_move := false, queue := false) -> void:
 	if Creature.is_valid_target(selected_building):
 		_set_rally_at_screen(screen_position)
 		return
@@ -235,28 +308,28 @@ func issue_order_at_screen(screen_position: Vector2, attack_move := false) -> vo
 		return
 	var unit := unit_at_screen(screen_position)
 	if unit != null and Teams.are_enemies(player_team, unit.team):
-		issue_attack(unit)
+		issue_attack(unit, queue)
 		return
 	var building := building_at_screen(screen_position)
 	if building != null:
 		if Teams.are_enemies(player_team, building.team):
-			issue_attack(building)
+			issue_attack(building, queue)
 			return
 		if not building.is_complete and not selected_henchmen().is_empty():
-			issue_build(building)
+			issue_build(building, queue)
 			return
 	if not attack_move:
 		var pile := coal_pile_at_screen(screen_position)
 		if pile != null:
-			issue_gather(pile)
+			issue_gather(pile, queue)
 			return
 	var target: Variant = ground_at_screen(screen_position)
 	if target == null:
 		return
 	if attack_move:
-		issue_attack_move(target)
+		issue_attack_move(target, queue)
 	else:
-		issue_move(target)
+		issue_move(target, queue)
 
 
 ## Orders the selection to [param point] (from the minimap): a building sets
@@ -344,7 +417,8 @@ static func formation_offsets(count: int, spacing: float, yaw := 0.0) -> Array[V
 ## Gives each unit a slot in a grid around [param target] facing the direction
 ## of travel, then calls [param command] (a Creature method name) with the slot
 ## and the group's speed (that of its slowest member).
-static func assign_formation(units: Array, target: Vector3, spacing: float, command: StringName) -> void:
+## With [param queue], each unit queues the order instead of starting it now.
+static func assign_formation(units: Array, target: Vector3, spacing: float, command: StringName, queue := false) -> void:
 	if units.is_empty():
 		return
 	var center := Vector3.ZERO
@@ -369,7 +443,7 @@ static func assign_formation(units: Array, target: Vector3, spacing: float, comm
 				best_distance = distance
 				best = unit
 		remaining.erase(best)
-		best.call(command, slot, group_speed)
+		_dispatch(best, Callable(best, command).bind(slot, group_speed), queue)
 
 
 # --- Input handling -----------------------------------------------------------
@@ -381,17 +455,24 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 				place_building_at_screen(event.position, event.shift_pressed)
 				get_viewport().set_input_as_handled()
 			elif event.pressed and targeting_order != &"":
-				_place_targeted_order(event.position)
+				_place_targeted_order(event.position, event.shift_pressed)
 				set_targeting(targeting_order if event.shift_pressed else &"")
 				get_viewport().set_input_as_handled()
 			elif event.pressed:
 				_pressing = true
 				_dragging = false
+				_double_click = event.double_click
 				_press_position = event.position
 			elif _pressing:
 				_pressing = false
 				if _dragging:
 					select_in_rect(_drag_rect(event.position), event.shift_pressed)
+				elif _double_click or event.ctrl_pressed:
+					var unit := unit_at_screen(event.position)
+					if unit != null and _is_selectable(unit):
+						select_same_type(unit, event.shift_pressed)
+					else:
+						click_select(event.position, event.shift_pressed)
 				else:
 					click_select(event.position, event.shift_pressed)
 				_dragging = false
@@ -404,7 +485,7 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 			elif targeting_order != &"":
 				set_targeting(&"")
 			else:
-				issue_order_at_screen(event.position, event.ctrl_pressed)
+				issue_order_at_screen(event.position, event.ctrl_pressed, event.shift_pressed)
 
 
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
@@ -436,6 +517,12 @@ func _handle_key(event: InputEventKey) -> void:
 		issue_hold()
 	elif event.is_action_pressed("stop"):
 		issue_stop()
+	elif event.is_action_pressed("idle_henchman"):
+		select_idle_henchman()
+	elif event.is_action_pressed("select_lab"):
+		select_next_lab()
+	elif event.is_action_pressed("jump_to_alert"):
+		jump_to_alert()
 	elif event.keycode >= KEY_1 and event.keycode <= KEY_9:
 		var group := event.keycode - KEY_0
 		if event.ctrl_pressed:
@@ -449,25 +536,40 @@ func _handle_key(event: InputEventKey) -> void:
 
 # --- Helpers ------------------------------------------------------------------
 
-func _issue_formation_order(units: Array, target: Vector3, command: StringName, color: Color) -> void:
+func _issue_formation_order(units: Array, target: Vector3, command: StringName, color: Color, queue := false) -> void:
 	if units.is_empty():
 		return
-	assign_formation(units, target, formation_spacing, command)
+	assign_formation(units, target, formation_spacing, command, queue)
 	_spawn_marker(target, color)
 
 
-func _place_targeted_order(screen_position: Vector2) -> void:
+## Starts [param command] on [param unit] now (dropping its queued orders), or
+## with [param queue] after the orders it already has.
+static func _dispatch(unit: Creature, command: Callable, queue: bool) -> void:
+	if queue:
+		unit.queue_order(command)
+	else:
+		unit.clear_order_queue()
+		command.call()
+
+
+func _place_targeted_order(screen_position: Vector2, queue := false) -> void:
 	if targeting_order == ATTACK_MOVE:
-		issue_order_at_screen(screen_position, true)
+		issue_order_at_screen(screen_position, true, queue)
 	elif targeting_order == PATROL:
 		var point: Variant = ground_at_screen(screen_position)
 		if point != null:
-			issue_patrol(point)
+			issue_patrol(point, queue)
 
 
 func _set_rally_at_screen(screen_position: Vector2) -> void:
 	if building_at_screen(screen_position) == selected_building:
 		selected_building.set_rally_point(null)
+		return
+	var pile := coal_pile_at_screen(screen_position)
+	if pile != null:
+		selected_building.set_rally_point(pile.global_position, pile)
+		_spawn_marker(pile.global_position, WORK_COLOR)
 		return
 	var point: Variant = ground_at_screen(screen_position)
 	if point != null:
@@ -524,6 +626,19 @@ func _valid_selected() -> Array[Creature]:
 
 func _is_selectable(unit: Creature) -> bool:
 	return Creature.is_valid_target(unit) and unit.team == player_team
+
+
+## The entry after [param current] in [param items] (by instance id), wrapping round.
+func _next_after(items: Array, current: Variant) -> Variant:
+	items.sort_custom(func(a: Node, b: Node) -> bool: return a.get_instance_id() < b.get_instance_id())
+	var index := items.find(current) if is_instance_valid(current) else -1
+	return items[(index + 1) % items.size()]
+
+
+func _focus(point: Vector3) -> void:
+	var rig := camera.get_parent()
+	if rig != null and rig.has_method("focus_on"):
+		rig.focus_on(point)
 
 
 func _drag_rect(current: Vector2) -> Rect2:

@@ -3,6 +3,11 @@ extends Control
 ## Henchmen, production for buildings), messages and the game-over banner.
 
 const MESSAGE_TIME := 2.5
+## Command panel hotkeys, in button order (keys the camera and orders don't use).
+const HOTKEYS: Array[Key] = [KEY_Z, KEY_X, KEY_C, KEY_V, KEY_B, KEY_N, KEY_M,
+		KEY_T, KEY_Y, KEY_U, KEY_I, KEY_O, KEY_J, KEY_K, KEY_L]
+## How many units Shift + click queues at once.
+const BATCH_SIZE := 5
 
 @export var selection_manager: SelectionManager
 @export var game_rules: GameRules
@@ -12,6 +17,8 @@ var _context := "none"
 ## disabled states.
 var _cost_buttons: Array = []
 var _message_timer := 0.0
+## True while a Shift + hotkey press is being handled.
+var _hotkey_shift := false
 
 @onready var selection_label: Label = $SelectionLabel
 var resource_label: Label
@@ -29,6 +36,8 @@ func _ready() -> void:
 	_build_layout()
 	game_rules.game_over.connect(_on_game_over)
 	selection_manager.menu_requested.connect(pause_menu.open)
+	selection_manager.message.connect(show_message)
+	Alerts.raised.connect(_on_alert)
 
 
 func _process(delta: float) -> void:
@@ -42,6 +51,21 @@ func _process(delta: float) -> void:
 	_refresh_command_panel()
 	_message_timer -= delta
 	message_label.visible = _message_timer > 0.0
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo or key.ctrl_pressed or not command_panel.visible:
+		return
+	var index := HOTKEYS.find(key.physical_keycode)
+	if index < 0:
+		return
+	var buttons := command_grid.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
+	if index < buttons.size() and not buttons[index].disabled:
+		_hotkey_shift = key.shift_pressed
+		buttons[index].pressed.emit()
+		_hotkey_shift = false
+		get_viewport().set_input_as_handled()
 
 
 func show_message(text: String) -> void:
@@ -266,9 +290,20 @@ func _on_research_pressed(building: Building) -> void:
 
 
 func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:
-	var error := building.enqueue(recipe)
-	if error != "":
-		show_message(error)
+	var count := BATCH_SIZE if _hotkey_shift or Input.is_key_pressed(KEY_SHIFT) else 1
+	var queued := 0
+	for i in count:
+		var error := building.enqueue(recipe)
+		if error != "":
+			if queued == 0:
+				show_message(error)
+			break
+		queued += 1
+
+
+func _on_alert(team: int, text: String, _where: Vector3) -> void:
+	if team == selection_manager.player_team:
+		show_message(text + "  (Space to look)")
 
 
 func _on_game_over(winner: int) -> void:
@@ -281,6 +316,9 @@ func _cost_text(coal: int, electricity: int) -> String:
 
 func _add_button(text: String) -> Button:
 	var button := Button.new()
+	var index := command_grid.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion()).size()
+	if index < HOTKEYS.size():
+		text += "  [%s]" % OS.get_keycode_string(HOTKEYS[index])
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(120, 52)

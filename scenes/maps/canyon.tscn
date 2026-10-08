@@ -308,17 +308,19 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 232.0
-offset_top = -170.0
+offset_top = -222.0
 offset_right = 976.0
 offset_bottom = -12.0
 grow_vertical = 0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
-text = "Left click / drag: select   Shift: add to selection
+text = "Left click / drag: select   Shift: add   Double click / Ctrl + click: all of a type
 Right click: move / attack / gather coal (Henchmen) / set rally point (building)
+Shift + right click: queue order   Period: idle Henchman   Home: Lab   Space: last alert
 F + click or Ctrl + right click: attack-move   P + click: patrol   G: hold   H: stop   Esc: cancel
 Ctrl+1-9: set control group   1-9: recall group   Minimap: click to look, right click to order
-WASD / arrows / screen edge / middle drag: pan   Q / E: rotate   Wheel: zoom"
+WASD / arrows / screen edge / middle drag: pan   Q / E: rotate   Wheel: zoom
+Z X C V B N M: command buttons   Shift + button: make 5"
 vertical_alignment = 2
 
 [node name="Minimap" type="Control" parent="UI/HUD" node_paths=PackedStringArray("camera_rig", "selection_manager", "fog")]

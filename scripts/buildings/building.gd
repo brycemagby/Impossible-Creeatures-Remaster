@@ -38,6 +38,8 @@ var population_blocked := false
 var researching := 0
 var research_time := 0.0
 var rally_point: Variant = null
+## Coal pile the rally point is on, if any: new Henchmen start gathering it.
+var rally_pile: CoalPile = null
 var is_selected := false
 
 var _dead := false
@@ -298,8 +300,10 @@ func production_fraction() -> float:
 	return production_time / queue[0].build_time if not queue.is_empty() else 0.0
 
 
-func set_rally_point(point: Variant) -> void:
+## [param pile] makes new Henchmen gather there instead of just walking over.
+func set_rally_point(point: Variant, pile: CoalPile = null) -> void:
 	rally_point = point
+	rally_pile = pile
 	_update_rally_flag()
 
 
@@ -331,6 +335,7 @@ func take_damage(amount: float, source: Node3D = null, _ranged := false) -> void
 		_die()
 		return
 	if Creature.is_valid_target(source) and Teams.are_enemies(source.team, team):
+		Alerts.report(team, global_position, "Your %s is under attack!" % data.display_name)
 		for unit: Creature in get_tree().get_nodes_in_group("units"):
 			if Teams.are_allies(unit.team, team) and edge_distance_from(unit.global_position) <= DEFEND_RADIUS:
 				unit.respond_to_attack(source)
@@ -416,7 +421,9 @@ func _spawn(recipe: UnitRecipe) -> void:
 	container.add_child(unit)
 	if not recipe.is_worker:
 		MatchStats.add(team, "units_produced")
-	if rally_point != null:
+	if unit is Henchman and is_instance_valid(rally_pile) and not rally_pile.is_depleted():
+		unit.command_gather(rally_pile)
+	elif rally_point != null:
 		unit.command_move(rally_point)
 
 

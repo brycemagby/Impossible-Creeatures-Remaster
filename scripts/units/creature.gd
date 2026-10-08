@@ -102,6 +102,8 @@ var _visual: Node3D
 var _nav_target := Vector3.ZERO
 ## Team of whoever hit this creature last (for kill statistics), or -1.
 var _last_attacker_team := -1
+## Shift-queued orders (Callables), run in turn once the current one is done.
+var _order_queue: Array[Callable] = []
 var _poison_dps := 0.0
 var _poison_time := 0.0
 var is_charging := false
@@ -165,6 +167,27 @@ func _physics_process(delta: float) -> void:
 
 
 # --- Orders -------------------------------------------------------------------
+
+## Runs [param command] now if idle, otherwise after the orders already queued.
+func queue_order(command: Callable) -> void:
+	if is_idle() and _order_queue.is_empty():
+		command.call()
+	else:
+		_order_queue.append(command)
+
+
+func clear_order_queue() -> void:
+	_order_queue.clear()
+
+
+func queued_orders() -> int:
+	return _order_queue.size()
+
+
+## True when the creature has no order and isn't fighting.
+func is_idle() -> bool:
+	return order == Order.IDLE and attack_target == null
+
 
 ## [param group_speed] caps the walking speed so a group keeps pace with its
 ## slowest member.
@@ -234,6 +257,7 @@ func take_damage(amount: float, source: Node3D = null, ranged := false) -> void:
 	if _dead:
 		return
 	if is_valid_target(source) and Teams.are_enemies(source.team, team):
+		Alerts.report(team, global_position, "Your Henchmen are under attack!" if has_method("is_working") else "Your creatures are under attack!")
 		respond_to_attack(source)
 		for ally in _allies_within(ALLY_ALERT_RADIUS):
 			ally.respond_to_attack(source)
@@ -413,6 +437,10 @@ func set_selected(value: bool) -> void:
 # --- Behaviour ----------------------------------------------------------------
 
 func _update_orders() -> void:
+	while is_idle() and not _order_queue.is_empty():
+		var command: Callable = _order_queue.pop_front()
+		if command.is_valid():
+			command.call()
 	if attack_target != null and not _should_keep_target():
 		_lose_target()
 

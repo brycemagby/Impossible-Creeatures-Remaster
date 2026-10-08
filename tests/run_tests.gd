@@ -87,6 +87,11 @@ func _run() -> void:
 	await _test_two_vs_two()
 	await _test_setup_players()
 	await _test_population()
+	await _test_alerts()
+	await _test_selection_shortcuts()
+	await _test_queued_orders()
+	await _test_command_hotkeys()
+	await _test_rally_on_coal()
 	await _test_target_choice()
 	await _test_kiting()
 	await _test_hold_position()
@@ -1580,6 +1585,159 @@ func _test_setup_players() -> void:
 	await _process_frames(1)
 
 
+func _test_alerts() -> void:
+	print("under-attack alerts")
+	var main := await _load_map()
+	var hud := main.get_node("UI/HUD")
+	var rig: Node3D = main.get_node("RTSCamera")
+	var raised := []
+	var on_raised := func(team: int, text: String, _where: Vector3) -> void: raised.append([team, text])
+	Alerts.raised.connect(on_raised)
+	_check(not Alerts.has_alert(0), "no alerts at the start")
+	var runner := _first(0, "Runner")
+	var attacker := _first(1, "Brute")
+	runner.take_damage(1.0, attacker)
+	_check(raised.size() == 1 and raised[0][0] == 0 and "under attack" in raised[0][1], "a hit by an enemy raises an alert (%s)" % [raised])
+	_check(hud.message_label.text.contains("under attack"), "the HUD shows it")
+	runner.take_damage(1.0, attacker)
+	_first(0, "Skirmisher").take_damage(1.0, attacker)
+	_check(raised.size() == 1, "more hits in the same fight stay quiet")
+	_first(0, "Brute").take_damage(1.0, _first(0, "Runner"))
+	_check(raised.size() == 1, "friendly fire doesn't alert")
+	var lab := _building(0, "Lab")
+	var far_unit := _first(0, "Skirmisher")
+	far_unit.global_position = lab.global_position + Vector3(0, 0, -60)
+	far_unit.take_damage(1.0, attacker)
+	_check(raised.size() == 2, "a fight somewhere else alerts again")
+	rig.focus_on(Vector3(30, 0, -30))
+	_key(KEY_SPACE)
+	_check(Vector2(rig.position.x, rig.position.z).distance_to(Vector2(far_unit.global_position.x, far_unit.global_position.z)) < 1.0,
+			"Space jumps the camera to the latest alert")
+	Alerts.raised.disconnect(on_raised)
+	await _unload(main)
+
+
+func _test_selection_shortcuts() -> void:
+	print("selection shortcuts")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var rig: Node3D = main.get_node("RTSCamera")
+	var henchmen := _team_units(0).filter(func(u: Creature) -> bool: return u is Henchman)
+	henchmen[0].command_gather(_nearest_pile(henchmen[0].global_position))
+	_key(KEY_PERIOD)
+	var first: Creature = manager.selected[0] if manager.selected.size() == 1 else null
+	_check(first is Henchman and first != henchmen[0], "Period selects an idle Henchman, not a busy one")
+	_check(Vector2(rig.position.x, rig.position.z).distance_to(Vector2(first.global_position.x, first.global_position.z)) < 1.0, "and centres on it")
+	_key(KEY_PERIOD)
+	var second: Creature = manager.selected[0] if manager.selected.size() == 1 else null
+	_check(second is Henchman and second != first and second != henchmen[0], "pressing again cycles to the next one")
+
+	manager.clear_selection()
+	_key(KEY_HOME)
+	_check(manager.selected_building == _building(0, "Lab"), "Home selects the Lab")
+
+	manager.clear_selection()
+	var runners := _team_units(0).filter(func(u: Creature) -> bool: return u.stats.display_name == "Runner")
+	rig.focus_on(runners[0].global_position)
+	await _process_frames(2)
+	var camera: Camera3D = manager.camera
+	var at := camera.unproject_position(runners[0].global_position)
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.position = at
+	press.pressed = true
+	press.double_click = true
+	get_tree().root.push_input(press)
+	var release := press.duplicate()
+	release.pressed = false
+	release.double_click = false
+	get_tree().root.push_input(release)
+	_check(manager.selected.size() == runners.size() and manager.selected.all(func(u: Creature) -> bool: return u.stats.display_name == "Runner"),
+			"double click selects every Runner on screen (%d)" % manager.selected.size())
+	manager.select_same_type(_first(0, "Brute"), true)
+	_check(manager.selected.size() == runners.size() + 1, "Shift adds another type")
+	_check(manager.selected.all(func(u: Creature) -> bool: return u.team == 0), "never the enemy's")
+	await _unload(main)
+
+
+func _test_queued_orders() -> void:
+	print("queued orders")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var runner := _first(0, "Runner")
+	_isolate([runner, _first(1, "Brute")])
+	_place(_first(1, "Brute"), Vector3(40, 0, 40))
+	_place(runner, Vector3(-10, 0, 10))
+	manager.select_units([runner])
+	manager.issue_move(Vector3(-10, 0, 0))
+	manager.issue_move(Vector3(0, 0, 0), true)
+	manager.issue_move(Vector3(0, 0, 10), true)
+	_check(runner.queued_orders() == 2, "Shift queues orders behind the current one")
+	await _wait_until(func() -> bool: return runner.queued_orders() == 1, 10.0)
+	_check(runner.global_position.distance_to(Vector3(-10, 0, 0)) < 2.0, "the first waypoint is reached before the next starts")
+	await _wait_until(func() -> bool: return runner.queued_orders() == 0 and runner.is_idle(), 15.0)
+	_check(runner.global_position.distance_to(Vector3(0, 0, 10)) < 2.0, "then it works through the queue")
+
+	manager.issue_move(Vector3(10, 0, 10))
+	manager.issue_move(Vector3(20, 0, 10), true)
+	manager.issue_move(Vector3(-10, 0, 10))
+	_check(runner.queued_orders() == 0, "a plain order replaces the queue")
+	manager.issue_move(Vector3(-10, 0, 20), true)
+	manager.issue_stop()
+	_check(runner.queued_orders() == 0 and runner.is_idle(), "Stop clears the queue")
+
+	var enemy := _first(1, "Brute")
+	manager.issue_move(Vector3(-10, 0, 0))
+	manager.issue_attack(enemy, true)
+	manager.issue_move(Vector3(-20, 0, 0), true)
+	enemy.queue_free()
+	enemy.remove_from_group("units")
+	await _wait_until(func() -> bool: return runner.queued_orders() == 0 and runner.is_idle(), 15.0)
+	_check(runner.global_position.distance_to(Vector3(-20, 0, 0)) < 2.0, "a queued attack on a dead target is skipped")
+	await _unload(main)
+
+
+func _test_command_hotkeys() -> void:
+	print("command hotkeys")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var hud := main.get_node("UI/HUD")
+	var lab := _building(0, "Lab")
+	_add_houses(0, 4)
+	Economy.add(0, 2000, 2000)
+	manager.select_building(lab)
+	await _process_frames(2)
+	var buttons: Array = hud.command_grid.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
+	_check(buttons[0].text.ends_with("[Z]") and buttons[1].text.ends_with("[X]"), "buttons show their hotkeys")
+	_key(KEY_Z)
+	_check(lab.queue.size() == 1, "Z presses the first button")
+	_key(KEY_Z, false, true)
+	_check(lab.queue.size() == Building.MAX_QUEUE, "Shift + Z queues up to 5 more (%d)" % lab.queue.size())
+	_key(KEY_X)
+	_check(lab.queue.size() == Building.MAX_QUEUE - 1, "X is the second button (Cancel)")
+
+	manager.select_units([_first(0, "Henchman")])
+	await _process_frames(2)
+	_key(KEY_X)
+	_check(manager.build_placer.is_active() and manager.build_placer.data.display_name == "House", "Henchmen: X places a House")
+	manager.cancel_placement()
+	await _unload(main)
+
+
+func _test_rally_on_coal() -> void:
+	print("rally on coal")
+	var main := await _load_map()
+	var lab := _building(0, "Lab")
+	var pile := _nearest_pile(lab.global_position)
+	lab.set_rally_point(pile.global_position, pile)
+	lab.call("_spawn", lab.data.production[0])
+	var newest: Creature = _team_units(0).back()
+	_check(newest is Henchman and newest.order == Creature.Order.GATHER and newest.gather_target == pile, "new Henchmen gather at a coal rally point")
+	lab.set_rally_point(Vector3(0, 0, 10))
+	_check(lab.rally_pile == null, "a ground rally point drops the pile")
+	await _unload(main)
+
+
 func _test_population() -> void:
 	print("population")
 	var main := await _load_map()
@@ -1952,11 +2110,12 @@ func _drag(from: Vector2, to: Vector2) -> void:
 	get_tree().root.push_input(release)
 
 
-func _key(keycode: Key, ctrl := false) -> void:
+func _key(keycode: Key, ctrl := false, shift := false) -> void:
 	var event := InputEventKey.new()
 	event.keycode = keycode
 	event.physical_keycode = keycode
 	event.ctrl_pressed = ctrl
+	event.shift_pressed = shift
 	event.pressed = true
 	get_tree().root.push_input(event)
 
