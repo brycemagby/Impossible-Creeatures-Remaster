@@ -244,7 +244,7 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 text = "Left click / drag: select   Shift: add to selection
 Right click: move / attack / gather coal (Henchmen) / set rally point (building)
-F + click or Ctrl + right click: attack-move   H: stop   Esc: cancel / deselect
+F + click or Ctrl + right click: attack-move   P + click: patrol   G: hold   H: stop   Esc: cancel
 Ctrl+1-9: set control group   1-9: recall group   Minimap: click to look, right click to order
 WASD / arrows / screen edge / middle drag: pan   Q / E: rotate   Wheel: zoom"
 vertical_alignment = 2

@@ -10,10 +10,11 @@ Health, armor, melee and ranged (projectile) attacks, death, health bars, attack
 orders, stop, auto-targeting with a leash, allies helping when attacked, group-speed formations, and
 an enemy AI that defends and sends waves.
 
-Follow-ups for later milestones:
-- Smarter target choice (focus fire on weak targets, ranged units keeping their distance)
-- Hold-position and patrol orders
-- Damage types and abilities (these arrive with the combiner, M4)
+Follow-ups — all done:
+- Smarter target choice ✅ (armor-aware, finishes wounded targets, focus fire with nearby allies)
+- Ranged units keeping their distance ✅ (kite away from melee attackers, then keep shooting)
+- Hold-position (G) and patrol (P) orders ✅
+- Abilities ✅ (arrived with the combiner in M4: poison, quills, flight, charge, leap)
 
 ## M3 — Economy and base building ✅
 Coal and electricity, Henchmen that gather and build, Lab / Electrical Generator / Creature Chamber,
@@ -43,7 +44,6 @@ matches start with a budgeted army from each side's roster.
 Follow-ups:
 - More abilities from the original (swimming, sonic, electric, herding, stink...)
 - Water, so swimmers and the Water Chamber make sense; Aviary for flyers
-- Ranged units keeping their distance from melee
 
 ## M5 — Creature visuals
 - Modular, rigged animal parts that can be attached to each other

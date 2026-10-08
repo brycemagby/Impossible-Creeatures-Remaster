@@ -71,6 +71,10 @@ func _run() -> void:
 	await _test_canyon_map()
 	await _test_skirmish_setup()
 	await _test_target_choice()
+	await _test_kiting()
+	await _test_hold_position()
+	await _test_patrol()
+	await _test_focus_fire()
 	await _test_combiner_screen()
 	await _test_main_menu()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_ARMY_PATH))
@@ -203,6 +207,16 @@ func _test_ranged_attack() -> void:
 	_check(saw_projectile, "skirmisher fires projectiles")
 	_check(brute.health < brute.stats.max_health, "projectiles damage the target")
 	_check(skirmisher.surface_distance_to(brute) > 1.0 or brute.attack_target == skirmisher, "skirmisher attacks from range")
+
+	# A quill still in flight when its shooter's body is removed must still land.
+	var projectile: Node3D = load("res://scenes/fx/projectile.tscn").instantiate()
+	main.add_child(projectile)
+	var health := brute.health
+	projectile.launch(skirmisher.global_position + Vector3.UP, brute, 15.0, skirmisher, 20.0)
+	skirmisher.free()
+	var flying: WeakRef = weakref(projectile)
+	await _wait_until(func() -> bool: return flying.get_ref() == null, 2.0)
+	_check(flying.get_ref() == null and brute.health < health, "projectiles from a removed shooter still hit and disappear")
 	await _unload(main)
 
 
@@ -1062,6 +1076,135 @@ func _test_target_choice() -> void:
 	_place(other, Vector3(6, 0, -1))
 	other.take_damage(80.0)
 	_check(runner.find_best_enemy(20.0) == other, "units prefer finishing off wounded targets")
+	await _unload(main)
+
+
+func _test_kiting() -> void:
+	print("kiting")
+	var main := await _load_map()
+	var shooter := _first(0, "Skirmisher")
+	var biter := _first(1, "Runner")
+	var brute := _first(0, "Brute")
+	_isolate([shooter, biter, brute])
+	_place(shooter, Vector3(0, 0, 0))
+	_place(biter, Vector3(0, 0, -1.6))
+	_place(brute, Vector3(30, 0, 30))
+	var start := shooter.global_position
+	var kited := false
+	for i in 60:
+		await get_tree().physics_frame
+		kited = kited or shooter.is_kiting()
+	_check(kited, "a ranged creature backs off from a melee attacker")
+	_check(_flat(shooter.global_position - start) > 2.0, "it gains some distance (%.1f m)" % _flat(shooter.global_position - start))
+	var health := biter.health
+	await _wait_until(func() -> bool: return biter.health < health, 5.0)
+	_check(biter.health < health, "and keeps shooting between retreats")
+
+	_place(brute, biter.global_position + Vector3(1.5, 0, 0))
+	var brute_kited := false
+	for i in 90:
+		await get_tree().physics_frame
+		brute_kited = brute_kited or brute.is_kiting()
+	_check(not brute_kited, "melee creatures never kite")
+
+	_place(shooter, Vector3(-20, 0, 0))
+	_place(biter, Vector3(-20, 0, -1.6))
+	shooter.command_hold()
+	var held_kite := false
+	for i in 60:
+		await get_tree().physics_frame
+		held_kite = held_kite or shooter.is_kiting()
+	_check(not held_kite and _flat(shooter.global_position - Vector3(-20, 0, 0)) < 0.5, "holding creatures stand their ground")
+	await _unload(main)
+
+
+func _test_hold_position() -> void:
+	print("hold position")
+	var main := await _load_map()
+	var guard := _first(0, "Runner")
+	var shooter := _first(1, "Skirmisher")
+	var brute := _first(1, "Brute")
+	_isolate([guard, shooter, brute])
+	var post := Vector3(0, 0, 0)
+	_place(guard, post)
+	_place(shooter, Vector3(0, 0, -6))
+	_place(brute, Vector3(30, 0, -30))
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	manager.select_units([guard])
+	_key(KEY_G)
+	_check(guard.order == Creature.Order.HOLD, "G holds the selected units")
+	shooter.command_hold()
+	shooter.command_attack(guard)
+	await _physics_frames(120)
+	_check(guard.health < guard.stats.max_health, "the holding creature is being shot at")
+	_check(_flat(guard.global_position - post) < 0.3 and guard.order == Creature.Order.HOLD, "it doesn't chase an attacker out of reach")
+	# Touching distance: well within a Runner's 0.6 m melee reach.
+	_place(brute, Vector3(0, 0, -1.2))
+	brute.command_hold()
+	var health := brute.health
+	await _wait_until(func() -> bool: return brute.health < health, 3.0)
+	_check(brute.health < health and guard.order == Creature.Order.HOLD, "it attacks enemies that come within reach")
+	await _unload(main)
+
+
+func _test_patrol() -> void:
+	print("patrol")
+	var main := await _load_map()
+	var walker := _first(0, "Runner")
+	var victim := _first(1, "Runner")
+	_isolate([walker, victim])
+	var a := Vector3(0, 0, 0)
+	var b := Vector3(12, 0, 0)
+	_place(walker, a)
+	_place(victim, Vector3(-30, 0, 30))
+	walker.command_patrol(b)
+	_check(walker.order == Creature.Order.PATROL and walker.is_moving, "patrolling creatures set off")
+	await _wait_until(func() -> bool: return _flat(walker.global_position - b) < 1.0, 4.0)
+	await _physics_frames(30)
+	_check(walker.order == Creature.Order.PATROL and walker.agent.target_position.distance_to(a) < 1.0, "at the end of the route they turn back")
+	await _wait_until(func() -> bool: return _flat(walker.global_position - a) < 1.0, 4.0)
+	await _physics_frames(30)
+	_check(walker.agent.target_position.distance_to(b) < 1.0, "and keep going back and forth")
+
+	victim.take_damage(75.0)
+	_place(victim, walker.global_position + Vector3(4, 0, 2))
+	await _wait_until(func() -> bool: return not victim.is_alive(), 5.0)
+	_check(not victim.is_alive(), "patrols fight enemies they meet")
+	await _physics_frames(5)
+	_check(walker.order == Creature.Order.PATROL and walker.is_moving, "then carry on patrolling")
+
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var rig: RTSCamera = main.get_node("RTSCamera")
+	manager.select_units([walker])
+	walker.command_stop()
+	_key(KEY_P)
+	_check(manager.targeting_order == SelectionManager.PATROL, "P starts picking a patrol route")
+	rig.focus_on(Vector3(5, 0, 5))
+	await get_tree().process_frame
+	_click(get_tree().root.get_visible_rect().size / 2.0, MOUSE_BUTTON_LEFT)
+	_check(walker.order == Creature.Order.PATROL and manager.targeting_order == &"", "clicking sets the route")
+	_key(KEY_P)
+	_key(KEY_ESCAPE)
+	_check(manager.targeting_order == &"" and not manager.selected.is_empty(), "Esc cancels without deselecting")
+	await _unload(main)
+
+
+func _test_focus_fire() -> void:
+	print("focus fire")
+	var main := await _load_map()
+	var leader := _first(0, "Runner")
+	var follower: Creature = _team_units(0).filter(func(u: Creature) -> bool: return u.stats.display_name == "Runner")[1]
+	var first := _first(1, "Runner")
+	var second: Creature = _team_units(1).filter(func(u: Creature) -> bool: return u.stats.display_name == "Runner")[1]
+	_isolate([leader, follower, first, second])
+	_place(leader, Vector3(-2, 0, 0))
+	_place(follower, Vector3(0, 0, 0))
+	_place(first, Vector3(-4, 0, -5))
+	_place(second, Vector3(4, 0, -5))
+	leader.command_attack(first)
+	_check(follower.find_best_enemy(20.0) == first, "units join the target nearby allies are attacking")
+	_place(second, Vector3(1, 0, -1.2))
+	_check(follower.find_best_enemy(20.0) == second, "but a much closer enemy still comes first")
 	await _unload(main)
 
 

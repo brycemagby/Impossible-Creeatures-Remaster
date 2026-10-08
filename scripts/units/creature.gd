@@ -9,6 +9,8 @@ extends CharacterBody3D
 ## - ATTACK: chases and attacks one specific target (creature or building)
 ##   until it dies.
 ## - ATTACK_MOVE: walks to a point, fighting any enemies met on the way.
+## - HOLD: stays put and only attacks what comes within reach.
+## - PATROL: walks back and forth between two points, fighting on the way.
 ## - GATHER / BUILD: Henchman-only work orders (see Henchman).
 ##
 ## Anything attackable (creatures and buildings) is in the "targets" group and
@@ -26,7 +28,7 @@ extends CharacterBody3D
 signal health_changed(current: float, maximum: float)
 signal died(creature: Creature)
 
-enum Order { IDLE, MOVE, ATTACK, ATTACK_MOVE, GATHER, BUILD }
+enum Order { IDLE, MOVE, ATTACK, ATTACK_MOVE, GATHER, BUILD, HOLD, PATROL }
 
 const TEAM_COLORS: Array[Color] = [
 	Color(0.25, 0.55, 1.0),
@@ -51,6 +53,17 @@ const CLIMB_RATE := 4.0
 ## Target scoring weights (see _target_score).
 const SCORE_DAMAGE_WEIGHT := 4.0
 const SCORE_WOUNDED_WEIGHT := 3.0
+## Bonus per nearby ally already attacking a target, up to FOCUS_MAX_ALLIES.
+const SCORE_FOCUS_WEIGHT := 1.5
+const FOCUS_RADIUS := 12.0
+const FOCUS_MAX_ALLIES := 3
+## Kiting: ranged creatures step back when a melee attacker gets this close...
+const KITE_TRIGGER_DISTANCE := 2.0
+## ...by this far, at most once every KITE_COOLDOWN seconds.
+const KITE_DISTANCE := 5.0
+const KITE_COOLDOWN := 3.0
+## Kite destinations stay this far inside the map edge.
+const MAP_HALF_SIZE := 48.0
 ## Charge: starts when the target is at least this far away.
 const CHARGE_MIN_DISTANCE := 4.0
 const CHARGE_SPEED_FACTOR := 1.8
@@ -74,6 +87,10 @@ var is_selected := false
 var is_moving := false
 
 var _order_point := Vector3.ZERO
+## Patrol: the end of the route the creature is walking away from.
+var _patrol_from := Vector3.ZERO
+var _kiting := false
+var _kite_cooldown := 0.0
 var _guard_position := Vector3.ZERO
 var _auto_target := false
 ## Caps travel speed so groups ordered together arrive together.
@@ -129,6 +146,7 @@ func _physics_process(delta: float) -> void:
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	_charge_cooldown = maxf(_charge_cooldown - delta, 0.0)
 	_leap_cooldown = maxf(_leap_cooldown - delta, 0.0)
+	_kite_cooldown = maxf(_kite_cooldown - delta, 0.0)
 	_scan_timer -= delta
 	if _poison_time > 0.0:
 		_poison_time -= delta
@@ -185,6 +203,25 @@ func command_stop() -> void:
 	_guard_position = global_position
 
 
+## Stay here and only attack enemies within reach (no chasing, no kiting).
+func command_hold() -> void:
+	_clear_target()
+	order = Order.HOLD
+	_group_speed = INF
+	_halt()
+	_guard_position = global_position
+
+
+## Walk back and forth between here and [param point], fighting on the way.
+func command_patrol(point: Vector3, group_speed := INF) -> void:
+	_clear_target()
+	order = Order.PATROL
+	_patrol_from = global_position
+	_order_point = point
+	_group_speed = group_speed
+	_navigate(point)
+
+
 # --- Combat -------------------------------------------------------------------
 
 ## Applies a hit, reduced by armor. [param source] is retaliated against.
@@ -231,8 +268,13 @@ func deal_hit(target: Node3D) -> void:
 
 ## Engages [param attacker] unless busy with an explicit order.
 func respond_to_attack(attacker: Creature) -> void:
-	if attack_target == null and (order == Order.IDLE or order == Order.ATTACK_MOVE) and can_attack(attacker):
+	if attack_target == null and _fights_automatically() and can_attack(attacker):
 		_engage(attacker, true)
+
+
+## Orders under which the creature picks its own targets.
+func _fights_automatically() -> bool:
+	return order in [Order.IDLE, Order.ATTACK_MOVE, Order.HOLD, Order.PATROL]
 
 
 ## Ground melee creatures can't reach flyers.
@@ -246,7 +288,9 @@ func is_alive() -> bool:
 	return not _dead
 
 
-static func is_valid_target(target: Node3D) -> bool:
+## Untyped on purpose: callers pass references that may already be freed
+## (a typed parameter would reject those with an error instead of false).
+static func is_valid_target(target) -> bool:
 	return is_instance_valid(target) and target.is_alive()
 
 
@@ -291,12 +335,19 @@ func surface_distance_to(target: Node3D) -> float:
 func find_best_enemy(max_distance: float) -> Node3D:
 	var best: Node3D = null
 	var best_score := INF
+	var candidates: Array[Creature] = []
+	# How many nearby allies are already on each target, for focus fire.
+	var focus := {}
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if unit.team == team or not unit.is_alive() or not can_attack(unit):
+		if unit.team == team:
+			if unit != self and unit.attack_target is Creature and _flat_distance(unit.global_position) <= FOCUS_RADIUS:
+				focus[unit.attack_target] = focus.get(unit.attack_target, 0) + 1
 			continue
-		if unit.edge_distance_from(global_position) > max_distance:
+		if not unit.is_alive() or not can_attack(unit) or unit.edge_distance_from(global_position) > max_distance:
 			continue
-		var score := _target_score(unit)
+		candidates.append(unit)
+	for unit in candidates:
+		var score := _target_score(unit, focus.get(unit, 0))
 		if score < best_score:
 			best_score = score
 			best = unit
@@ -314,12 +365,14 @@ func find_best_enemy(max_distance: float) -> Node3D:
 
 
 ## Lower is better: close targets, ones our attack gets through the armor of,
-## and wounded ones (to finish them off).
-func _target_score(target: Creature) -> float:
+## wounded ones (to finish them off), and ones nearby allies are already
+## attacking (focus fire, so groups kill one enemy at a time).
+func _target_score(target: Creature, allies_on_target := 0) -> float:
 	var distance := target.edge_distance_from(global_position)
 	var effectiveness := maxf(stats.attack_damage - target.stats.armor, 1.0) / maxf(stats.attack_damage, 1.0)
 	var wounded := 1.0 - target.health / target.stats.max_health
-	return distance - effectiveness * SCORE_DAMAGE_WEIGHT - wounded * SCORE_WOUNDED_WEIGHT
+	var focus := mini(allies_on_target, FOCUS_MAX_ALLIES) * SCORE_FOCUS_WEIGHT
+	return distance - effectiveness * SCORE_DAMAGE_WEIGHT - wounded * SCORE_WOUNDED_WEIGHT - focus
 
 
 func set_selected(value: bool) -> void:
@@ -333,13 +386,15 @@ func _update_orders() -> void:
 	if attack_target != null and not _should_keep_target():
 		_lose_target()
 
-	var scanning := (order == Order.IDLE or order == Order.ATTACK_MOVE) and stats.sight_range > 0.0
+	var scanning := _fights_automatically() and stats.sight_range > 0.0
 	# Re-scan when idle, or when auto-attacking a building in case a creature
 	# shows up that is more urgent.
 	var retarget := attack_target == null or (_auto_target and attack_target is Building)
 	if scanning and retarget and _scan_timer <= 0.0:
 		_scan_timer = SCAN_INTERVAL
-		var enemy := find_best_enemy(stats.sight_range)
+		# Holding creatures only look as far as they can hit.
+		var scan_range := stats.attack_range + radius() if order == Order.HOLD else stats.sight_range
+		var enemy := find_best_enemy(scan_range)
 		if enemy != null and (attack_target == null or enemy is Creature):
 			_engage(enemy, true)
 
@@ -352,6 +407,8 @@ func _should_keep_target() -> bool:
 		return false
 	if not _auto_target:
 		return true
+	if order == Order.HOLD:
+		return surface_distance_to(attack_target) <= stats.attack_range + 0.3
 	if order == Order.IDLE:
 		return _flat_distance(_guard_position) <= stats.leash_range
 	# Attack-moving units have no post to leash to, so they give up on
@@ -367,8 +424,10 @@ func _lose_target() -> void:
 			order = Order.IDLE
 			_guard_position = global_position
 			_halt()
-		Order.ATTACK_MOVE:
+		Order.ATTACK_MOVE, Order.PATROL:
 			_navigate(_order_point)
+		Order.HOLD:
+			_halt()
 		Order.IDLE:
 			if target_alive:
 				# Chased too far: walk back to the guard post, ignoring enemies.
@@ -388,15 +447,25 @@ func _clear_target() -> void:
 	attack_target = null
 	_auto_target = false
 	is_charging = false
+	_kiting = false
 
 
 func _pursue_and_attack(target: Node3D) -> void:
+	if _kiting:
+		if is_moving:
+			return
+		_kiting = false
 	var gap := surface_distance_to(target)
+	if _should_kite(target, gap):
+		_start_kite(target)
+		return
 	if gap <= stats.attack_range:
 		_halt()
 		if _cooldown <= 0.0:
 			_cooldown = stats.attack_cooldown
 			_perform_attack(target)
+		return
+	if order == Order.HOLD:
 		return
 	if stats.can_leap and _leap_cooldown <= 0.0 and gap >= LEAP_MIN_DISTANCE and gap <= LEAP_MAX_DISTANCE:
 		_start_leap(target, gap)
@@ -405,6 +474,32 @@ func _pursue_and_attack(target: Node3D) -> void:
 		is_charging = true
 	if not is_moving or agent.target_position.distance_to(target.global_position) > REPATH_DISTANCE:
 		_navigate(target.global_position)
+
+
+## Ranged creatures back off from a melee creature that's coming for them.
+func _should_kite(target: Node3D, gap: float) -> bool:
+	if not stats.is_ranged() or order == Order.HOLD or _kite_cooldown > 0.0:
+		return false
+	if not target is Creature or target.stats.is_ranged() or not target.can_attack(self):
+		return false
+	return target.attack_target == self and gap < KITE_TRIGGER_DISTANCE
+
+
+func _start_kite(target: Node3D) -> void:
+	var away := global_position - target.global_position
+	away.y = 0.0
+	if away.length_squared() < 0.0001:
+		away = Vector3.BACK
+	var point := global_position + away.normalized() * KITE_DISTANCE
+	point.x = clampf(point.x, -MAP_HALF_SIZE, MAP_HALF_SIZE)
+	point.z = clampf(point.z, -MAP_HALF_SIZE, MAP_HALF_SIZE)
+	_kiting = true
+	_kite_cooldown = KITE_COOLDOWN
+	_navigate(point)
+
+
+func is_kiting() -> bool:
+	return _kiting
 
 
 ## Jumps straight at [param target], landing within attack reach.
@@ -529,6 +624,12 @@ func _flying_velocity() -> Vector3:
 
 
 func _on_arrived() -> void:
+	if attack_target == null and order == Order.PATROL:
+		var next := _patrol_from
+		_patrol_from = _order_point
+		_order_point = next
+		_navigate(next)
+		return
 	if attack_target == null and (order == Order.MOVE or order == Order.ATTACK_MOVE):
 		order = Order.IDLE
 		_group_speed = INF

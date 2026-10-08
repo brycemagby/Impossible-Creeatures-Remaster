@@ -14,6 +14,8 @@ const KEY_BINDINGS := {
 	"deselect": [KEY_ESCAPE],
 	"attack_move": [KEY_F],
 	"stop": [KEY_H],
+	"hold": [KEY_G],
+	"patrol": [KEY_P],
 }
 
 

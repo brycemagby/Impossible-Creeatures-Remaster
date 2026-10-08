@@ -53,6 +53,8 @@ func _describe_selection() -> String:
 				% selection_manager.build_placer.data.display_name.to_upper())
 	elif selection_manager.attack_move_armed:
 		lines.append("ATTACK-MOVE: left click a target  (right click / Esc to cancel)")
+	elif selection_manager.targeting_order == SelectionManager.PATROL:
+		lines.append("PATROL: left click the other end of the route  (right click / Esc to cancel)")
 
 	var building := selection_manager.selected_building
 	var alive := selection_manager.selected.filter(func(u: Creature) -> bool: return Creature.is_valid_target(u))
@@ -71,6 +73,10 @@ func _describe_selection() -> String:
 		lines.append("  Damage  %d every %.1fs (%s)" % [s.attack_damage, s.attack_cooldown,
 				"ranged %dm" % s.attack_range if s.is_ranged() else "melee"])
 		lines.append("  Armor   %d    Speed  %.1f" % [s.armor, s.move_speed])
+		if unit.order == Creature.Order.HOLD:
+			lines.append("  Holding position")
+		elif unit.order == Creature.Order.PATROL:
+			lines.append("  Patrolling")
 		var traits := PackedStringArray()
 		if s.design != null:
 			traits.append("Level %d" % s.level)

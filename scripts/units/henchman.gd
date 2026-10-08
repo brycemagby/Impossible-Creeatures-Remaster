@@ -60,6 +60,16 @@ func command_stop() -> void:
 	super()
 
 
+func command_hold() -> void:
+	_stop_work()
+	super()
+
+
+func command_patrol(point: Vector3, group_speed := INF) -> void:
+	_stop_work()
+	super(point, group_speed)
+
+
 func is_working() -> bool:
 	return order == Order.GATHER or order == Order.BUILD
 

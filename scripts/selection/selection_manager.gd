@@ -7,9 +7,11 @@ extends Node
 ## - Right click with units: move / attack enemy / gather coal / help build
 ## - Right click with a building: set its rally point
 ## - F then left click, or Ctrl + right click: attack-move
+## - P then left click: patrol between here and there
+## - G: hold position
 ## - H: stop
 ## - Ctrl+1..9: assign control group, 1..9: recall it
-## - Escape: cancel placement or attack-move targeting, otherwise deselect
+## - Escape: cancel placement or order targeting, otherwise deselect
 
 signal selection_changed()
 ## A short message for the player, e.g. "Not enough coal".
@@ -25,6 +27,10 @@ const RESOURCE_MASK := 8
 const MOVE_COLOR := Color(0.35, 1.0, 0.4)
 const ATTACK_COLOR := Color(1.0, 0.3, 0.25)
 const WORK_COLOR := Color(1.0, 0.85, 0.3)
+const PATROL_COLOR := Color(0.4, 0.7, 1.0)
+## Orders that wait for a left click to pick their destination.
+const ATTACK_MOVE := &"attack_move"
+const PATROL := &"patrol"
 const MoveMarkerScene := preload("res://scenes/fx/move_marker.tscn")
 
 @export var camera: Camera3D
@@ -37,8 +43,12 @@ const MoveMarkerScene := preload("res://scenes/fx/move_marker.tscn")
 
 var selected: Array[Creature] = []
 var selected_building: Building = null
+## The order waiting for a left click (ATTACK_MOVE or PATROL), or &"".
+var targeting_order := &""
 ## True while waiting for the click that places an attack-move order.
-var attack_move_armed := false
+var attack_move_armed: bool:
+	get:
+		return targeting_order == ATTACK_MOVE
 var _control_groups := {}
 var _press_position := Vector2.ZERO
 var _pressing := false
@@ -158,13 +168,13 @@ func ground_at_screen(screen_position: Vector2) -> Variant:
 
 ## Orders the selected units to move to [param target] in formation.
 func issue_move(target: Vector3) -> void:
-	_issue_formation_order(_valid_selected(), target, false)
+	_issue_formation_order(_valid_selected(), target, &"command_move", MOVE_COLOR)
 
 
 ## Orders the selected units to move to [param target] in formation, fighting
 ## any enemies they meet on the way.
 func issue_attack_move(target: Vector3) -> void:
-	_issue_formation_order(_valid_selected(), target, true)
+	_issue_formation_order(_valid_selected(), target, &"command_attack_move", ATTACK_COLOR)
 
 
 ## Orders every selected unit to attack [param target] (creature or building).
@@ -185,7 +195,7 @@ func issue_gather(pile: CoalPile) -> void:
 	for henchman in selected_henchmen():
 		henchman.command_gather(pile)
 		others.erase(henchman)
-	_issue_formation_order(others, pile.global_position, false)
+	_issue_formation_order(others, pile.global_position, &"command_move", MOVE_COLOR)
 	_spawn_marker(pile.global_position, WORK_COLOR)
 
 
@@ -195,13 +205,23 @@ func issue_build(site: Building) -> void:
 	for henchman in selected_henchmen():
 		henchman.command_build(site)
 		others.erase(henchman)
-	_issue_formation_order(others, site.global_position, false)
+	_issue_formation_order(others, site.global_position, &"command_move", MOVE_COLOR)
 	_spawn_marker(site.global_position, WORK_COLOR)
 
 
 func issue_stop() -> void:
 	for unit in _valid_selected():
 		unit.command_stop()
+
+
+func issue_hold() -> void:
+	for unit in _valid_selected():
+		unit.command_hold()
+
+
+## Orders the selected units to patrol between where they are and [param target].
+func issue_patrol(target: Vector3) -> void:
+	_issue_formation_order(_valid_selected(), target, &"command_patrol", PATROL_COLOR)
 
 
 ## Handles a right click (or attack-move click) at [param screen_position].
@@ -250,7 +270,13 @@ func issue_order_at_world(point: Vector3, attack_move := false) -> void:
 
 
 func set_attack_move_armed(armed: bool) -> void:
-	attack_move_armed = armed and not _valid_selected().is_empty()
+	set_targeting(ATTACK_MOVE if armed else &"")
+
+
+## Waits for a left click to place [param order_name] (ATTACK_MOVE, PATROL),
+## or stops waiting with &"".
+func set_targeting(order_name: StringName) -> void:
+	targeting_order = order_name if not _valid_selected().is_empty() else &""
 	_update_cursor()
 
 
@@ -264,7 +290,7 @@ func begin_placement(data: BuildingData) -> void:
 	if reason != "":
 		message.emit(reason)
 		return
-	attack_move_armed = false
+	targeting_order = &""
 	build_placer.start(data, player_team)
 	_update_cursor()
 
@@ -350,9 +376,9 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 			if event.pressed and build_placer.is_active():
 				place_building_at_screen(event.position, event.shift_pressed)
 				get_viewport().set_input_as_handled()
-			elif event.pressed and attack_move_armed:
-				issue_order_at_screen(event.position, true)
-				set_attack_move_armed(event.shift_pressed)
+			elif event.pressed and targeting_order != &"":
+				_place_targeted_order(event.position)
+				set_targeting(targeting_order if event.shift_pressed else &"")
 				get_viewport().set_input_as_handled()
 			elif event.pressed:
 				_pressing = true
@@ -371,8 +397,8 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 				return
 			if build_placer.is_active():
 				cancel_placement()
-			elif attack_move_armed:
-				set_attack_move_armed(false)
+			elif targeting_order != &"":
+				set_targeting(&"")
 			else:
 				issue_order_at_screen(event.position, event.ctrl_pressed)
 
@@ -392,12 +418,16 @@ func _handle_key(event: InputEventKey) -> void:
 	if event.is_action_pressed("deselect"):
 		if build_placer.is_active():
 			cancel_placement()
-		elif attack_move_armed:
-			set_attack_move_armed(false)
+		elif targeting_order != &"":
+			set_targeting(&"")
 		else:
 			clear_selection()
 	elif event.is_action_pressed("attack_move"):
-		set_attack_move_armed(true)
+		set_targeting(ATTACK_MOVE)
+	elif event.is_action_pressed("patrol"):
+		set_targeting(PATROL)
+	elif event.is_action_pressed("hold"):
+		issue_hold()
 	elif event.is_action_pressed("stop"):
 		issue_stop()
 	elif event.keycode >= KEY_1 and event.keycode <= KEY_9:
@@ -413,12 +443,20 @@ func _handle_key(event: InputEventKey) -> void:
 
 # --- Helpers ------------------------------------------------------------------
 
-func _issue_formation_order(units: Array, target: Vector3, attack_move: bool) -> void:
+func _issue_formation_order(units: Array, target: Vector3, command: StringName, color: Color) -> void:
 	if units.is_empty():
 		return
-	var command := &"command_attack_move" if attack_move else &"command_move"
 	assign_formation(units, target, formation_spacing, command)
-	_spawn_marker(target, ATTACK_COLOR if attack_move else MOVE_COLOR)
+	_spawn_marker(target, color)
+
+
+func _place_targeted_order(screen_position: Vector2) -> void:
+	if targeting_order == ATTACK_MOVE:
+		issue_order_at_screen(screen_position, true)
+	elif targeting_order == PATROL:
+		var point: Variant = ground_at_screen(screen_position)
+		if point != null:
+			issue_patrol(point)
 
 
 func _set_rally_at_screen(screen_position: Vector2) -> void:
@@ -451,7 +489,7 @@ func _set_selection(units: Array, building: Building) -> void:
 		if not building.died.is_connected(_on_building_died):
 			building.died.connect(_on_building_died)
 	if selected.is_empty():
-		attack_move_armed = false
+		targeting_order = &""
 	if selected_henchmen().is_empty() and build_placer.is_active():
 		build_placer.cancel()
 	_update_cursor()
@@ -494,7 +532,7 @@ func _raycast(screen_position: Vector2, mask: int) -> Dictionary:
 
 
 func _update_cursor() -> void:
-	var targeting := attack_move_armed or build_placer.is_active()
+	var targeting := targeting_order != &"" or build_placer.is_active()
 	Input.set_default_cursor_shape(Input.CURSOR_CROSS if targeting else Input.CURSOR_ARROW)
 
 

@@ -39,8 +39,10 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - Unit selection: click, shift-click, drag box, control groups
 - Move orders: navmesh pathfinding around obstacles, local avoidance between units, grid formations that move at the slowest unit's speed
 - Combat: health, armor, melee hits, homing projectiles for ranged units, poison, death animation
-- Target choice: units prefer targets their attacks get through, and finish off wounded ones
-- Orders: move, attack, attack-move, stop
+- Target choice: units prefer targets their attacks get through, finish off wounded ones, and focus
+  on what nearby allies are already attacking
+- Ranged creatures back off from melee attackers that come for them, then keep shooting
+- Orders: move, attack, attack-move, patrol, hold position, stop
 - Unit behavior: idle units engage enemies in sight, chase up to a leash range and then return to their post; units fight back when hit and call nearby allies to help
 - Economy: coal (gathered from coal piles by Henchmen) and electricity (made by Electrical Generators)
 - Base building: Lab, Electrical Generator and Creature Chamber, placed with a ghost preview and
@@ -105,6 +107,8 @@ Animals are data files in `resources/animals/`; add a `.tres` there and it shows
 | Minimap: right click (Ctrl: attack-move) | Order the selection there (or set a building's rally point) |
 | Left click while placing | Place the building (Shift: keep placing) |
 | F then left click, or Ctrl + right click | Attack-move (fight anything met on the way) |
+| P then left click | Patrol between here and there (Shift: keep picking) |
+| G | Hold position: stay put, only attack what's in reach |
 | H | Stop |
 | Esc | Cancel placement or attack-move targeting, otherwise deselect |
 | Ctrl+1–9 / 1–9 | Assign / recall control group |
