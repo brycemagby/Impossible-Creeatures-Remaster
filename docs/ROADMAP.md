@@ -49,8 +49,11 @@ Balance pass ✅: strength rating rebuilt around effective health × damage (arm
 size), level thresholds spread evenly, a walking-speed floor, armor capped at 60% of a hit, melee
 flyers hittable while swooping; checked with equal-coal battles between designs.
 
+New abilities ✅: sonic screech (Bat head), pack hunter (Wolf head), frenzy (Gorilla torso) and
+trample (Elephant torso), each priced into the strength rating and checked in equal-coal battles.
+
 Follow-ups:
-- More abilities from the original (swimming, sonic, electric, herding, stink...)
+- More abilities from the original (swimming, electric, herding, stink, camouflage...)
 - Water, so swimmers and the Water Chamber make sense; Aviary for flyers
 
 ## M5 — Creature visuals

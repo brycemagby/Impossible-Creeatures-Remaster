@@ -117,6 +117,14 @@ func _describe_selection() -> String:
 			traits.append("Charge")
 		if s.can_leap:
 			traits.append("Leap")
+		if s.has_sonic:
+			traits.append("Sonic")
+		if s.pack_hunter:
+			traits.append("Pack x%d" % unit.packmates() if unit.packmates() > 0 else "Pack")
+		if s.has_frenzy:
+			traits.append("FRENZIED" if unit.is_frenzied() else "Frenzy")
+		if s.has_trample:
+			traits.append("Trample")
 		if unit.is_poisoned():
 			traits.append("POISONED")
 		if not traits.is_empty():
@@ -255,7 +263,9 @@ func _recipe_tooltip(recipe: UnitRecipe) -> String:
 	return "%s (level %d)\nHealth %d  Armor %d / %d ranged  Speed %.1f\nDamage %.0f%s%s%s" % [
 		s.display_name, s.level, s.max_health, s.armor, s.ranged_armor, s.move_speed, s.attack_damage,
 		"  ranged" if s.is_ranged() else "", "  poison" if s.poison_dps > 0.0 else "",
-		"  flying" if s.can_fly else ""] + ("  charge" if s.can_charge else "") + ("  leap" if s.can_leap else "")
+		"  flying" if s.can_fly else ""] + ("  charge" if s.can_charge else "") + ("  leap" if s.can_leap else "") \
+		+ ("  sonic" if s.has_sonic else "") + ("  pack" if s.pack_hunter else "") + ("  frenzy" if s.has_frenzy else "") \
+		+ ("  trample" if s.has_trample else "")
 
 
 func _on_upgrade_pressed(building: Building, upgrade: UpgradeData) -> void:

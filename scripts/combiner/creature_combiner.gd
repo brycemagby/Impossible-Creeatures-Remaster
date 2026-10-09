@@ -2,8 +2,9 @@ class_name CreatureCombiner
 ## Rules that turn a CreatureDesign into CreatureStats and a production cost.
 ##
 ## - Torso: health, most of the melee armor and all the ranged armor;
-##   dominates overall size.
-## - Head: bite damage, some armor, maybe poison or a charge (horn).
+##   dominates overall size; maybe frenzy (gorilla) or trample (elephant).
+## - Head: bite damage, some armor, maybe poison, a charge (horn), a sonic
+##   screech (bat) or pack hunting (wolf).
 ## - Front legs: claw damage and half the walking speed.
 ## - Back legs: the other half of the walking speed, maybe a leap.
 ## - Tail: extra damage, poison (stinger) or a ranged attack (quills).
@@ -42,6 +43,8 @@ const REFERENCE_ARMOR := 2.0
 ## Share of incoming damage that is melee (the rest is ranged).
 const MELEE_SHARE := 0.6
 const COAL_PER_POWER := 3.0
+## Echolocation: bat heads see further.
+const SONIC_SIGHT_BONUS := 4.0
 
 
 static func build_stats(design: CreatureDesign) -> CreatureStats:
@@ -89,6 +92,12 @@ static func build_stats(design: CreatureDesign) -> CreatureStats:
 		stats.can_charge = true
 	if back.back_leg_ability == AnimalData.Ability.LEAP and not stats.is_ranged():
 		stats.can_leap = true
+	if head.head_ability == AnimalData.Ability.SONIC:
+		stats.has_sonic = true
+		stats.sight_range += SONIC_SIGHT_BONUS
+	stats.pack_hunter = head.head_ability == AnimalData.Ability.PACK
+	stats.has_frenzy = torso.torso_ability == AnimalData.Ability.FRENZY
+	stats.has_trample = torso.torso_ability == AnimalData.Ability.TRAMPLE and not stats.is_ranged()
 
 	if wings != null and size <= MAX_FLYING_SIZE:
 		stats.can_fly = true
@@ -122,6 +131,14 @@ static func power_rating(stats: CreatureStats) -> float:
 		power *= 1.1
 	if stats.can_leap:
 		power *= 1.1
+	if stats.has_sonic:
+		power *= 1.15
+	if stats.pack_hunter:
+		power *= 1.2
+	if stats.has_frenzy:
+		power *= 1.03
+	if stats.has_trample:
+		power *= 1.05
 	return power
 
 

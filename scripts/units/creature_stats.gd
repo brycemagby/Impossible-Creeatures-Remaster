@@ -17,7 +17,8 @@ extends Resource
 @export var design: CreatureDesign
 
 @export_group("Combat")
-## Melee armor: flat reduction on every melee hit (minimum 1 damage gets through).
+## Melee armor: flat reduction on every melee hit (it never blocks more than
+## Creature.MAX_ARMOR_BLOCK of a hit).
 @export var armor := 0.0
 ## Ranged armor: flat reduction on quills, projectiles and tower beams.
 @export var ranged_armor := 0.0
@@ -44,6 +45,14 @@ extends Resource
 @export var can_charge := false
 ## Jumps the last few metres to a target.
 @export var can_leap := false
+## Every few seconds, a screech hurts every enemy close by (ignores armor).
+@export var has_sonic := false
+## Hits harder for each packmate (another pack hunter) nearby.
+@export var pack_hunter := false
+## Attacks faster once badly wounded.
+@export var has_frenzy := false
+## Melee hits also hurt enemies next to the target.
+@export var has_trample := false
 
 
 func is_ranged() -> bool:

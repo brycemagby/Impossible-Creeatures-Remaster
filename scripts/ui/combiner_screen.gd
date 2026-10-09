@@ -156,8 +156,18 @@ func refresh() -> void:
 		abilities.append("Charge")
 	if stats.can_leap:
 		abilities.append("Leap")
+	if stats.has_sonic:
+		abilities.append("Sonic screech (%d to all within %dm, sees further)" % [Creature.SONIC_DAMAGE, Creature.SONIC_RADIUS])
+	if stats.pack_hunter:
+		abilities.append("Pack hunter (+%d%% per packmate)" % roundi(Creature.PACK_BONUS * 100.0))
+	if stats.has_frenzy:
+		abilities.append("Frenzy (faster attacks below half health)")
+	if stats.has_trample:
+		abilities.append("Trample (hits splash nearby enemies)")
 	lines.append("")
-	lines.append("Abilities: " + (", ".join(abilities) if not abilities.is_empty() else "none"))
+	lines.append("Abilities:" + (" none" if abilities.is_empty() else ""))
+	for ability in abilities:
+		lines.append("  - " + ability)
 	if CreatureCombiner.too_heavy_to_fly(design):
 		lines.append("Too heavy to fly (size over %.1f)" % CreatureCombiner.MAX_FLYING_SIZE)
 	stats_label.text = "\n".join(lines)

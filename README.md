@@ -94,8 +94,8 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 
 | Body part | Contributes |
 | --- | --- |
-| Head | Bite damage, some armor (Rhino, Elephant, Crocodile); Rhino head: **charge** |
-| Torso | Health, most of the melee armor and all of the ranged armor; most of the hybrid's size |
+| Head | Bite damage, some armor (Rhino, Elephant, Crocodile); Rhino: **charge**; Bat: **sonic**; Wolf: **pack hunter** |
+| Torso | Health, most of the melee armor and all of the ranged armor; most of the hybrid's size; Gorilla: **frenzy**; Elephant: **trample** |
 | Front legs | Claw damage (Gorilla fists, Scorpion pincers, Eagle talons) and half the speed |
 | Back legs | The other half of the speed; Kangaroo legs: **leap** |
 | Tail | Poison (Scorpion) or a ranged quill attack (Porcupine) |
@@ -104,7 +104,13 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 - **Charge**: sprints (1.8× speed) at a target at least 4 m away; the first hit does double damage.
   8 s cooldown.
 - **Leap**: jumps a 1.5–7 m gap to land in reach of the target. 6 s cooldown. Flyers don't leap.
-- Ranged creatures don't charge or leap.
+- **Sonic screech** (Bat head): while fighting, every 7 s deals 6 damage through armor to every
+  enemy within 5 m, flyers included. A creature just hit is deafened for 3 s, so screeches don't
+  stack. Bat heads also see 4 m further.
+- **Pack hunter** (Wolf head): +15% damage for each other pack hunter within 6 m, up to +45%.
+- **Frenzy** (Gorilla torso): below half health, attacks come 40% faster.
+- **Trample** (Elephant torso): melee hits also deal half damage to enemies right next to the target.
+- Ranged creatures don't charge, leap or trample.
 
 Legs from a small animal under a big body are slowed down, but nothing walks slower than 3.
 A strength rating sets each hybrid's level (1–5) and cost: roughly the square root of effective

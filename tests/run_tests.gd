@@ -62,6 +62,8 @@ func _run() -> void:
 	await _test_poison()
 	await _test_charge()
 	await _test_leap()
+	await _test_sonic()
+	await _test_pack_frenzy_trample()
 	await _test_starting_army()
 	await _test_research()
 	await _test_fog_of_war()
@@ -882,6 +884,79 @@ func _test_charge() -> void:
 	health = brute.health
 	await _wait_until(func() -> bool: return brute.health < health, 3.0)
 	_check(is_equal_approx(health - brute.health, charger.stats.attack_damage - brute.stats.armor), "later hits are normal")
+	await _unload(main)
+
+
+func _test_sonic() -> void:
+	print("sonic screech")
+	var stats := _stats("bat", "lion", [0, 1, 1, 1, 1, -1])
+	_check(stats.has_sonic and stats.sight_range > _stats("lion", "lion", [0, 0, 0, 0, 0, -1]).sight_range, "a bat head gives a sonic screech and sees further")
+	var main := await _load_map()
+	_isolate([])
+	var screecher := _spawn(main, stats, 0, Vector3(0, 0, 0))
+	var near_a := _spawn(main, load("res://tests/fixtures/brute.tres"), 1, Vector3(2.5, 0, 0))
+	var near_b := _spawn(main, load("res://tests/fixtures/brute.tres"), 1, Vector3(-2.5, 0, 1))
+	var far := _spawn(main, load("res://tests/fixtures/brute.tres"), 1, Vector3(0, 0, 12))
+	var flyer := _spawn(main, _stats("lion", "eagle", [0, 0, 1, 0, 0, 1]), 1, Vector3(0, 0, -3))
+	var ally := _spawn(main, load("res://tests/fixtures/brute.tres"), 0, Vector3(1, 0, 2))
+	for unit: Creature in [near_a, near_b, far, flyer, ally]:
+		unit.command_hold()
+	await _physics_frames(3)
+	var before := [near_a.health, near_b.health, far.health, flyer.health, ally.health]
+	_check(screecher.call("_try_sonic") == 3, "the screech hits every enemy close by, flyers included")
+	_check(is_equal_approx(before[0] - near_a.health, Creature.SONIC_DAMAGE) and is_equal_approx(before[1] - near_b.health, Creature.SONIC_DAMAGE),
+			"for %d damage each, through armor" % Creature.SONIC_DAMAGE)
+	_check(far.health == before[2] and ally.health == before[4], "not enemies further away, nor allies")
+	_check(screecher.get("_sonic_cooldown") > 0.0, "then it has to recover")
+	var second := _spawn(main, stats, 0, Vector3(0, 0, 1))
+	await _physics_frames(1)
+	var after_first := near_a.health
+	second.call("_try_sonic")
+	_check(near_a.health == after_first, "screeches don't stack: a creature just hit is deafened for a moment")
+	await _unload(main)
+
+
+func _test_pack_frenzy_trample() -> void:
+	print("pack, frenzy and trample")
+	var wolf := _stats("wolf", "wolf", [0, 0, 0, 0, 0, -1])
+	var gorilla := _stats("gorilla", "gorilla", [0, 0, 0, 0, 0, -1])
+	var elephant := _stats("elephant", "elephant", [0, 0, 0, 0, 0, -1])
+	_check(wolf.pack_hunter and gorilla.has_frenzy and elephant.has_trample, "wolf heads hunt in packs, gorilla torsos frenzy, elephant torsos trample")
+	_check(not _stats("elephant", "porcupine", [0, 0, 0, 0, 1, -1]).has_trample, "quill-shooters don't trample")
+	var main := await _load_map()
+	_isolate([])
+	var leader := _spawn(main, wolf, 0, Vector3(0, 0, 0))
+	await _physics_frames(2)
+	var alone := leader.attack_damage()
+	_spawn(main, load("res://tests/fixtures/brute.tres"), 0, Vector3(2, 0, 0))
+	await _physics_frames(2)
+	_check(leader.packmates() == 0 and leader.attack_damage() == alone, "other creatures aren't packmates")
+	for i in 4:
+		_spawn(main, wolf, 0, Vector3(-2 - i, 0, 1))
+	await _physics_frames(2)
+	_check(leader.packmates() == Creature.PACK_MAX_MATES, "packmates nearby count, up to %d" % Creature.PACK_MAX_MATES)
+	_check(is_equal_approx(leader.attack_damage(), alone * (1.0 + Creature.PACK_BONUS * Creature.PACK_MAX_MATES)), "each adds %d%% damage" % roundi(Creature.PACK_BONUS * 100.0))
+	_isolate([])
+
+	var ape := _spawn(main, gorilla, 0, Vector3(0, 0, 0))
+	await _physics_frames(2)
+	_check(not ape.is_frenzied() and is_equal_approx(ape.attack_cooldown(), gorilla.attack_cooldown), "a healthy gorilla attacks normally")
+	ape.health = gorilla.max_health * 0.4
+	_check(ape.is_frenzied() and is_equal_approx(ape.attack_cooldown(), gorilla.attack_cooldown * Creature.FRENZY_COOLDOWN_FACTOR), "badly wounded, it attacks faster")
+	_isolate([])
+
+	var trampler := _spawn(main, elephant, 0, Vector3(0, 0, 0))
+	var target := _spawn(main, load("res://tests/fixtures/runner.tres"), 1, Vector3(0, 0, 3))
+	var beside := _spawn(main, load("res://tests/fixtures/runner.tres"), 1, Vector3(1.2, 0, 3.4))
+	var away := _spawn(main, load("res://tests/fixtures/runner.tres"), 1, Vector3(0, 0, 12))
+	for unit: Creature in [target, beside, away]:
+		unit.command_hold()
+	await _physics_frames(2)
+	var hp := [target.health, beside.health, away.health]
+	trampler.deal_hit(target)
+	_check(hp[0] - target.health > 0.0 and is_equal_approx(hp[1] - beside.health, (hp[0] - target.health) * Creature.TRAMPLE_SHARE),
+			"trample: enemies next to the target take half (%.1f of %.1f)" % [hp[1] - beside.health, hp[0] - target.health])
+	_check(away.health == hp[2], "enemies further off don't")
 	await _unload(main)
 
 

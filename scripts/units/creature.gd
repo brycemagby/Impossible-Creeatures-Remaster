@@ -69,6 +69,23 @@ const LEAP_MIN_DISTANCE := 1.5
 const LEAP_DURATION := 0.4
 const LEAP_HEIGHT := 1.2
 const LEAP_COOLDOWN := 6.0
+## Sonic screech: damage to every enemy within SONIC_RADIUS, ignoring armor.
+const SONIC_DAMAGE := 6.0
+const SONIC_RADIUS := 5.0
+const SONIC_COOLDOWN := 7.0
+## After a screech hits it, a creature is deafened: no more sonic damage for this long.
+const SONIC_DEAFEN_TIME := 3.0
+const SONIC_COLOR := Color(0.75, 0.6, 1.0, 0.7)
+## Pack hunters: extra damage per packmate within PACK_RADIUS, up to PACK_MAX_MATES.
+const PACK_BONUS := 0.15
+const PACK_RADIUS := 6.0
+const PACK_MAX_MATES := 3
+## Frenzy: below this share of health, attacks come this much faster.
+const FRENZY_HEALTH := 0.5
+const FRENZY_COOLDOWN_FACTOR := 0.6
+## Trample: melee hits also deal this share to enemies within TRAMPLE_RADIUS of the target.
+const TRAMPLE_SHARE := 0.5
+const TRAMPLE_RADIUS := 1.5
 ## Armor never blocks more than this share of a hit.
 const MAX_ARMOR_BLOCK := 0.6
 const ProjectileScene := preload("res://scenes/fx/projectile.tscn")
@@ -111,6 +128,8 @@ var _poison_time := 0.0
 var is_charging := false
 var _charge_cooldown := 0.0
 var _leap_cooldown := 0.0
+var _sonic_cooldown := 0.0
+var _deafened := 0.0
 var _leap_time := 0.0
 var _leap_velocity := Vector3.ZERO
 
@@ -148,6 +167,8 @@ func _physics_process(delta: float) -> void:
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	_charge_cooldown = maxf(_charge_cooldown - delta, 0.0)
 	_leap_cooldown = maxf(_leap_cooldown - delta, 0.0)
+	_sonic_cooldown = maxf(_sonic_cooldown - delta, 0.0)
+	_deafened = maxf(_deafened - delta, 0.0)
 	_kite_cooldown = maxf(_kite_cooldown - delta, 0.0)
 	_scan_timer -= delta
 	if _poison_time > 0.0:
@@ -159,6 +180,8 @@ func _physics_process(delta: float) -> void:
 		_update_leap(delta)
 		return
 	_update_orders()
+	if stats.has_sonic and _sonic_cooldown <= 0.0 and attack_target != null:
+		_try_sonic()
 
 	var desired := _desired_velocity()
 	if agent.avoidance_enabled:
@@ -298,6 +321,64 @@ func deal_hit(target: Node3D) -> void:
 	target.take_damage(damage, self, stats.is_ranged())
 	if stats.poison_dps > 0.0 and target is Creature:
 		target.apply_poison(stats.poison_dps, stats.poison_duration)
+	if stats.has_trample and not stats.is_ranged():
+		_trample(target, damage * TRAMPLE_SHARE)
+
+
+## Trample: [param damage] to the other enemies right next to [param target].
+func _trample(target: Node3D, damage: float) -> void:
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if unit == target or not unit.is_alive() or not Teams.are_enemies(team, unit.team) or not can_attack(unit):
+			continue
+		if unit.edge_distance_from(target.global_position) <= TRAMPLE_RADIUS:
+			unit.take_damage(damage, self)
+
+
+## Sonic screech: hurts every enemy creature within SONIC_RADIUS, flyers
+## included, ignoring armor. Returns how many were hit. Screeches don't stack:
+## a creature just hit is deafened for a moment.
+func _try_sonic() -> int:
+	var hit := 0
+	var in_range := 0
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if unit.is_alive() and Teams.are_enemies(team, unit.team) and unit.edge_distance_from(global_position) <= SONIC_RADIUS:
+			in_range += 1
+			if unit.hear_screech(self):
+				hit += 1
+	if in_range > 0:
+		_sonic_cooldown = SONIC_COOLDOWN
+		_show_sonic_ring()
+	return hit
+
+
+## Takes a sonic screech from [param source] unless deafened. Returns whether it hurt.
+func hear_screech(source: Creature) -> bool:
+	if _deafened > 0.0:
+		return false
+	_deafened = SONIC_DEAFEN_TIME
+	take_damage(SONIC_DAMAGE + armor(), source)
+	return true
+
+
+func _show_sonic_ring() -> void:
+	var mesh := TorusMesh.new()
+	mesh.inner_radius = 0.85
+	mesh.outer_radius = 1.0
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = SONIC_COLOR
+	var ring := MeshInstance3D.new()
+	ring.mesh = mesh
+	ring.material_override = material
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	get_tree().current_scene.add_child(ring)
+	ring.global_position = global_position + Vector3.UP * center_height()
+	ring.scale = Vector3.ONE * 0.3
+	var tween := ring.create_tween().set_parallel()
+	tween.tween_property(ring, "scale", Vector3.ONE * SONIC_RADIUS, 0.4)
+	tween.tween_property(material, "albedo_color:a", 0.0, 0.4)
+	tween.chain().tween_callback(ring.queue_free)
 
 
 ## Engages [param attacker] unless busy with an explicit order.
@@ -374,7 +455,27 @@ func ranged_armor() -> float:
 ## Damage per hit including the team's melee or ranged damage upgrades.
 func attack_damage() -> float:
 	var bonus := Upgrades.ranged_damage_bonus(team) if stats.is_ranged() else Upgrades.melee_damage_bonus(team)
-	return stats.attack_damage + bonus
+	return (stats.attack_damage + bonus) * (1.0 + PACK_BONUS * packmates())
+
+
+## Other pack hunters of this team close enough to hunt with (0 if not a pack hunter).
+func packmates() -> int:
+	if not stats.pack_hunter:
+		return 0
+	var mates := 0
+	for ally in _allies_within(PACK_RADIUS):
+		if ally.team == team and ally.stats.pack_hunter and ally.is_alive():
+			mates += 1
+	return mini(mates, PACK_MAX_MATES)
+
+
+## Seconds between attacks: shorter while frenzied.
+func attack_cooldown() -> float:
+	return stats.attack_cooldown * (FRENZY_COOLDOWN_FACTOR if is_frenzied() else 1.0)
+
+
+func is_frenzied() -> bool:
+	return stats.has_frenzy and health <= stats.max_health * FRENZY_HEALTH
 
 
 ## Walking speed including the team's upgrades.
@@ -538,7 +639,7 @@ func _pursue_and_attack(target: Node3D) -> void:
 	if gap <= stats.attack_range:
 		_halt()
 		if _cooldown <= 0.0:
-			_cooldown = stats.attack_cooldown
+			_cooldown = attack_cooldown()
 			_perform_attack(target)
 		return
 	if order == Order.HOLD:

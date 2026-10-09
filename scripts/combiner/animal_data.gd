@@ -3,7 +3,7 @@ extends Resource
 ## One animal the combiner can draw body parts from. Each section describes
 ## what that body part contributes when chosen for a hybrid.
 
-enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP }
+enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP, SONIC, PACK, FRENZY, TRAMPLE }
 
 @export var display_name := "Animal"
 ## Used to colour this animal's parts on hybrid models.
@@ -14,7 +14,8 @@ enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP }
 @export_group("Head")
 @export var bite_damage := 5.0
 @export var head_armor := 0.0
-## POISON (venomous bite) or CHARGE (horn rush).
+## POISON (venomous bite), CHARGE (horn rush), SONIC (screech) or PACK
+## (hunts better with packmates).
 @export var head_ability: Ability = Ability.NONE
 
 @export_group("Torso")
@@ -23,6 +24,8 @@ enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP }
 @export var torso_armor := 0.0
 ## Ranged armor from the torso: thick hides and shells shrug off quills.
 @export var ranged_armor := 0.0
+## FRENZY (fights faster when wounded) or TRAMPLE (melee hits splash).
+@export var torso_ability: Ability = Ability.NONE
 
 @export_group("Legs")
 ## Damage added by the front legs (claws, pincers, fists, talons).
