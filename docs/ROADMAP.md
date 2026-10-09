@@ -5,6 +5,11 @@ A rough plan. Each milestone should be playable on its own.
 ## M1 — Core RTS loop ✅
 Camera, selection, control groups, pathfinding, avoidance, formations, placeholder units.
 
+Touch-up pass ✅: formations spaced for big creatures, crowds settle instead of jostling at a shared
+destination, box select leaves Henchmen out of army selections, inspect enemy units and buildings,
+Shift+number adds to a group and a double tap looks at it, groups listed on the HUD, camera reset
+(Backspace) and zoom towards the cursor.
+
 ## M2 — Combat ✅
 Health, armor, melee and ranged (projectile) attacks, death, health bars, attack and attack-move
 orders, stop, auto-targeting with a leash, allies helping when attacked, group-speed formations, and

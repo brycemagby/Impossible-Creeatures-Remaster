@@ -99,6 +99,7 @@ func _run() -> void:
 	await _test_population()
 	await _test_alerts()
 	await _test_selection_shortcuts()
+	await _test_m1_touch_ups()
 	await _test_queued_orders()
 	await _test_command_hotkeys()
 	await _test_rally_on_coal()
@@ -155,10 +156,11 @@ func _test_selection_and_movement() -> void:
 
 	# Drag-select the whole screen: only player units get picked.
 	var screen := get_tree().root.get_visible_rect().size
+	# Henchmen stay out of a box that has fighters in it.
 	var visible := player_units.filter(func(u: Creature) -> bool:
-		return Rect2(Vector2.ZERO, screen).has_point(camera.unproject_position(u.global_position)))
+		return not u is Henchman and Rect2(Vector2.ZERO, screen).has_point(camera.unproject_position(u.global_position)))
 	_drag(Vector2(2, 2), screen - Vector2(2, 2))
-	_check(visible.size() >= 5 and manager.selected.size() == visible.size(), "box select grabs all visible player units (%d)" % visible.size())
+	_check(visible.size() >= 5 and manager.selected.size() == visible.size(), "box select grabs all visible player fighters (%d)" % visible.size())
 	_check(manager.selected.all(func(u: Creature) -> bool: return u.team == 0), "box select ignores enemies")
 
 	# Control groups.
@@ -2187,6 +2189,101 @@ func _test_selection_shortcuts() -> void:
 	manager.select_same_type(_first(0, "Brute"), true)
 	_check(manager.selected.size() == runners.size() + 1, "Shift adds another type")
 	_check(manager.selected.all(func(u: Creature) -> bool: return u.team == 0), "never the enemy's")
+	await _unload(main)
+
+
+func _test_m1_touch_ups() -> void:
+	print("M1 touch-ups")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var hud := main.get_node("UI/HUD")
+	var rig: RTSCamera = main.get_node("RTSCamera")
+	var camera: Camera3D = manager.camera
+
+	# Box select leaves Henchmen out when fighters are in the box.
+	manager.select_in_rect(Rect2(Vector2.ZERO, Vector2(1600, 900)))
+	_check(not manager.selected.is_empty() and manager.selected.all(func(u: Creature) -> bool: return not u is Henchman),
+			"a box over the army and workers selects only the army")
+	var henchman := _first(0, "Henchman")
+	var at := camera.unproject_position(henchman.global_position)
+	manager.select_in_rect(Rect2(at - Vector2(6, 6), Vector2(12, 12)))
+	_check(manager.selected.size() >= 1 and manager.selected.all(func(u: Creature) -> bool: return u is Henchman), "a box over only workers still selects them")
+
+	# Inspecting an enemy.
+	var enemy := _first(1, "Brute")
+	rig.focus_on(enemy.global_position)
+	await _process_frames(2)
+	manager.click_select(camera.unproject_position(enemy.global_position))
+	await _process_frames(2)
+	_check(manager.inspected == enemy and manager.selected.is_empty(), "clicking an enemy inspects it without selecting it")
+	_check(hud.selection_label.text.begins_with("Enemy Brute") and hud.selection_label.text.contains("Armor"), "the panel shows the enemy's stats")
+	_check(not hud.command_panel.visible, "with no orders to give")
+	_key(KEY_ESCAPE)
+	_check(manager.inspected == null, "Esc stops inspecting")
+	var enemy_lab := _building(1, "Lab")
+	rig.focus_on(enemy_lab.global_position)
+	await _process_frames(2)
+	manager.click_select(camera.unproject_position(enemy_lab.global_position + Vector3.UP * 1.0))
+	await _process_frames(2)
+	_check(manager.inspected == enemy_lab and hud.selection_label.text.begins_with("Enemy Lab"), "enemy buildings can be inspected too")
+	manager.clear_selection()
+
+	# Control groups: Shift adds, a double tap centres the camera.
+	var runners := _team_units(0).filter(func(u: Creature) -> bool: return u.stats.display_name == "Runner")
+	manager.select_units([runners[0]])
+	_key(KEY_1, true)
+	manager.select_units([runners[1]])
+	_key(KEY_1, false, true)
+	_check(manager.control_groups()[1].size() == 2, "Shift + number adds the selection to a group")
+	await _process_frames(1)
+	_check(hud.groups_label.text.contains("1: 2"), "the HUD lists control groups")
+	rig.focus_on(Vector3(30, 0, -30))
+	manager.clear_selection()
+	_key(KEY_1)
+	_check(manager.selected.size() == 2 and Vector2(rig.position.x, rig.position.z).distance_to(Vector2(30, -30)) < 1.0, "one press selects the group")
+	_key(KEY_1)
+	var centre: Vector3 = (runners[0].global_position + runners[1].global_position) / 2.0
+	_check(Vector2(rig.position.x, rig.position.z).distance_to(Vector2(centre.x, centre.z)) < 1.0, "a quick second press centres the camera on it")
+
+	# Camera.
+	rig.rotation.y = 1.2
+	_key(KEY_BACKSPACE)
+	_check(rig.rotation.y == 0.0, "Backspace turns the camera back to north")
+	rig.focus_on(Vector3(0, 0, 0))
+	rig.target_zoom = 30.0
+	var cursor := camera.unproject_position(Vector3(10, 0, 0))
+	rig.zoom_towards(cursor)
+	_check(rig.position.x > 0.5 and absf(rig.position.z) < 1.0 and rig.target_zoom < 30.0, "zooming in moves towards the cursor")
+
+	# Formations make room for big creatures.
+	_isolate([])
+	var big := _stats("elephant", "elephant", [0, 0, 0, 0, 0, -1])
+	var herd: Array[Creature] = []
+	for i in 4:
+		herd.append(_spawn(main, big, 0, Vector3(i * 4.0 - 6.0, 0, 10)))
+	await _physics_frames(2)
+	manager.select_units(herd)
+	manager.issue_move(Vector3(0, 0, -10))
+	var closest := INF
+	for a_unit in herd:
+		for b_unit in herd:
+			if a_unit != b_unit:
+				closest = minf(closest, (a_unit.get("_order_point") as Vector3).distance_to(b_unit.get("_order_point")))
+	_check(closest >= herd[0].radius() * 2.0, "formation slots are spaced for big creatures (%.1f m apart, %.1f m wide)" % [closest, herd[0].radius() * 2.0])
+	_isolate([])
+
+	# A crowd sent to one spot all arrive instead of jostling forever.
+	var crowd: Array[Creature] = []
+	for i in 12:
+		var unit := _spawn(main, load("res://tests/fixtures/runner.tres"), 0, Vector3((i % 4) * 2.0 - 3.0, 0, 15.0 + (i / 4) * 2.0))
+		crowd.append(unit)
+	await _physics_frames(2)
+	for unit in crowd:
+		unit.command_move(Vector3(0, 0, -5))
+	await _wait_until(func() -> bool: return crowd.all(func(u: Creature) -> bool: return not u.is_moving), 15.0)
+	_check(crowd.all(func(u: Creature) -> bool: return not u.is_moving and u.order == Creature.Order.IDLE),
+			"a crowd sent to one spot all settle (%d still moving)" % crowd.filter(func(u: Creature) -> bool: return u.is_moving).size())
+	_check(crowd.all(func(u: Creature) -> bool: return u.global_position.distance_to(Vector3(0, 0, -5)) < 6.0), "and they all got close")
 	await _unload(main)
 
 

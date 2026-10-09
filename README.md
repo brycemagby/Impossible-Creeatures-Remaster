@@ -153,9 +153,9 @@ Animals are data files in `resources/animals/`; add a `.tres` there and it shows
 
 | Input | Action |
 | --- | --- |
-| Left click | Select unit (Shift: add/remove) |
+| Left click | Select unit (Shift: add/remove); on an enemy, show its stats |
 | Double click / Ctrl + click a unit | Select every unit of that type on screen (Shift: add) |
-| Left drag | Box select (Shift: add) |
+| Left drag | Box select (Shift: add); Henchmen are left out if the box has fighters in it |
 | Right click ground | Move selected units |
 | Right click enemy unit or building | Attack it |
 | Right click coal (Henchmen selected) | Gather coal |
@@ -177,10 +177,10 @@ Animals are data files in `resources/animals/`; add a `.tres` there and it shows
 | Esc | Cancel placement or order targeting, then deselect, then open the pause menu |
 | F10 / Menu button | Pause menu (resume, restart, game speed, quit) |
 | - / = | Slower / faster game (0.5×–2×) |
-| Ctrl+1–9 / 1–9 | Assign / recall control group |
+| Ctrl+1–9 / Shift+1–9 / 1–9 | Assign / add to / recall a control group (press twice to look at it) |
 | WASD, arrows, screen edge, middle drag | Pan camera |
-| Q / E | Rotate camera |
-| Mouse wheel | Zoom |
+| Q / E | Rotate camera (Backspace: face north again) |
+| Mouse wheel | Zoom (in towards the cursor) |
 
 Keyboard bindings are registered in `scripts/autoload/input_actions.gd`. Any action you define
 in **Project Settings → Input Map** with the same name overrides the default.

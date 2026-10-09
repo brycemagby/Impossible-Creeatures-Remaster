@@ -5,7 +5,8 @@ extends Node3D
 ## The rig node sits on the ground plane and handles panning and yaw; the child
 ## Camera3D is offset along a fixed pitch and moved in and out to zoom.
 ## Controls: WASD/arrows or screen edges to pan, middle mouse drag to pan,
-## Q/E to rotate, mouse wheel to zoom.
+## Q/E to rotate (Backspace: face north again), mouse wheel to zoom (in
+## towards the cursor).
 
 @export var pan_speed := 20.0
 @export var edge_scroll_enabled := true
@@ -55,7 +56,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.button_index:
 			MOUSE_BUTTON_WHEEL_UP:
 				if event.pressed:
-					target_zoom = clampf(target_zoom - zoom_step, min_zoom, max_zoom)
+					zoom_towards(event.position)
 			MOUSE_BUTTON_WHEEL_DOWN:
 				if event.pressed:
 					target_zoom = clampf(target_zoom + zoom_step, min_zoom, max_zoom)
@@ -63,6 +64,27 @@ func _unhandled_input(event: InputEvent) -> void:
 				_drag_panning = event.pressed
 	elif event is InputEventMouseMotion and _drag_panning:
 		pan_by(-event.relative * drag_pan_sensitivity * _zoom_factor())
+	elif event is InputEventKey and event.pressed and not event.echo and event.is_action_pressed("camera_reset"):
+		reset_rotation()
+
+
+## Zooms in one step, moving towards the ground under [param screen_position]
+## so the point under the cursor stays roughly put.
+func zoom_towards(screen_position: Vector2) -> void:
+	var before := target_zoom
+	target_zoom = clampf(target_zoom - zoom_step, min_zoom, max_zoom)
+	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(camera.project_ray_origin(screen_position), camera.project_ray_normal(screen_position))
+	if hit == null or before <= 0.0:
+		return
+	var offset: Vector3 = hit - position
+	offset.y = 0.0
+	position += offset * (before - target_zoom) / before
+	pan_by(Vector2.ZERO)
+
+
+## Turns the camera back to face north (its starting direction).
+func reset_rotation() -> void:
+	rotation.y = 0.0
 
 
 ## Moves the focus point by [param offset] in screen-aligned axes

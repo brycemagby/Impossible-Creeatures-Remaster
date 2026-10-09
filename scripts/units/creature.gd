@@ -111,6 +111,11 @@ const ELECTRIC_COLOR := Color(1.0, 0.95, 0.35, 0.8)
 const SWIM_SINK := 0.3
 ## Melee creatures on land reach this far past their attack range into water.
 const SHORE_REACH := 1.0
+## A walker this close to its destination that stops getting closer for
+## STUCK_TIME seconds counts as arrived (its spot is taken in a crowd).
+const STUCK_TIME := 1.0
+const STUCK_ARRIVE_DISTANCE := 4.0
+const STUCK_PROGRESS := 0.1
 ## Armor never blocks more than this share of a hit.
 const MAX_ARMOR_BLOCK := 0.6
 const ProjectileScene := preload("res://scenes/fx/projectile.tscn")
@@ -163,6 +168,9 @@ var _electric_cooldown := 0.0
 var _stunned := 0.0
 ## In deep water right now (swimmers only).
 var _in_water := false
+## Closest it has come to its destination lately, and how long since it got closer.
+var _best_distance := INF
+var _no_progress_time := 0.0
 var _leap_time := 0.0
 var _leap_velocity := Vector3.ZERO
 
@@ -934,6 +942,8 @@ func _navigate(point: Vector3) -> void:
 	_nav_target = point
 	agent.target_position = point
 	is_moving = true
+	_best_distance = INF
+	_no_progress_time = 0.0
 
 
 func _halt() -> void:
@@ -945,7 +955,7 @@ func _desired_velocity() -> Vector3:
 		return Vector3.ZERO
 	if stats.can_fly:
 		return _flying_velocity()
-	if agent.is_navigation_finished():
+	if agent.is_navigation_finished() or _blocked_near_destination():
 		is_moving = false
 		_on_arrived()
 		return Vector3.ZERO
@@ -957,6 +967,20 @@ func _desired_velocity() -> Vector3:
 	if is_charging and attack_target != null:
 		speed *= CHARGE_SPEED_FACTOR
 	return to_next.normalized() * speed
+
+
+## True when it's close to where it's going but hasn't got any closer for a
+## while: in a crowd, someone else is standing on its spot.
+func _blocked_near_destination() -> bool:
+	if attack_target != null:
+		return false
+	var distance := _flat_distance(_nav_target)
+	if distance < _best_distance - STUCK_PROGRESS:
+		_best_distance = distance
+		_no_progress_time = 0.0
+		return false
+	_no_progress_time += get_physics_process_delta_time()
+	return _no_progress_time >= STUCK_TIME and distance <= STUCK_ARRIVE_DISTANCE + radius()
 
 
 ## Flyers ignore the navmesh and head straight for their destination.

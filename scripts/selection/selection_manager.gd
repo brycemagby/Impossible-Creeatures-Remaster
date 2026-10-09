@@ -9,6 +9,9 @@ extends Node
 ##   (hold Shift to queue the order after the current ones)
 ## - Right click with a building: set its rally point (on coal: new Henchmen gather)
 ## - Period: next idle Henchman; Home: next Lab; Space: jump to the latest alert
+## - Clicking an enemy unit or building shows its stats (no orders)
+## - Ctrl+1..9 sets a control group, Shift+1..9 adds to it, 1..9 recalls it
+##   (twice quickly: centre the camera on it)
 ## - F then left click, or Ctrl + right click: attack-move
 ## - P then left click: patrol between here and there
 ## - G: hold position
@@ -36,6 +39,10 @@ const PATROL_COLOR := Color(0.4, 0.7, 1.0)
 ## Orders that wait for a left click to pick their destination.
 const ATTACK_MOVE := &"attack_move"
 const PATROL := &"patrol"
+## Two presses of a group key within this many seconds centre the camera on it.
+const DOUBLE_TAP_TIME := 0.4
+## Gap kept between neighbours in a formation, on top of their sizes.
+const FORMATION_GAP := 0.4
 const MoveMarkerScene := preload("res://scenes/fx/move_marker.tscn")
 
 @export var camera: Camera3D
@@ -48,6 +55,8 @@ const MoveMarkerScene := preload("res://scenes/fx/move_marker.tscn")
 
 var selected: Array[Creature] = []
 var selected_building: Building = null
+## An enemy (or neutral) unit or building whose stats are shown, or null.
+var inspected: Node3D = null
 ## The order waiting for a left click (ATTACK_MOVE or PATROL), or &"".
 var targeting_order := &""
 ## True while waiting for the click that places an attack-move order.
@@ -59,6 +68,8 @@ var _press_position := Vector2.ZERO
 var _pressing := false
 var _dragging := false
 var _double_click := false
+var _last_group_key := -1
+var _last_group_time := -1.0
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -91,6 +102,26 @@ func clear_selection() -> void:
 	_set_selection([], null)
 
 
+## Shows [param target]'s stats (an enemy or ally) without selecting it.
+func inspect(target: Node3D) -> void:
+	_set_selection([], null)
+	if not Creature.is_valid_target(target):
+		return
+	inspected = target
+	target.selection_ring.visible = true
+	selection_changed.emit()
+
+
+## The player's control groups: group number -> living units.
+func control_groups() -> Dictionary:
+	var result := {}
+	for group: int in _control_groups:
+		var alive: Array = _control_groups[group].filter(func(u: Variant) -> bool: return Creature.is_valid_target(u) and u.team == player_team)
+		if not alive.is_empty():
+			result[group] = alive
+	return result
+
+
 ## Selects the unit or own building under [param screen_position], or clears
 ## the selection if there is none. With [param additive], toggles units.
 func click_select(screen_position: Vector2, additive := false) -> void:
@@ -99,6 +130,10 @@ func click_select(screen_position: Vector2, additive := false) -> void:
 		var building := building_at_screen(screen_position)
 		if building != null and building.team == player_team and not additive:
 			select_building(building)
+		elif not additive and unit != null:
+			inspect(unit)
+		elif not additive and building != null:
+			inspect(building)
 		elif not additive:
 			clear_selection()
 		return
@@ -120,6 +155,9 @@ func select_in_rect(rect: Rect2, additive := false) -> void:
 			continue
 		if rect.has_point(camera.unproject_position(unit.global_position)):
 			inside.append(unit)
+	# A box over an army leaves the workers at work.
+	if inside.any(func(u: Creature) -> bool: return not u is Henchman):
+		inside = inside.filter(func(u: Creature) -> bool: return not u is Henchman)
 	select_units(inside, additive)
 
 
@@ -426,6 +464,8 @@ static func assign_formation(units: Array, target: Vector3, spacing: float, comm
 	for unit: Creature in units:
 		center += unit.global_position
 		group_speed = minf(group_speed, unit.move_speed())
+		# Big creatures need a wider grid so they don't fight over slots.
+		spacing = maxf(spacing, unit.radius() * 2.0 + FORMATION_GAP)
 	center /= units.size()
 	var direction := target - center
 	direction.y = 0.0
@@ -505,7 +545,7 @@ func _handle_key(event: InputEventKey) -> void:
 			cancel_placement()
 		elif targeting_order != &"":
 			set_targeting(&"")
-		elif not selected.is_empty() or selected_building != null:
+		elif not selected.is_empty() or selected_building != null or inspected != null:
 			clear_selection()
 		else:
 			menu_requested.emit()
@@ -527,8 +567,20 @@ func _handle_key(event: InputEventKey) -> void:
 		var group := event.keycode - KEY_0
 		if event.ctrl_pressed:
 			_control_groups[group] = _valid_selected()
-		elif _control_groups.has(group):
-			select_units(_control_groups[group])
+		elif event.shift_pressed:
+			var members: Array = control_groups().get(group, [])
+			for unit in _valid_selected():
+				if unit not in members:
+					members.append(unit)
+			_control_groups[group] = members
+		elif control_groups().has(group):
+			var now := Time.get_ticks_msec() / 1000.0
+			var members: Array = control_groups()[group]
+			select_units(members)
+			if group == _last_group_key and now - _last_group_time <= DOUBLE_TAP_TIME:
+				_focus(_center_of(members))
+			_last_group_key = group
+			_last_group_time = now
 	else:
 		return
 	get_viewport().set_input_as_handled()
@@ -578,6 +630,9 @@ func _set_rally_at_screen(screen_position: Vector2) -> void:
 
 
 func _set_selection(units: Array, building: Building) -> void:
+	if is_instance_valid(inspected):
+		inspected.selection_ring.visible = false
+	inspected = null
 	for unit in selected:
 		if is_instance_valid(unit):
 			unit.set_selected(false)
@@ -633,6 +688,13 @@ func _next_after(items: Array, current: Variant) -> Variant:
 	items.sort_custom(func(a: Node, b: Node) -> bool: return a.get_instance_id() < b.get_instance_id())
 	var index := items.find(current) if is_instance_valid(current) else -1
 	return items[(index + 1) % items.size()]
+
+
+func _center_of(units: Array) -> Vector3:
+	var center := Vector3.ZERO
+	for unit: Node3D in units:
+		center += unit.global_position
+	return center / maxi(units.size(), 1)
 
 
 func _focus(point: Vector3) -> void:

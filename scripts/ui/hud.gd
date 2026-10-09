@@ -27,6 +27,8 @@ var command_title: Label
 var command_grid: GridContainer
 var command_status: Label
 var message_label: Label
+## Control groups, e.g. "1: 5   2: 3".
+var groups_label: Label
 var pause_menu: PauseMenu
 var end_screen: EndScreen
 
@@ -48,6 +50,7 @@ func _process(delta: float) -> void:
 	if not is_equal_approx(Engine.time_scale, 1.0):
 		resource_label.text += "      Speed  %sx" % Engine.time_scale
 	selection_label.text = _describe_selection()
+	groups_label.text = _describe_groups()
 	_refresh_command_panel()
 	_message_timer -= delta
 	message_label.visible = _message_timer > 0.0
@@ -92,61 +95,18 @@ func _describe_selection() -> String:
 		lines.append("  Health  %d / %d    Armor  %d" % [ceili(building.health), building.data.max_health, building.data.armor])
 		if building.is_complete:
 			lines.append("  Right click: set rally point")
+	elif Creature.is_valid_target(selection_manager.inspected):
+		var target = selection_manager.inspected
+		var owner := "Allied" if Teams.are_allies(target.team, selection_manager.player_team) else "Enemy"
+		if target is Building:
+			lines.append("%s %s" % [owner, target.data.display_name])
+			lines.append("  Health  %d / %d    Armor  %d" % [ceili(target.health), target.data.max_health, target.data.armor])
+		else:
+			_describe_unit(target, lines, owner + " ")
 	elif alive.is_empty():
 		lines.append("No units selected")
 	elif alive.size() == 1:
-		var unit: Creature = alive[0]
-		var s := unit.stats
-		lines.append(s.display_name)
-		lines.append("  Health  %d / %d" % [ceili(unit.health), s.max_health])
-		lines.append("  Damage  %d every %.1fs (%s)" % [unit.attack_damage(), s.attack_cooldown,
-				"ranged %dm" % s.attack_range if s.is_ranged() else "melee"])
-		lines.append("  Armor   %d melee / %d ranged    Speed  %.1f" % [unit.armor(), unit.ranged_armor(), unit.move_speed()])
-		if unit.order == Creature.Order.HOLD:
-			lines.append("  Holding position")
-		elif unit.order == Creature.Order.PATROL:
-			lines.append("  Patrolling")
-		var traits := PackedStringArray()
-		if s.design != null:
-			traits.append("Level %d" % s.level)
-		if s.can_fly:
-			traits.append("Flying")
-		if s.poison_dps > 0.0:
-			traits.append("Poison")
-		if s.can_charge:
-			traits.append("Charge")
-		if s.can_leap:
-			traits.append("Leap")
-		if s.has_sonic:
-			traits.append("Sonic")
-		if s.pack_hunter:
-			traits.append("Pack x%d" % unit.packmates() if unit.packmates() > 0 else "Pack")
-		if s.has_frenzy:
-			traits.append("FRENZIED" if unit.is_frenzied() else "Frenzy")
-		if s.has_trample:
-			traits.append("Trample")
-		if s.water_only:
-			traits.append("Water only")
-		elif s.can_swim:
-			traits.append("SWIMMING" if unit.is_in_water() else "Amphibious")
-		if s.has_electric:
-			traits.append("Electric")
-		if unit.is_stunned():
-			traits.append("STUNNED")
-		if s.has_stink:
-			traits.append("Stink")
-		if s.herding:
-			traits.append("Herd x%d" % unit.herd_mates() if unit.herd_mates() > 0 else "Herding")
-		if s.has_camouflage:
-			traits.append("CAMOUFLAGED" if unit.is_camouflaged() else "Camouflage")
-		if unit.is_stunk():
-			traits.append("STUNK")
-		if unit.is_poisoned():
-			traits.append("POISONED")
-		if not traits.is_empty():
-			lines.append("  " + "  ".join(traits))
-		if unit is Henchman:
-			lines.append("  Carrying  %d coal" % unit.carried_coal)
+		_describe_unit(alive[0], lines)
 	else:
 		var counts := {}
 		for unit: Creature in alive:
@@ -155,6 +115,71 @@ func _describe_selection() -> String:
 		for unit_name: String in counts:
 			lines.append("  %dx %s" % [counts[unit_name], unit_name])
 	return "\n".join(lines)
+
+
+func _describe_groups() -> String:
+	var groups := selection_manager.control_groups()
+	var parts := PackedStringArray()
+	var keys := groups.keys()
+	keys.sort()
+	for group: int in keys:
+		parts.append("%d: %d" % [group, groups[group].size()])
+	return ("Groups   " + "    ".join(parts)) if not parts.is_empty() else ""
+
+
+## Stats and traits of one creature; [param prefix] labels other teams' units.
+func _describe_unit(unit: Creature, lines: PackedStringArray, prefix := "") -> void:
+	var s := unit.stats
+	lines.append(prefix + s.display_name)
+	lines.append("  Health  %d / %d" % [ceili(unit.health), s.max_health])
+	lines.append("  Damage  %d every %.1fs (%s)" % [unit.attack_damage(), s.attack_cooldown,
+			"ranged %dm" % s.attack_range if s.is_ranged() else "melee"])
+	lines.append("  Armor   %d melee / %d ranged    Speed  %.1f" % [unit.armor(), unit.ranged_armor(), unit.move_speed()])
+	if unit.order == Creature.Order.HOLD:
+		lines.append("  Holding position")
+	elif unit.order == Creature.Order.PATROL:
+		lines.append("  Patrolling")
+	var traits := PackedStringArray()
+	if s.design != null:
+		traits.append("Level %d" % s.level)
+	if s.can_fly:
+		traits.append("Flying")
+	if s.poison_dps > 0.0:
+		traits.append("Poison")
+	if s.can_charge:
+		traits.append("Charge")
+	if s.can_leap:
+		traits.append("Leap")
+	if s.has_sonic:
+		traits.append("Sonic")
+	if s.pack_hunter:
+		traits.append("Pack x%d" % unit.packmates() if unit.packmates() > 0 else "Pack")
+	if s.has_frenzy:
+		traits.append("FRENZIED" if unit.is_frenzied() else "Frenzy")
+	if s.has_trample:
+		traits.append("Trample")
+	if s.water_only:
+		traits.append("Water only")
+	elif s.can_swim:
+		traits.append("SWIMMING" if unit.is_in_water() else "Amphibious")
+	if s.has_electric:
+		traits.append("Electric")
+	if unit.is_stunned():
+		traits.append("STUNNED")
+	if s.has_stink:
+		traits.append("Stink")
+	if s.herding:
+		traits.append("Herd x%d" % unit.herd_mates() if unit.herd_mates() > 0 else "Herding")
+	if s.has_camouflage:
+		traits.append("CAMOUFLAGED" if unit.is_camouflaged() else "Camouflage")
+	if unit.is_stunk():
+		traits.append("STUNK")
+	if unit.is_poisoned():
+		traits.append("POISONED")
+	if not traits.is_empty():
+		lines.append("  " + "  ".join(traits))
+	if unit is Henchman:
+		lines.append("  Carrying  %d coal" % unit.carried_coal)
 
 
 # --- Command panel ------------------------------------------------------------
@@ -366,6 +391,12 @@ func _build_layout() -> void:
 	resource_label.offset_right = -16
 	resource_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	resource_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+
+	groups_label = _make_label(16)
+	groups_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	groups_label.offset_top = 12
+	groups_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	groups_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 	message_label = _make_label(20)
 	message_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
