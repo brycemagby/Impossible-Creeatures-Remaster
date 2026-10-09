@@ -80,6 +80,10 @@ const SONIC_COLOR := Color(0.75, 0.6, 1.0, 0.7)
 const PACK_BONUS := 0.15
 const PACK_RADIUS := 6.0
 const PACK_MAX_MATES := 3
+## Herding: extra melee and ranged armor per herd mate within HERD_RADIUS, up to HERD_MAX_MATES.
+const HERD_ARMOR := 1.0
+const HERD_RADIUS := 6.0
+const HERD_MAX_MATES := 3
 ## Frenzy: below this share of health, attacks come this much faster.
 const FRENZY_HEALTH := 0.5
 const FRENZY_COOLDOWN_FACTOR := 0.6
@@ -519,12 +523,12 @@ func get_armor() -> float:
 
 ## Melee armor including the team's upgrades.
 func armor() -> float:
-	return stats.armor + Upgrades.melee_armor_bonus(team)
+	return stats.armor + Upgrades.melee_armor_bonus(team) + HERD_ARMOR * herd_mates()
 
 
 ## Ranged armor including the team's upgrades.
 func ranged_armor() -> float:
-	return stats.ranged_armor + Upgrades.ranged_armor_bonus(team)
+	return stats.ranged_armor + Upgrades.ranged_armor_bonus(team) + HERD_ARMOR * herd_mates()
 
 
 ## Damage per hit including the team's melee or ranged damage upgrades.
@@ -540,11 +544,23 @@ func attack_damage() -> float:
 func packmates() -> int:
 	if not stats.pack_hunter:
 		return 0
+	return mini(_mates_with(&"pack_hunter", PACK_RADIUS), PACK_MAX_MATES)
+
+
+## Other herding creatures of this team close enough to shield (0 if not herding).
+func herd_mates() -> int:
+	if not stats.herding:
+		return 0
+	return mini(_mates_with(&"herding", HERD_RADIUS), HERD_MAX_MATES)
+
+
+## Living creatures of this team within [param distance] whose stats have [param flag] set.
+func _mates_with(flag: StringName, distance: float) -> int:
 	var mates := 0
-	for ally in _allies_within(PACK_RADIUS):
-		if ally.team == team and ally.stats.pack_hunter and ally.is_alive():
+	for ally in _allies_within(distance):
+		if ally.team == team and ally.stats.get(flag) and ally.is_alive():
 			mates += 1
-	return mini(mates, PACK_MAX_MATES)
+	return mates
 
 
 ## Seconds between attacks: shorter while frenzied.

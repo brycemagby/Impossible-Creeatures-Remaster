@@ -57,6 +57,8 @@ extends Resource
 @export var has_stink := false
 ## Turns invisible to enemies after standing still for a moment.
 @export var has_camouflage := false
+## Extra armor for each herd mate (another herding creature) nearby.
+@export var herding := false
 
 
 func is_ranged() -> bool:

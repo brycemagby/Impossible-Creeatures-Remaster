@@ -127,6 +127,8 @@ func _describe_selection() -> String:
 			traits.append("Trample")
 		if s.has_stink:
 			traits.append("Stink")
+		if s.herding:
+			traits.append("Herd x%d" % unit.herd_mates() if unit.herd_mates() > 0 else "Herding")
 		if s.has_camouflage:
 			traits.append("CAMOUFLAGED" if unit.is_camouflaged() else "Camouflage")
 		if unit.is_stunk():
@@ -271,7 +273,7 @@ func _recipe_tooltip(recipe: UnitRecipe) -> String:
 		"  ranged" if s.is_ranged() else "", "  poison" if s.poison_dps > 0.0 else "",
 		"  flying" if s.can_fly else ""] + ("  charge" if s.can_charge else "") + ("  leap" if s.can_leap else "") \
 		+ ("  sonic" if s.has_sonic else "") + ("  pack" if s.pack_hunter else "") + ("  frenzy" if s.has_frenzy else "") \
-		+ ("  trample" if s.has_trample else "") + ("  stink" if s.has_stink else "") + ("  camouflage" if s.has_camouflage else "")
+		+ ("  trample" if s.has_trample else "") + ("  stink" if s.has_stink else "") + ("  camouflage" if s.has_camouflage else "") + ("  herding" if s.herding else "")
 
 
 func _on_upgrade_pressed(building: Building, upgrade: UpgradeData) -> void:

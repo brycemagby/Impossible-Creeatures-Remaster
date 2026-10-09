@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AnimalData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combiner/animal_data.gd" id="1_animal"]
+
+[resource]
+script = ExtResource("1_animal")
+display_name = "Bison"
+color = Color(0.4, 0.27, 0.17, 1)
+size = 1.4
+bite_damage = 10.0
+head_armor = 1.0
+head_ability = 0
+health = 210.0
+torso_armor = 2.0
+ranged_armor = 2.0
+torso_ability = 11
+claw_damage = 4.0
+front_leg_speed = 7.0
+back_leg_speed = 7.0
+back_leg_ability = 0
+tail_damage = 0.0
+tail_ability = 0
+has_wings = false
+flight_speed = 0.0

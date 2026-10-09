@@ -3,7 +3,7 @@ class_name CreatureCombiner
 ##
 ## - Torso: health, most of the melee armor and all the ranged armor;
 ##   dominates overall size; maybe frenzy (gorilla), trample (elephant) or
-##   camouflage (chameleon).
+##   camouflage (chameleon) or herding (bison).
 ## - Head: bite damage, some armor, maybe poison, a charge (horn), a sonic
 ##   screech (bat) or pack hunting (wolf).
 ## - Front legs: claw damage and half the walking speed.
@@ -101,6 +101,7 @@ static func build_stats(design: CreatureDesign) -> CreatureStats:
 	stats.has_frenzy = torso.torso_ability == AnimalData.Ability.FRENZY
 	stats.has_trample = torso.torso_ability == AnimalData.Ability.TRAMPLE and not stats.is_ranged()
 	stats.has_camouflage = torso.torso_ability == AnimalData.Ability.CAMOUFLAGE
+	stats.herding = torso.torso_ability == AnimalData.Ability.HERDING
 	stats.has_stink = tail.tail_ability == AnimalData.Ability.STINK
 
 	if wings != null and size <= MAX_FLYING_SIZE:
@@ -147,6 +148,8 @@ static func power_rating(stats: CreatureStats) -> float:
 		power *= 1.14
 	if stats.has_camouflage:
 		power *= 1.1
+	if stats.herding:
+		power *= 1.08
 	return power
 
 

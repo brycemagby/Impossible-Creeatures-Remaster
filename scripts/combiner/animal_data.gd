@@ -3,7 +3,7 @@ extends Resource
 ## One animal the combiner can draw body parts from. Each section describes
 ## what that body part contributes when chosen for a hybrid.
 
-enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP, SONIC, PACK, FRENZY, TRAMPLE, STINK, CAMOUFLAGE }
+enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP, SONIC, PACK, FRENZY, TRAMPLE, STINK, CAMOUFLAGE, HERDING }
 
 @export var display_name := "Animal"
 ## Used to colour this animal's parts on hybrid models.
@@ -24,8 +24,8 @@ enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP, SONIC, PACK, FRENZY, TRAMPLE,
 @export var torso_armor := 0.0
 ## Ranged armor from the torso: thick hides and shells shrug off quills.
 @export var ranged_armor := 0.0
-## FRENZY (fights faster when wounded), TRAMPLE (melee hits splash) or
-## CAMOUFLAGE (vanishes while standing still).
+## FRENZY (fights faster when wounded), TRAMPLE (melee hits splash),
+## CAMOUFLAGE (vanishes while standing still) or HERDING (tougher in a herd).
 @export var torso_ability: Ability = Ability.NONE
 
 @export_group("Legs")

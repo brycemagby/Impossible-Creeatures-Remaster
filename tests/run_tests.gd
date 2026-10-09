@@ -66,6 +66,7 @@ func _run() -> void:
 	await _test_pack_frenzy_trample()
 	await _test_stink()
 	await _test_camouflage()
+	await _test_herding()
 	await _test_starting_army()
 	await _test_research()
 	await _test_fog_of_war()
@@ -682,7 +683,7 @@ func _test_combiner_rules() -> void:
 	_check(_stats("lion", "kangaroo", [0, 0, 0, 1, 0, -1]).can_leap, "kangaroo hind legs give a leap")
 	_check(not _stats("rhino", "porcupine", [0, 0, 0, 0, 1, -1]).can_charge, "quill-shooters don't charge")
 	_check(not _stats("kangaroo", "eagle", [0, 0, 0, 0, 0, 1]).can_leap, "flyers don't leap")
-	_check(Armies.all_animals().size() == 14, "14 animals are available")
+	_check(Armies.all_animals().size() == 15, "15 animals are available")
 	_check(not _stats("lion", "eagle", [0, 0, 0, 0, 0, -1]).can_fly, "no wings, no flight")
 	var heavy := _design("rhino", "eagle", [0, 0, 0, 0, 0, 1])
 	_check(not CreatureCombiner.build_stats(heavy).can_fly and CreatureCombiner.too_heavy_to_fly(heavy), "a rhino is too heavy for eagle wings")
@@ -1035,6 +1036,28 @@ func _test_camouflage() -> void:
 	await _wait_until(func() -> bool: return not chameleon.is_moving, 5.0)
 	await _wait_until(func() -> bool: return chameleon.is_camouflaged(), Creature.CAMOUFLAGE_DELAY + 2.0)
 	_check(chameleon.is_camouflaged(), "standing still again brings it back")
+	await _unload(main)
+
+
+func _test_herding() -> void:
+	print("herding")
+	var bison := _stats("bison", "bison", [0, 0, 0, 0, 0, -1])
+	_check(bison.herding and not _stats("lion", "bison", [0, 0, 0, 0, 0, -1]).herding, "a bison torso gives herding")
+	var main := await _load_map()
+	_isolate([])
+	var leader := _spawn(main, bison, 0, Vector3(0, 0, 0))
+	_spawn(main, load("res://tests/fixtures/brute.tres"), 0, Vector3(2, 0, 0))
+	_spawn(main, bison, 1, Vector3(-3, 0, 0))
+	await _physics_frames(2)
+	_check(leader.herd_mates() == 0 and leader.armor() == bison.armor, "other creatures and enemies aren't herd mates")
+	for i in 4:
+		_spawn(main, bison, 0, Vector3(i * 1.5 - 2, 0, 2.5))
+	await _physics_frames(2)
+	var bonus := Creature.HERD_ARMOR * Creature.HERD_MAX_MATES
+	_check(leader.herd_mates() == Creature.HERD_MAX_MATES, "herd mates nearby count, up to %d" % Creature.HERD_MAX_MATES)
+	_check(leader.armor() == bison.armor + bonus and leader.ranged_armor() == bison.ranged_armor + bonus, "each adds melee and ranged armor")
+	leader.global_position = Vector3(30, 0, 30)
+	_check(leader.herd_mates() == 0 and leader.armor() == bison.armor, "a straggler loses the bonus")
 	await _unload(main)
 
 

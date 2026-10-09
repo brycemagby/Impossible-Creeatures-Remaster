@@ -46,8 +46,8 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - **Minimap**: terrain under the fog, coal, buildings, creatures and your camera's view; click to look,
   right click to send the selection there
 
-- **Creature combiner**: pick two of 14 animals (Bat, Chameleon, Cheetah, Crocodile, Eagle, Elephant,
-  Gorilla, Kangaroo, Lion, Porcupine, Rhino, Scorpion, Skunk, Wolf), choose which one each body part comes from, see
+- **Creature combiner**: pick two of 15 animals (Bat, Bison, Chameleon, Cheetah, Crocodile, Eagle,
+  Elephant, Gorilla, Kangaroo, Lion, Porcupine, Rhino, Scorpion, Skunk, Wolf), choose which one each body part comes from, see
   the hybrid and its stats live, and save an army of up to 9 designs. Matches start with 600 coal's
   worth of your army, and the Creature Chamber produces more.
 - Part-based abilities: flying (Eagle or Bat wings, for hybrids light enough), poison (Scorpion
@@ -95,7 +95,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 | Body part | Contributes |
 | --- | --- |
 | Head | Bite damage, some armor (Rhino, Elephant, Crocodile); Rhino: **charge**; Bat: **sonic**; Wolf: **pack hunter** |
-| Torso | Health, most of the melee armor and all of the ranged armor; most of the hybrid's size; Gorilla: **frenzy**; Elephant: **trample**; Chameleon: **camouflage** |
+| Torso | Health, most of the melee armor and all of the ranged armor; most of the hybrid's size; Gorilla: **frenzy**; Elephant: **trample**; Chameleon: **camouflage**; Bison: **herding** |
 | Front legs | Claw damage (Gorilla fists, Scorpion pincers, Eagle talons) and half the speed |
 | Back legs | The other half of the speed; Kangaroo legs: **leap** |
 | Tail | Poison (Scorpion), a ranged quill attack (Porcupine) or **stink** (Skunk) |
@@ -110,6 +110,8 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 - **Pack hunter** (Wolf head): +15% damage for each other pack hunter within 6 m, up to +45%.
 - **Frenzy** (Gorilla torso): below half health, attacks come 40% faster.
 - **Trample** (Elephant torso): melee hits also deal half damage to enemies right next to the target.
+- **Herding** (Bison torso): +1 melee and ranged armor for each other herding creature within 6 m,
+  up to +3.
 - **Stink** (Skunk tail): enemies within 4 m of a stinker deal 25% less damage. Several stinkers
   don't stack.
 - **Camouflage** (Chameleon torso): after standing still for 3 s without fighting, the creature

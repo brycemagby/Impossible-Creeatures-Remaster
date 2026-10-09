@@ -166,6 +166,8 @@ func refresh() -> void:
 		abilities.append("Trample (hits splash nearby enemies)")
 	if stats.has_stink:
 		abilities.append("Stink (enemies within %dm deal %d%% less damage)" % [Creature.STINK_RADIUS, roundi(Creature.STINK_PENALTY * 100.0)])
+	if stats.herding:
+		abilities.append("Herding (+%d armor per herd mate, up to +%d)" % [Creature.HERD_ARMOR, Creature.HERD_ARMOR * Creature.HERD_MAX_MATES])
 	if stats.has_camouflage:
 		abilities.append("Camouflage (invisible after %ds standing still)" % Creature.CAMOUFLAGE_DELAY)
 	lines.append("")
