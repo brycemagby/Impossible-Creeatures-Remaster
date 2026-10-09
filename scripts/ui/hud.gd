@@ -29,6 +29,10 @@ var command_status: Label
 var message_label: Label
 ## Control groups, e.g. "1: 5   2: 3".
 var groups_label: Label
+## One button per creature type in a mixed selection (click: keep only that
+## type, Shift+click: drop it).
+var type_bar: HFlowContainer
+var _type_context := ""
 var pause_menu: PauseMenu
 var end_screen: EndScreen
 
@@ -51,6 +55,7 @@ func _process(delta: float) -> void:
 		resource_label.text += "      Speed  %sx" % Engine.time_scale
 	selection_label.text = _describe_selection()
 	groups_label.text = _describe_groups()
+	_refresh_type_bar()
 	_refresh_command_panel()
 	_message_timer -= delta
 	message_label.visible = _message_timer > 0.0
@@ -112,9 +117,34 @@ func _describe_selection() -> String:
 		for unit: Creature in alive:
 			counts[unit.stats.display_name] = counts.get(unit.stats.display_name, 0) + 1
 		lines.append("Selected: %d" % alive.size())
-		for unit_name: String in counts:
-			lines.append("  %dx %s" % [counts[unit_name], unit_name])
+		if counts.size() == 1:
+			lines.append("  %dx %s" % [alive.size(), counts.keys()[0]])
+		# Several types: listed as buttons under this text (type_bar).
 	return "\n".join(lines)
+
+
+func _refresh_type_bar() -> void:
+	var counts := {}
+	for unit in selection_manager.selected:
+		if Creature.is_valid_target(unit):
+			counts[unit.stats.display_name] = counts.get(unit.stats.display_name, 0) + 1
+	var context := str(counts) if counts.size() > 1 else ""
+	# Just under the text, whatever size the label's box is.
+	var text_height := selection_label.get_line_count() * selection_label.get_line_height()
+	type_bar.position = Vector2(16, selection_label.position.y + text_height + 8)
+	if context == _type_context:
+		return
+	_type_context = context
+	for child in type_bar.get_children():
+		child.queue_free()
+	type_bar.visible = context != ""
+	for type_name: String in counts:
+		var button := Button.new()
+		button.text = "%dx %s" % [counts[type_name], type_name]
+		button.focus_mode = Control.FOCUS_NONE
+		button.tooltip_text = "Click: select only these.  Shift+click: deselect them."
+		button.pressed.connect(func() -> void: selection_manager.select_type(type_name, Input.is_key_pressed(KEY_SHIFT)))
+		type_bar.add_child(button)
 
 
 func _describe_groups() -> String:
@@ -391,6 +421,11 @@ func _build_layout() -> void:
 	resource_label.offset_right = -16
 	resource_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	resource_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+
+	type_bar = HFlowContainer.new()
+	type_bar.custom_minimum_size.x = 420
+	type_bar.visible = false
+	add_child(type_bar)
 
 	groups_label = _make_label(16)
 	groups_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)

@@ -8,7 +8,8 @@ Camera, selection, control groups, pathfinding, avoidance, formations, placehold
 Touch-up pass ✅: formations spaced for big creatures, crowds settle instead of jostling at a shared
 destination, box select leaves Henchmen out of army selections, inspect enemy units and buildings,
 Shift+number adds to a group and a double tap looks at it, groups listed on the HUD, camera reset
-(Backspace) and zoom towards the cursor.
+(Backspace) and zoom towards the cursor. Extras ✅: type buttons to narrow a mixed selection,
+right-drag line formations. (Idle allies already make way through Godot's avoidance; tested.)
 
 ## M2 — Combat ✅
 Health, armor, melee and ranged (projectile) attacks, death, health bars, attack and attack-move

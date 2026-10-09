@@ -100,6 +100,7 @@ func _run() -> void:
 	await _test_alerts()
 	await _test_selection_shortcuts()
 	await _test_m1_touch_ups()
+	await _test_m1_extras()
 	await _test_queued_orders()
 	await _test_command_hotkeys()
 	await _test_rally_on_coal()
@@ -2284,6 +2285,97 @@ func _test_m1_touch_ups() -> void:
 	_check(crowd.all(func(u: Creature) -> bool: return not u.is_moving and u.order == Creature.Order.IDLE),
 			"a crowd sent to one spot all settle (%d still moving)" % crowd.filter(func(u: Creature) -> bool: return u.is_moving).size())
 	_check(crowd.all(func(u: Creature) -> bool: return u.global_position.distance_to(Vector3(0, 0, -5)) < 6.0), "and they all got close")
+	await _unload(main)
+
+
+func _right_drag(from: Vector2, to: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_RIGHT
+	press.position = from
+	press.pressed = true
+	get_tree().root.push_input(press)
+	var motion := InputEventMouseMotion.new()
+	motion.position = to
+	get_tree().root.push_input(motion)
+	var release := press.duplicate()
+	release.position = to
+	release.pressed = false
+	get_tree().root.push_input(release)
+
+
+func _test_m1_extras() -> void:
+	print("M1 extras")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var hud := main.get_node("UI/HUD")
+	var camera: Camera3D = manager.camera
+
+	# Narrowing a mixed selection by type.
+	var fighters := _fighters(0)
+	manager.select_units(fighters)
+	await _process_frames(2)
+	var type_buttons: Array = hud.type_bar.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
+	_check(hud.type_bar.visible and type_buttons.size() == 3, "a mixed selection shows a button per type (%d)" % type_buttons.size())
+	var runner_button: Button = type_buttons.filter(func(b: Button) -> bool: return b.text.ends_with("Runner"))[0]
+	runner_button.pressed.emit()
+	_check(manager.selected.size() == 2 and manager.selected.all(func(u: Creature) -> bool: return u.stats.display_name == "Runner"),
+			"clicking a type keeps only that type")
+	await _process_frames(2)
+	_check(not hud.type_bar.visible, "one type left: no buttons")
+	manager.select_units(fighters)
+	manager.select_type("Brute", true)
+	_check(manager.selected.size() == fighters.size() - 1 and manager.selected.all(func(u: Creature) -> bool: return u.stats.display_name != "Brute"),
+			"Shift+click drops a type instead")
+
+	# Right-drag: a line formation.
+	_isolate([])
+	var line: Array[Creature] = []
+	for i in 4:
+		line.append(_spawn(main, load("res://tests/fixtures/runner.tres"), 0, Vector3(i * 1.5 - 2.0, 0, 20)))
+	await _physics_frames(2)
+	manager.select_units(line)
+	var start := Vector3(-8, 0, 5)
+	var end := Vector3(8, 0, 5)
+	_right_drag(camera.unproject_position(start), camera.unproject_position(end))
+	var points := line.map(func(u: Creature) -> Vector3: return u.get("_order_point"))
+	var xs := points.map(func(p: Vector3) -> float: return p.x)
+	_check(points.all(func(p: Vector3) -> bool: return absf(p.z - 5.0) < 0.6), "a right-drag lines the group up along the drag")
+	_check(xs.max() - xs.min() > 12.0, "as wide as the drag (%.1f m)" % (xs.max() - xs.min()))
+	_check(line.all(func(u: Creature) -> bool: return u.order == Creature.Order.MOVE), "and moves them there")
+	_click(camera.unproject_position(Vector3(0, 0, 0)), MOUSE_BUTTON_RIGHT)
+	var tight := line.map(func(u: Creature) -> Vector3: return u.get("_order_point")).map(func(p: Vector3) -> float: return p.x)
+	_check(tight.max() - tight.min() < 6.0, "a plain right click still makes a compact formation")
+
+	# Idle allies make way (Godot's avoidance does it: they yield to movers).
+	_isolate([])
+	var block: Array[Creature] = []
+	for i in 9:
+		block.append(_spawn(main, load("res://tests/fixtures/brute.tres"), 0, Vector3((i % 3) - 1.0, 0, (i / 3) - 1.0)))
+	var crosser := _spawn(main, load("res://tests/fixtures/runner.tres"), 0, Vector3(0, 0, 10))
+	await _physics_frames(2)
+	for unit in block:
+		unit.command_stop()
+	crosser.command_move(Vector3(0, 0, -10))
+	await _wait_until(func() -> bool: return crosser.global_position.distance_to(Vector3(0, 0, -10)) < 1.5, 10.0)
+	_check(crosser.global_position.distance_to(Vector3(0, 0, -10)) < 1.5, "a walker gets through a tight block of idle allies")
+
+	_isolate([])
+	var bystander := _spawn(main, load("res://tests/fixtures/brute.tres"), 0, Vector3(0, 0, 0))
+	var holder := _spawn(main, load("res://tests/fixtures/brute.tres"), 0, Vector3(20, 0, 0))
+	var walker := _spawn(main, load("res://tests/fixtures/runner.tres"), 0, Vector3(0, 0, 8))
+	var walker2 := _spawn(main, load("res://tests/fixtures/runner.tres"), 0, Vector3(20, 0, 8))
+	bystander.command_stop()
+	holder.command_hold()
+	await _physics_frames(2)
+	var stood := bystander.global_position
+	var held := holder.global_position
+	walker.command_move(Vector3(0, 0, -8))
+	walker2.command_move(Vector3(20, 0, -8))
+	await _wait_until(func() -> bool: return not walker.is_moving, 8.0)
+	_check(bystander.global_position.distance_to(stood) > 0.8, "an idle ally is nudged out of the way (%.1f m)" % bystander.global_position.distance_to(stood))
+	_check(walker.global_position.distance_to(Vector3(0, 0, -8)) < 1.5, "and the walker gets through")
+	await _wait_until(func() -> bool: return not walker2.is_moving, 8.0)
+	_check(holder.order == Creature.Order.HOLD and holder.get("_guard_position").distance_to(held) < 0.1, "creatures holding position keep their post")
 	await _unload(main)
 
 

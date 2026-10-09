@@ -7,6 +7,8 @@ extends Node
 ## - Left drag: box select units (Shift to add)
 ## - Right click with units: move / attack enemy / gather coal / help build
 ##   (hold Shift to queue the order after the current ones)
+## - Right drag with units: line them up along the drag, facing away from where
+##   they are now
 ## - Right click with a building: set its rally point (on coal: new Henchmen gather)
 ## - Period: next idle Henchman; Home: next Lab; Space: jump to the latest alert
 ## - Clicking an enemy unit or building shows its stats (no orders)
@@ -41,6 +43,8 @@ const ATTACK_MOVE := &"attack_move"
 const PATROL := &"patrol"
 ## Two presses of a group key within this many seconds centre the camera on it.
 const DOUBLE_TAP_TIME := 0.4
+## A right-button drag longer than this (pixels) lines the selection up.
+const LINE_DRAG_THRESHOLD := 20.0
 ## Gap kept between neighbours in a formation, on top of their sizes.
 const FORMATION_GAP := 0.4
 const MoveMarkerScene := preload("res://scenes/fx/move_marker.tscn")
@@ -68,6 +72,8 @@ var _press_position := Vector2.ZERO
 var _pressing := false
 var _dragging := false
 var _double_click := false
+var _right_pressing := false
+var _right_press_position := Vector2.ZERO
 var _last_group_key := -1
 var _last_group_time := -1.0
 
@@ -110,6 +116,13 @@ func inspect(target: Node3D) -> void:
 	inspected = target
 	target.selection_ring.visible = true
 	selection_changed.emit()
+
+
+## Narrows the selection to creatures named [param display_name], or with
+## [param remove] drops them from it.
+func select_type(display_name: String, remove := false) -> void:
+	var kept := _valid_selected().filter(func(u: Creature) -> bool: return (u.stats.display_name == display_name) != remove)
+	_set_selection(kept, null)
 
 
 ## The player's control groups: group number -> living units.
@@ -319,6 +332,34 @@ func issue_build(site: Building, queue := false) -> void:
 	_spawn_marker(site.global_position, WORK_COLOR)
 
 
+## Lines the selection up along [param start]-[param end] (as wide as the drag
+## allows), facing away from where the group is now. Attack-moves with
+## [param attack_move].
+func issue_line_formation(start: Vector3, end: Vector3, attack_move := false, queue := false) -> void:
+	var units := _valid_selected()
+	if units.is_empty():
+		return
+	var spacing := formation_spacing
+	var group_center := Vector3.ZERO
+	for unit in units:
+		spacing = maxf(spacing, unit.radius() * 2.0 + FORMATION_GAP)
+		group_center += unit.global_position
+	group_center /= units.size()
+	var line := end - start
+	line.y = 0.0
+	var width := line.length()
+	var columns := clampi(floori(width / spacing) + 1, 1, units.size())
+	var column_spacing := width / (columns - 1) if columns > 1 else spacing
+	var middle := (start + end) / 2.0
+	var facing := Vector3(line.z, 0.0, -line.x).normalized()
+	if facing.dot(middle - group_center) < 0.0:
+		facing = -facing
+	var command := &"command_attack_move" if attack_move else &"command_move"
+	assign_formation(units, middle, spacing, command, queue, facing, columns, column_spacing)
+	for unit in units:
+		_spawn_marker(unit.get("_order_point") if not queue else middle, ATTACK_COLOR if attack_move else MOVE_COLOR)
+
+
 func issue_stop() -> void:
 	for unit in _valid_selected():
 		unit.clear_order_queue()
@@ -434,17 +475,23 @@ func place_building_at_screen(screen_position: Vector2, keep_placing := false) -
 
 ## Grid offsets for [param count] units centred on the origin, rotated so the
 ## grid's forward (+Z) axis points along [param yaw].
-static func formation_offsets(count: int, spacing: float, yaw := 0.0) -> Array[Vector3]:
+## [param columns] fixes how wide the grid is (0: roughly square), and
+## [param column_spacing] the gap along a row (0: [param spacing]).
+static func formation_offsets(count: int, spacing: float, yaw := 0.0, columns := 0, column_spacing := 0.0) -> Array[Vector3]:
 	var offsets: Array[Vector3] = []
 	if count <= 0:
 		return offsets
-	var columns := ceili(sqrt(count))
+	if columns <= 0:
+		columns = ceili(sqrt(count))
+	columns = mini(columns, count)
+	if column_spacing <= 0.0:
+		column_spacing = spacing
 	var rows := ceili(float(count) / columns)
 	for i in count:
 		var row := i / columns
 		var column := i % columns
 		var offset := Vector3(
-			(column - (columns - 1) / 2.0) * spacing,
+			(column - (columns - 1) / 2.0) * column_spacing,
 			0.0,
 			((rows - 1) / 2.0 - row) * spacing
 		)
@@ -456,7 +503,10 @@ static func formation_offsets(count: int, spacing: float, yaw := 0.0) -> Array[V
 ## of travel, then calls [param command] (a Creature method name) with the slot
 ## and the group's speed (that of its slowest member).
 ## With [param queue], each unit queues the order instead of starting it now.
-static func assign_formation(units: Array, target: Vector3, spacing: float, command: StringName, queue := false) -> void:
+## [param facing] (if not zero) and [param columns] / [param column_spacing]
+## override the direction and shape (a line from a right-drag).
+static func assign_formation(units: Array, target: Vector3, spacing: float, command: StringName, queue := false,
+		facing := Vector3.ZERO, columns := 0, column_spacing := 0.0) -> void:
 	if units.is_empty():
 		return
 	var center := Vector3.ZERO
@@ -467,13 +517,13 @@ static func assign_formation(units: Array, target: Vector3, spacing: float, comm
 		# Big creatures need a wider grid so they don't fight over slots.
 		spacing = maxf(spacing, unit.radius() * 2.0 + FORMATION_GAP)
 	center /= units.size()
-	var direction := target - center
+	var direction := target - center if facing == Vector3.ZERO else facing
 	direction.y = 0.0
 	var yaw := atan2(direction.x, direction.z) if direction.length() > 0.1 else 0.0
 
 	# Greedily give each formation slot to the closest remaining unit.
 	var remaining := units.duplicate()
-	for offset in formation_offsets(units.size(), spacing, yaw):
+	for offset in formation_offsets(units.size(), spacing, yaw, columns, maxf(column_spacing, spacing) if column_spacing > 0.0 else 0.0):
 		var slot := target + offset
 		var best: Creature = null
 		var best_distance := INF
@@ -518,14 +568,25 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 				_dragging = false
 				selection_box.hide_box()
 		MOUSE_BUTTON_RIGHT:
-			if not event.pressed:
-				return
-			if build_placer.is_active():
-				cancel_placement()
-			elif targeting_order != &"":
-				set_targeting(&"")
-			else:
-				issue_order_at_screen(event.position, event.ctrl_pressed, event.shift_pressed)
+			if event.pressed:
+				if build_placer.is_active():
+					cancel_placement()
+				elif targeting_order != &"":
+					set_targeting(&"")
+				else:
+					_right_pressing = true
+					_right_press_position = event.position
+			elif _right_pressing:
+				# The order goes out on release: a drag lines the group up.
+				_right_pressing = false
+				if event.position.distance_to(_right_press_position) > LINE_DRAG_THRESHOLD and not _valid_selected().is_empty() \
+						and not Creature.is_valid_target(selected_building):
+					var start: Variant = ground_at_screen(_right_press_position)
+					var end: Variant = ground_at_screen(event.position)
+					if start != null and end != null:
+						issue_line_formation(start, end, event.ctrl_pressed, event.shift_pressed)
+						return
+				issue_order_at_screen(_right_press_position, event.ctrl_pressed, event.shift_pressed)
 
 
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:

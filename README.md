@@ -161,6 +161,8 @@ Animals are data files in `resources/animals/`; add a `.tres` there and it shows
 | Right click coal (Henchmen selected) | Gather coal |
 | Right click unfinished building (Henchmen selected) | Help build it |
 | Shift + right click | Queue the order after the current ones (waypoints, attack then move on, ...) |
+| Right drag with units | Line them up along the drag, facing away from where they are (Ctrl: attack-move) |
+| Type buttons under a mixed selection | Click: keep only that type; Shift+click: drop it |
 | Right click with a building selected | Set rally point (click the building itself to clear; on coal, new Henchmen gather there) |
 | Command panel buttons (bottom right) | Build (Henchmen selected) or produce units (building selected); Shift + click makes 5 |
 | Z X C V B N M, then T Y U I O | Press the command panel buttons in order (Shift: make 5) |
