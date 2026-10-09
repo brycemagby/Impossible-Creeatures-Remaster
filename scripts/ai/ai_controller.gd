@@ -9,6 +9,7 @@ extends Node
 ##   electricity flowing, then (from research level 2) a Workshop and a
 ##   Soundbeam Tower per Lab; one construction at a time, placed around its Lab;
 ## - buys Workshop and Research Center upgrades when it can spare the coal;
+## - builds an Aviary once it can make its flyers;
 ## - on maps with water, builds a Water Chamber on the shore and keeps its
 ##   water-only creatures on the water nearest the enemy;
 ## - researches the next level at the Lab: once its army is big enough for
@@ -37,6 +38,7 @@ const CHAMBER_DATA := preload("res://resources/buildings/creature_chamber.tres")
 const WORKSHOP_DATA := preload("res://resources/buildings/workshop.tres")
 const RESEARCH_CENTER_DATA := preload("res://resources/buildings/research_center.tres")
 const WATER_CHAMBER_DATA := preload("res://resources/buildings/water_chamber.tres")
+const AVIARY_DATA := preload("res://resources/buildings/aviary.tres")
 ## Spacing of the candidate spots tried along each shore when placing a Water Chamber.
 const SHORE_STEP := 2.0
 ## Water-only creatures this close to their station stay put.
@@ -299,6 +301,8 @@ func next_building() -> BuildingData:
 		return LAB_DATA
 	if wants_water_chamber():
 		return WATER_CHAMBER_DATA
+	if wants_aviary():
+		return AVIARY_DATA
 	if Research.level(team) >= AI_WORKSHOP_LEVEL and _count(WORKSHOP_DATA) == 0:
 		return WORKSHOP_DATA
 	if Research.level(team) >= AI_WORKSHOP_LEVEL and _count(RESEARCH_CENTER_DATA) == 0:
@@ -317,6 +321,17 @@ func wants_water_chamber() -> bool:
 		return false
 	for recipe in Armies.recipes(team):
 		if recipe.stats.can_swim and Research.can_produce(team, recipe):
+			return true
+	return false
+
+
+## True when the roster has a flying design it has the research for and
+## there's no Aviary yet.
+func wants_aviary() -> bool:
+	if _count(AVIARY_DATA) > 0:
+		return false
+	for recipe in Armies.recipes(team):
+		if recipe.stats.can_fly and Research.can_produce(team, recipe):
 			return true
 	return false
 

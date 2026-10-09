@@ -120,7 +120,10 @@ func production_options() -> Array[UnitRecipe]:
 		return data.production
 	var options: Array[UnitRecipe] = []
 	for recipe in Armies.recipes(team):
-		if (recipe.stats.can_swim if data.water_production else not recipe.stats.water_only):
+		var stats := recipe.stats
+		var makes := stats.can_fly if data.flyer_production else (stats.can_swim if data.water_production
+				else not stats.water_only and not stats.can_fly)
+		if makes:
 			options.append(recipe)
 	return options
 

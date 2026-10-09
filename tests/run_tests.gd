@@ -78,6 +78,7 @@ func _run() -> void:
 	await _test_swimmers()
 	await _test_water_chamber()
 	await _test_ai_on_water()
+	await _test_aviary()
 	await _test_skirmish_setup()
 	await _test_match_stats()
 	await _test_pause_and_speed()
@@ -638,7 +639,7 @@ func _test_hud_command_panel() -> void:
 	manager.select_units([_first(0, "Henchman")])
 	await _process_frames(2)
 	var buttons: Array = hud.command_grid.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
-	_check(hud.command_panel.visible and buttons.size() == 7, "Henchmen show a build menu with 7 buildings")
+	_check(hud.command_panel.visible and buttons.size() == 8, "Henchmen show a build menu with 8 buildings (no Water Chamber without water)")
 	buttons[2].pressed.emit()
 	_check(manager.build_placer.is_active() and manager.build_placer.data.display_name == "Electrical Generator",
 			"clicking a build button starts placement")
@@ -778,9 +779,9 @@ func _test_hybrid_production() -> void:
 	var main := await _load_map()
 	var chamber := _add_building("res://resources/buildings/creature_chamber.tres", 1, Vector3(12, 0, -40))
 	var options := chamber.production_options()
-	var walkers := Armies.recipes(1).filter(func(r: UnitRecipe) -> bool: return not r.stats.water_only)
+	var walkers := Armies.recipes(1).filter(func(r: UnitRecipe) -> bool: return not r.stats.water_only and not r.stats.can_fly)
 	_check(options.size() == walkers.size() and walkers.size() < Armies.designs(1).size(),
-			"the Creature Chamber offers the team's army, except the water-only designs")
+			"the Creature Chamber offers the team's army, except flyers and water-only designs")
 	Economy.add(1, 1000, 1000)
 	Research.set_level(1, Research.MAX_LEVEL)
 	var recipe := options[0]
@@ -1489,6 +1490,49 @@ func _test_ai_on_water() -> void:
 	_check(ai.manage_navy() == 1 and shark.order == Creature.Order.ATTACK_MOVE, "they're sent to the water nearest the enemy instead")
 	await _unload(main)
 	GameSettings.select_map(0)
+
+
+func _test_aviary() -> void:
+	print("Aviary")
+	var saved := Armies.designs(0)
+	Armies.set_designs(0, [_design("lion", "lion", [0, 0, 0, 0, 0, -1]), _design("lion", "eagle", [0, 0, 1, 0, 0, 1])])
+	var main := await _load_map()
+	var aviary := _add_building("res://resources/buildings/aviary.tres", 0, Vector3(-22, 0, 22))
+	var chamber := _add_building("res://resources/buildings/creature_chamber.tres", 0, Vector3(14, 0, 22))
+	await _physics_frames(2)
+	var flyers := aviary.production_options().map(func(r: UnitRecipe) -> String: return r.stats.display_name)
+	var walkers := chamber.production_options().map(func(r: UnitRecipe) -> String: return r.stats.display_name)
+	_check(flyers == ["Ligle"], "the Aviary makes the flying designs (%s)" % [flyers])
+	_check(walkers == ["Lion"], "and the Creature Chamber no longer does (%s)" % [walkers])
+
+	var flyer := _spawn(main, _stats("lion", "eagle", [0, 0, 1, 0, 0, 1]), 0, Vector3(0, 0, 0))
+	var walker := _first(0, "Brute")
+	await _physics_frames(2)
+	var speed := flyer.move_speed()
+	var sight := flyer.sight_range()
+	var vision := flyer.vision_range()
+	var walker_speed := walker.move_speed()
+	Economy.add(0, 2000, 2000)
+	Research.set_level(0, 2)
+	var wings: UpgradeData = aviary.data.upgrades[0]
+	var eyes: UpgradeData = aviary.data.upgrades[1]
+	_check(aviary.start_upgrade(wings) == "", "the Aviary sells flyer upgrades")
+	aviary.upgrade_time = wings.duration
+	await _physics_frames(3)
+	Upgrades.grant(0, eyes)
+	_check(is_equal_approx(flyer.move_speed(), speed * 1.15), "Strong Wings: flyers 15% faster")
+	_check(flyer.sight_range() == sight + 4.0 and flyer.vision_range() == vision + 4.0, "Keen Eyes: flyers see 4 m further")
+	_check(walker.move_speed() == walker_speed, "walkers don't get flyer upgrades")
+
+	var ai: AIController = main.get_node("EnemyAI")
+	Armies.set_designs(1, [_design("lion", "lion", [0, 0, 0, 0, 0, -1]), _design("lion", "eagle", [0, 0, 1, 0, 0, 1])])
+	Research.set_level(1, 1)
+	_check(not ai.wants_aviary(), "the AI waits for the research its flyers need")
+	Research.set_level(1, 5)
+	_check(ai.wants_aviary(), "then wants an Aviary")
+	Armies.set_designs(1, Armies.default_designs())
+	await _unload(main)
+	Armies.set_designs(0, saved)
 
 
 func _test_canyon_map() -> void:

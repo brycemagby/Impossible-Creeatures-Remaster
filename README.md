@@ -46,6 +46,9 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - **Water**: Canyon is split by a river with three fords; Lakeside has a lake in the middle with a
   ford across it. Walking creatures go round deep water or wade through fords; nothing can be built
   on water.
+- **Aviary**: flying designs are made here (the Creature Chamber makes the ones that walk). It also
+  sells flyer upgrades: Strong Wings (+15% flyer speed) and Keen Eyes (flyers see 4 m further), from
+  research level 2. The AI builds one once it can make its flyers.
 - **Swimmers**: legs decide. Crocodile legs are amphibious (walk and swim); Shark and Electric Eel
   have fins, and a hybrid with fins front and back lives only in deep water. Land melee creatures
   can only hit swimmers near the shore, and water-only creatures only reach what's near the water;
@@ -263,6 +266,7 @@ Layers 1, 3 and 4 are baked into the navmesh.
 | House (+5 population) | 50 | — | 12 Henchman-seconds |
 | Workshop | 150 | 50 | 25 Henchman-seconds |
 | Water Chamber (on a shore) | 200 | 50 | 30 Henchman-seconds |
+| Aviary | 225 | 75 | 30 Henchman-seconds |
 | Research Center (research L1) | 175 | 75 | 30 Henchman-seconds |
 | Soundbeam Tower (research L2; 14 damage / 1.2 s, 10 m) | 150 | 75 | 20 Henchman-seconds |
 

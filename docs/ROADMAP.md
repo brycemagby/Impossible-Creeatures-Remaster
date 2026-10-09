@@ -61,7 +61,8 @@ Follow-ups:
   Crocodile legs, water-only Shark and Electric Eel fins, electric stun) and the Water Chamber ✅;
   the AI on water maps ✅ (builds a Water Chamber on the shore once its swimmers are researched,
   keeps water-only creatures on the water nearest the enemy, and expands before its coal runs dry)
-- Aviary for flyers
+- Aviary ✅: makes the flying designs and sells flyer upgrades (Strong Wings, Keen Eyes); the AI
+  builds one once its flyers are researched
 
 ## M5 — Creature visuals
 - Modular, rigged animal parts that can be attached to each other

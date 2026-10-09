@@ -622,7 +622,14 @@ func is_frenzied() -> bool:
 ## Walking speed including the team's upgrades.
 func move_speed() -> float:
 	var base := stats.swim_speed if stats.water_only or _in_water else stats.move_speed
+	if stats.can_fly:
+		base *= Upgrades.flyer_speed_multiplier(team)
 	return base * Upgrades.speed_multiplier(team)
+
+
+## How far this creature notices enemies, including flyers' sight upgrades.
+func sight_range() -> float:
+	return stats.sight_range + (Upgrades.flyer_sight_bonus(team) if stats.can_fly else 0.0)
 
 
 ## True while swimming in deep water.
@@ -647,7 +654,7 @@ func is_stunned() -> bool:
 
 ## How far this creature reveals the fog of war.
 func vision_range() -> float:
-	return maxf(stats.sight_range, 9.0) + (3.0 if stats.can_fly else 0.0)
+	return maxf(sight_range(), 9.0) + (3.0 if stats.can_fly else 0.0)
 
 
 ## Distance from [param point] to this creature's edge on the ground plane.
@@ -729,7 +736,7 @@ func _update_orders() -> void:
 	if scanning and retarget and _scan_timer <= 0.0:
 		_scan_timer = SCAN_INTERVAL
 		# Holding creatures only look as far as they can hit.
-		var scan_range := stats.attack_range + radius() if order == Order.HOLD else stats.sight_range
+		var scan_range := stats.attack_range + radius() if order == Order.HOLD else sight_range()
 		var enemy := find_best_enemy(scan_range)
 		if enemy != null and (attack_target == null or enemy is Creature):
 			_engage(enemy, true)
@@ -752,7 +759,7 @@ func _should_keep_target() -> bool:
 		return _flat_distance(_guard_position) <= stats.leash_range
 	# Attack-moving units have no post to leash to, so they give up on
 	# targets that run out of sight instead of chasing across the map.
-	return attack_target.edge_distance_from(global_position) <= stats.sight_range * LOSE_SIGHT_FACTOR
+	return attack_target.edge_distance_from(global_position) <= sight_range() * LOSE_SIGHT_FACTOR
 
 
 func _lose_target() -> void:

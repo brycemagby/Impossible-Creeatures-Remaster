@@ -20,8 +20,10 @@ extends Resource
 ## Produces the owning team's army roster (see Armies) instead of [member production].
 @export var produces_army := false
 ## Makes the army's swimming designs (the Water Chamber); otherwise an army
-## building makes the ones that can walk.
+## building makes the ones that walk (the Creature Chamber).
 @export var water_production := false
+## Makes the army's flying designs (the Aviary).
+@export var flyer_production := false
 ## Has to be built on a shore (next to deep water).
 @export var needs_shore := false
 ## Research levels can be studied here (see Research).
