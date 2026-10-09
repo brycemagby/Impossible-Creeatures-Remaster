@@ -53,6 +53,10 @@ extends Resource
 @export var has_frenzy := false
 ## Melee hits also hurt enemies next to the target.
 @export var has_trample := false
+## Enemies close by deal less damage.
+@export var has_stink := false
+## Turns invisible to enemies after standing still for a moment.
+@export var has_camouflage := false
 
 
 func is_ranged() -> bool:

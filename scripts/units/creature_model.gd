@@ -51,6 +51,9 @@ func build(design: CreatureDesign) -> void:
 	match tail.tail_ability:
 		AnimalData.Ability.POISON:
 			_add_box(null, Vector3(0.12, 0.2, 0.12), Vector3(0, 1.25, 0.95), 1.0, Color(0.4, 0.9, 0.2))
+		AnimalData.Ability.STINK:
+			# A big bushy tail.
+			_add_sphere(tail, 0.22 * tail_scale, Vector3(0, 1.25, 0.95))
 		AnimalData.Ability.QUILLS:
 			for i in 5:
 				var quill := _add_cylinder(tail, 0.025, 0.55, Vector3((i - 2) * 0.12, 1.15, 0.45))
@@ -62,6 +65,14 @@ func build(design: CreatureDesign) -> void:
 		for side in [-1.0, 1.0]:
 			var wing := _add_box(wings, Vector3(span, 0.05, 0.55), Vector3(side * (0.35 + span / 2.0), 1.05, -0.05), 1.0)
 			wing.rotation_degrees.z = side * 12.0
+
+
+## Makes the whole model see-through (camouflaged, as its owner sees it) or solid.
+func set_ghostly(ghostly: bool) -> void:
+	for i in _materials.size():
+		_base_colors[i].a = 0.35 if ghostly else 1.0
+		_materials[i].transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if ghostly else BaseMaterial3D.TRANSPARENCY_DISABLED
+		_materials[i].albedo_color = _base_colors[i]
 
 
 ## Briefly whitens every part (hit feedback).

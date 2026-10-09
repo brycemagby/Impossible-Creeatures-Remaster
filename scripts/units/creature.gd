@@ -86,6 +86,17 @@ const FRENZY_COOLDOWN_FACTOR := 0.6
 ## Trample: melee hits also deal this share to enemies within TRAMPLE_RADIUS of the target.
 const TRAMPLE_SHARE := 0.5
 const TRAMPLE_RADIUS := 1.5
+## Stink: enemies within STINK_RADIUS deal this much less damage (doesn't stack).
+const STINK_PENALTY := 0.25
+const STINK_RADIUS := 4.0
+const STINK_COLOR := Color(0.55, 0.75, 0.2, 0.35)
+const STINK_PUFF_INTERVAL := 1.5
+## Camouflage: hidden after standing still this long, unless an enemy is within
+## CAMOUFLAGE_DETECT_RADIUS, or an enemy with sonic (echolocation) within
+## ECHOLOCATION_RADIUS.
+const CAMOUFLAGE_DELAY := 3.0
+const CAMOUFLAGE_DETECT_RADIUS := 3.0
+const ECHOLOCATION_RADIUS := 12.0
 ## Armor never blocks more than this share of a hit.
 const MAX_ARMOR_BLOCK := 0.6
 const ProjectileScene := preload("res://scenes/fx/projectile.tscn")
@@ -130,6 +141,10 @@ var _charge_cooldown := 0.0
 var _leap_cooldown := 0.0
 var _sonic_cooldown := 0.0
 var _deafened := 0.0
+var _stink_puff := 0.0
+## Seconds standing still without fighting or being hit (for camouflage).
+var _still_time := 0.0
+var _camouflaged := false
 var _leap_time := 0.0
 var _leap_velocity := Vector3.ZERO
 
@@ -169,6 +184,12 @@ func _physics_process(delta: float) -> void:
 	_leap_cooldown = maxf(_leap_cooldown - delta, 0.0)
 	_sonic_cooldown = maxf(_sonic_cooldown - delta, 0.0)
 	_deafened = maxf(_deafened - delta, 0.0)
+	_update_camouflage(delta)
+	if stats.has_stink and attack_target != null:
+		_stink_puff -= delta
+		if _stink_puff <= 0.0:
+			_stink_puff = STINK_PUFF_INTERVAL
+			_show_puff(STINK_COLOR, STINK_RADIUS, 0.8)
 	_kite_cooldown = maxf(_kite_cooldown - delta, 0.0)
 	_scan_timer -= delta
 	if _poison_time > 0.0:
@@ -278,6 +299,7 @@ func take_damage(amount: float, source: Node3D = null, ranged := false) -> void:
 	if is_valid_target(source):
 		_last_attacker_team = source.team
 	_flash()
+	_still_time = 0.0
 	_lose_health(damage_after_armor(amount, ranged_armor() if ranged else armor()))
 	if _dead:
 		return
@@ -347,7 +369,7 @@ func _try_sonic() -> int:
 				hit += 1
 	if in_range > 0:
 		_sonic_cooldown = SONIC_COOLDOWN
-		_show_sonic_ring()
+		_show_puff(SONIC_COLOR, SONIC_RADIUS, 0.4, true)
 	return hit
 
 
@@ -360,14 +382,23 @@ func hear_screech(source: Creature) -> bool:
 	return true
 
 
-func _show_sonic_ring() -> void:
-	var mesh := TorusMesh.new()
-	mesh.inner_radius = 0.85
-	mesh.outer_radius = 1.0
+## An expanding, fading ring (sonic) or cloud (stink) of [param radius].
+func _show_puff(color: Color, radius_m: float, duration: float, as_ring := false) -> void:
+	var mesh: Mesh
+	if as_ring:
+		var torus := TorusMesh.new()
+		torus.inner_radius = 0.85
+		torus.outer_radius = 1.0
+		mesh = torus
+	else:
+		var sphere := SphereMesh.new()
+		sphere.radius = 1.0
+		sphere.height = 1.0
+		mesh = sphere
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.albedo_color = SONIC_COLOR
+	material.albedo_color = color
 	var ring := MeshInstance3D.new()
 	ring.mesh = mesh
 	ring.material_override = material
@@ -376,8 +407,8 @@ func _show_sonic_ring() -> void:
 	ring.global_position = global_position + Vector3.UP * center_height()
 	ring.scale = Vector3.ONE * 0.3
 	var tween := ring.create_tween().set_parallel()
-	tween.tween_property(ring, "scale", Vector3.ONE * SONIC_RADIUS, 0.4)
-	tween.tween_property(material, "albedo_color:a", 0.0, 0.4)
+	tween.tween_property(ring, "scale", Vector3.ONE * radius_m, duration)
+	tween.tween_property(material, "albedo_color:a", 0.0, duration)
 	tween.chain().tween_callback(ring.queue_free)
 
 
@@ -396,9 +427,53 @@ func _fights_automatically() -> bool:
 ## Flyers are out of reach of melee, except while they swoop down to fight in
 ## melee themselves.
 func can_attack(target: Node3D) -> bool:
+	if target is Creature and target.is_hidden_from(team):
+		return false
 	if target is Creature and target.stats.can_fly:
 		return stats.is_ranged() or stats.can_fly or target.is_swooping()
 	return true
+
+
+## True while camouflaged (standing still, not fighting) - see is_hidden_from().
+func is_camouflaged() -> bool:
+	return _camouflaged
+
+
+## Whether [param viewer_team] can't see this creature: it's camouflaged and no
+## creature of theirs is close enough, or echolocating, to spot it.
+func is_hidden_from(viewer_team: int) -> bool:
+	if not _camouflaged or not Teams.are_enemies(team, viewer_team):
+		return false
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if not unit.is_alive() or not Teams.are_allies(unit.team, viewer_team):
+			continue
+		var distance := _flat_distance(unit.global_position)
+		if distance <= CAMOUFLAGE_DETECT_RADIUS or (unit.stats.has_sonic and distance <= ECHOLOCATION_RADIUS):
+			return false
+	return true
+
+
+func _update_camouflage(delta: float) -> void:
+	if not stats.has_camouflage:
+		return
+	if is_moving or attack_target != null or _leap_time > 0.0:
+		_still_time = 0.0
+	else:
+		_still_time += delta
+	var camouflaged := _still_time >= CAMOUFLAGE_DELAY
+	if camouflaged != _camouflaged:
+		_camouflaged = camouflaged
+		if _model:
+			_model.set_ghostly(camouflaged)
+
+
+## True while an enemy stinker is close enough to put this creature off its stroke.
+func is_stunk() -> bool:
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if unit.stats.has_stink and unit.is_alive() and Teams.are_enemies(team, unit.team) \
+				and unit.edge_distance_from(global_position) <= STINK_RADIUS:
+			return true
+	return false
 
 
 ## True while this flyer is fighting in melee, low enough to be hit back.
@@ -455,7 +530,10 @@ func ranged_armor() -> float:
 ## Damage per hit including the team's melee or ranged damage upgrades.
 func attack_damage() -> float:
 	var bonus := Upgrades.ranged_damage_bonus(team) if stats.is_ranged() else Upgrades.melee_damage_bonus(team)
-	return (stats.attack_damage + bonus) * (1.0 + PACK_BONUS * packmates())
+	var damage := (stats.attack_damage + bonus) * (1.0 + PACK_BONUS * packmates())
+	if is_stunk():
+		damage *= 1.0 - STINK_PENALTY
+	return damage
 
 
 ## Other pack hunters of this team close enough to hunt with (0 if not a pack hunter).

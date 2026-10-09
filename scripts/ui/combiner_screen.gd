@@ -164,6 +164,10 @@ func refresh() -> void:
 		abilities.append("Frenzy (faster attacks below half health)")
 	if stats.has_trample:
 		abilities.append("Trample (hits splash nearby enemies)")
+	if stats.has_stink:
+		abilities.append("Stink (enemies within %dm deal %d%% less damage)" % [Creature.STINK_RADIUS, roundi(Creature.STINK_PENALTY * 100.0)])
+	if stats.has_camouflage:
+		abilities.append("Camouflage (invisible after %ds standing still)" % Creature.CAMOUFLAGE_DELAY)
 	lines.append("")
 	lines.append("Abilities:" + (" none" if abilities.is_empty() else ""))
 	for ability in abilities:
@@ -230,7 +234,7 @@ func _build_layout() -> void:
 
 	# Animals
 	var animal_column := VBoxContainer.new()
-	animal_column.custom_minimum_size.x = 200
+	animal_column.custom_minimum_size.x = 290
 	columns.add_child(animal_column)
 	list_a = _animal_list(animal_column, "Animal A")
 	list_b = _animal_list(animal_column, "Animal B")
@@ -317,10 +321,14 @@ func _animal_list(parent: Control, heading: String) -> ItemList:
 	parent.add_child(label)
 	var list := ItemList.new()
 	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Two columns, so every animal fits without scrolling.
+	list.max_columns = 2
+	list.same_column_width = true
+	list.fixed_column_width = 128
 	for animal in animals:
 		var swatch := Image.create(14, 14, false, Image.FORMAT_RGB8)
 		swatch.fill(animal.color)
-		list.add_item(animal.display_name + ("  (wings)" if animal.has_wings else ""), ImageTexture.create_from_image(swatch))
+		list.add_item(animal.display_name + (" (wings)" if animal.has_wings else ""), ImageTexture.create_from_image(swatch))
 	parent.add_child(list)
 	return list
 

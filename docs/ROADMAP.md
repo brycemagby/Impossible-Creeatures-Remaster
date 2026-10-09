@@ -51,9 +51,11 @@ flyers hittable while swooping; checked with equal-coal battles between designs.
 
 New abilities ✅: sonic screech (Bat head), pack hunter (Wolf head), frenzy (Gorilla torso) and
 trample (Elephant torso), each priced into the strength rating and checked in equal-coal battles.
+Then two new animals, Skunk (stink: nearby enemies deal less damage) and Chameleon (camouflage:
+invisible while still; spotted up close or by echolocation).
 
 Follow-ups:
-- More abilities from the original (swimming, electric, herding, stink, camouflage...)
+- More abilities from the original (swimming, electric, herding...)
 - Water, so swimmers and the Water Chamber make sense; Aviary for flyers
 
 ## M5 — Creature visuals

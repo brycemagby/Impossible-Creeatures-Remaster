@@ -167,7 +167,7 @@ func find_tower_target() -> Creature:
 	var best: Creature = null
 	var best_gap := data.attack_range
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
-		if not Teams.are_enemies(unit.team, team) or not unit.is_alive():
+		if not Teams.are_enemies(unit.team, team) or not unit.is_alive() or unit.is_hidden_from(team):
 			continue
 		var gap := edge_distance_from(unit.global_position) - unit.radius()
 		if gap <= best_gap:

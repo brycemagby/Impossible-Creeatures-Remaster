@@ -172,7 +172,8 @@ func _apply_to_player() -> void:
 	var see_all := not enabled or reveal_all
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
 		if Teams.are_enemies(unit.team, player_team):
-			unit.visible = see_all or is_visible(player_team, unit.global_position)
+			# Camouflage hides creatures even with the fog off.
+			unit.visible = (see_all or is_visible(player_team, unit.global_position)) and not unit.is_hidden_from(player_team)
 	for building: Building in get_tree().get_nodes_in_group("buildings"):
 		if Teams.are_enemies(building.team, player_team):
 			building.visible = see_all or _footprint_explored(building)

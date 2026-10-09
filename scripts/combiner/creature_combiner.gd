@@ -2,12 +2,14 @@ class_name CreatureCombiner
 ## Rules that turn a CreatureDesign into CreatureStats and a production cost.
 ##
 ## - Torso: health, most of the melee armor and all the ranged armor;
-##   dominates overall size; maybe frenzy (gorilla) or trample (elephant).
+##   dominates overall size; maybe frenzy (gorilla), trample (elephant) or
+##   camouflage (chameleon).
 ## - Head: bite damage, some armor, maybe poison, a charge (horn), a sonic
 ##   screech (bat) or pack hunting (wolf).
 ## - Front legs: claw damage and half the walking speed.
 ## - Back legs: the other half of the walking speed, maybe a leap.
-## - Tail: extra damage, poison (stinger) or a ranged attack (quills).
+## - Tail: extra damage, poison (stinger), a ranged attack (quills) or stink
+##   (skunk).
 ## - Wings: flight, but only for hybrids no bigger than MAX_FLYING_SIZE.
 ## Legs from a small animal under a big body are slowed down (never below
 ## MIN_SPEED); legs from a big animal under a small body get a slight boost.
@@ -98,6 +100,8 @@ static func build_stats(design: CreatureDesign) -> CreatureStats:
 	stats.pack_hunter = head.head_ability == AnimalData.Ability.PACK
 	stats.has_frenzy = torso.torso_ability == AnimalData.Ability.FRENZY
 	stats.has_trample = torso.torso_ability == AnimalData.Ability.TRAMPLE and not stats.is_ranged()
+	stats.has_camouflage = torso.torso_ability == AnimalData.Ability.CAMOUFLAGE
+	stats.has_stink = tail.tail_ability == AnimalData.Ability.STINK
 
 	if wings != null and size <= MAX_FLYING_SIZE:
 		stats.can_fly = true
@@ -139,6 +143,10 @@ static func power_rating(stats: CreatureStats) -> float:
 		power *= 1.03
 	if stats.has_trample:
 		power *= 1.05
+	if stats.has_stink:
+		power *= 1.14
+	if stats.has_camouflage:
+		power *= 1.1
 	return power
 
 
