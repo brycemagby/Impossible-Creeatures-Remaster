@@ -50,7 +50,8 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
   have fins, and a hybrid with fins front and back lives only in deep water. Land melee creatures
   can only hit swimmers near the shore, and water-only creatures only reach what's near the water;
   ranged creatures and flyers hit anything. The **Water Chamber** (built on a shore, only on maps with
-  water) makes your swimming designs; the Creature Chamber makes the ones that walk.
+  water) makes your swimming designs; the Creature Chamber makes the ones that walk. The AI builds one
+  too on water maps and patrols the water nearest you with its water-only creatures.
 - **Minimap**: terrain under the fog, coal, buildings, creatures and your camera's view; click to look,
   right click to send the selection there
 

@@ -59,7 +59,8 @@ Follow-ups:
 - Water: rivers, lakes and fords on the maps ✅ (Canyon's river, the new Lakeside map; walkers path
   round deep water, a separate navigation layer for swimmers); swimming creatures ✅ (amphibious
   Crocodile legs, water-only Shark and Electric Eel fins, electric stun) and the Water Chamber ✅;
-  the AI on water maps next
+  the AI on water maps ✅ (builds a Water Chamber on the shore once its swimmers are researched,
+  keeps water-only creatures on the water nearest the enemy, and expands before its coal runs dry)
 - Aviary for flyers
 
 ## M5 — Creature visuals

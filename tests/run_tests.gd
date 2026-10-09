@@ -77,6 +77,7 @@ func _run() -> void:
 	await _test_lakeside_water()
 	await _test_swimmers()
 	await _test_water_chamber()
+	await _test_ai_on_water()
 	await _test_skirmish_setup()
 	await _test_match_stats()
 	await _test_pause_and_speed()
@@ -777,7 +778,9 @@ func _test_hybrid_production() -> void:
 	var main := await _load_map()
 	var chamber := _add_building("res://resources/buildings/creature_chamber.tres", 1, Vector3(12, 0, -40))
 	var options := chamber.production_options()
-	_check(options.size() == Armies.designs(1).size(), "the Creature Chamber offers the team's army")
+	var walkers := Armies.recipes(1).filter(func(r: UnitRecipe) -> bool: return not r.stats.water_only)
+	_check(options.size() == walkers.size() and walkers.size() < Armies.designs(1).size(),
+			"the Creature Chamber offers the team's army, except the water-only designs")
 	Economy.add(1, 1000, 1000)
 	Research.set_level(1, Research.MAX_LEVEL)
 	var recipe := options[0]
@@ -1450,6 +1453,42 @@ func _test_water_chamber() -> void:
 	await _unload(main)
 	GameSettings.select_map(0)
 	Armies.set_designs(0, saved)
+
+
+func _test_ai_on_water() -> void:
+	print("AI on water")
+	var dry := await _load_map()
+	_check(not (dry.get_node("EnemyAI") as AIController).wants_water_chamber(), "no Water Chamber wanted on a dry map")
+	await _unload(dry)
+
+	var main := await _load_lakeside()
+	var ai: AIController = main.get_node("EnemyAI")
+	var lab := _building(1, "Lab")
+	_add_houses(1, 3)
+	_add_building("res://resources/buildings/creature_chamber.tres", 1, lab.global_position + Vector3(14, 0, 0))
+	_add_building("res://resources/buildings/generator.tres", 1, lab.global_position + Vector3(-14, 0, 6))
+	await _physics_frames(2)
+	_check(ai.next_building() != AIController.WATER_CHAMBER_DATA, "no Water Chamber before its swimmers are researched")
+	Research.set_level(1, 3)
+	_check(ai.next_building() == AIController.WATER_CHAMBER_DATA, "with swimmers it can make, the AI wants a Water Chamber")
+	Economy.add(1, 1000, 1000)
+	ai.manage_construction()
+	var chamber := _building(1, "Water Chamber")
+	_check(chamber != null and WaterArea.distance_to_deep_water(get_tree(), chamber.global_position) < 8.0, "it builds one on the shore")
+	if chamber:
+		chamber.add_build_work(chamber.data.build_time)
+		_check(chamber.production_options().any(func(r: UnitRecipe) -> bool: return r.stats.water_only), "which can make its water-only design")
+
+	var fighter := _spawn(main, load("res://tests/fixtures/brute.tres"), 1, lab.global_position + Vector3(0, 0, 10))
+	var shark := _spawn(main, _stats("shark", "electric_eel", [0, 1, 0, 0, 0, -1]), 1, Vector3(-10, 0, 0))
+	await _physics_frames(2)
+	ai.min_wave_size = 1
+	ai.waves_sent = 0
+	var sent := ai.launch_wave()
+	_check(fighter.order == Creature.Order.ATTACK_MOVE and shark.order != Creature.Order.ATTACK_MOVE, "water-only creatures stay out of land attacks")
+	_check(ai.manage_navy() == 1 and shark.order == Creature.Order.ATTACK_MOVE, "they're sent to the water nearest the enemy instead")
+	await _unload(main)
+	GameSettings.select_map(0)
 
 
 func _test_canyon_map() -> void:
@@ -2378,6 +2417,9 @@ func _test_combiner_screen() -> void:
 	_check(screen.stats_label.text.contains("Flying"), "the stats panel lists abilities")
 	screen.set_pick(CreatureDesign.Slot.TAIL, CreatureDesign.FROM_B)
 	_check(screen.design.picks[CreatureDesign.Slot.TAIL] == CreatureDesign.FROM_B, "parts can be switched between the two animals")
+	if screen.army.size() >= Armies.MAX_SIZE:
+		screen.select_army_item(screen.army.size() - 1)
+		screen.remove_selected()
 	var count := screen.army.size()
 	_check(screen.add_to_army() and screen.army.size() == count + 1, "designs can be added to the army")
 	while screen.army.size() < Armies.MAX_SIZE:

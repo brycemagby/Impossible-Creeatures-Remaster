@@ -20,6 +20,8 @@ const PRESETS := [
 	["lion", "eagle", [0, 0, 1, 0, 0, 1], ""],
 	["rhino", "elephant", [0, 1, 0, 0, 1, -1], ""],
 	["lion", "scorpion", [0, 0, 1, 0, 1, -1], ""],
+	# Water only: made at a Water Chamber on maps with water.
+	["shark", "electric_eel", [0, 1, 0, 0, 0, -1], ""],
 ]
 
 ## Where the player's army is saved (tests point this elsewhere).

@@ -9,6 +9,8 @@ extends Node
 ##   electricity flowing, then (from research level 2) a Workshop and a
 ##   Soundbeam Tower per Lab; one construction at a time, placed around its Lab;
 ## - buys Workshop and Research Center upgrades when it can spare the coal;
+## - on maps with water, builds a Water Chamber on the shore and keeps its
+##   water-only creatures on the water nearest the enemy;
 ## - researches the next level at the Lab: once its army is big enough for
 ##   its current level it stops making creatures and saves up for research;
 ## - keeps its Lab and Chambers producing Henchmen and creatures it has unlocked.
@@ -34,6 +36,11 @@ const GENERATOR_DATA := preload("res://resources/buildings/generator.tres")
 const CHAMBER_DATA := preload("res://resources/buildings/creature_chamber.tres")
 const WORKSHOP_DATA := preload("res://resources/buildings/workshop.tres")
 const RESEARCH_CENTER_DATA := preload("res://resources/buildings/research_center.tres")
+const WATER_CHAMBER_DATA := preload("res://resources/buildings/water_chamber.tres")
+## Spacing of the candidate spots tried along each shore when placing a Water Chamber.
+const SHORE_STEP := 2.0
+## Water-only creatures this close to their station stay put.
+const NAVY_STATION_RADIUS := 6.0
 const TOWER_DATA := preload("res://resources/buildings/soundbeam_tower.tres")
 const HOUSE_DATA := preload("res://resources/buildings/house.tres")
 ## Build a House when population is within this many slots of the cap.
@@ -86,6 +93,8 @@ const DIFFICULTY_SETTINGS := {
 @export var army_base := 3
 @export var army_per_level := 2
 
+## Set when no shore spot fits a Water Chamber, so the AI stops trying.
+var _no_shore_spot := false
 var _wave_timer := 0.0
 var _think_timer := 0.0
 var _placer: BuildPlacer
@@ -132,6 +141,7 @@ func think() -> void:
 	manage_upgrades()
 	manage_production()
 	manage_retreats()
+	manage_navy()
 	defend_base()
 
 
@@ -253,6 +263,11 @@ func manage_construction() -> void:
 				place_building(wanted, pile.global_position, EXPANSION_RADII)
 		elif wanted == TOWER_DATA:
 			place_building(wanted, _unguarded_lab().global_position, EXPANSION_RADII)
+		elif wanted == WATER_CHAMBER_DATA:
+			var spot: Variant = shore_spot()
+			if spot == null or place_building(wanted, spot, [0.0]) == null:
+				# Nowhere on the shore fits: don't hold up the rest of the base.
+				_no_shore_spot = true
 		else:
 			place_building(wanted)
 
@@ -279,6 +294,11 @@ func next_building() -> BuildingData:
 		return CHAMBER_DATA
 	if _count(GENERATOR_DATA) < 1 + chambers * generators_per_chamber:
 		return GENERATOR_DATA
+	# Without coal nothing else gets built, so a new Lab comes first.
+	if coal_running_out():
+		return LAB_DATA
+	if wants_water_chamber():
+		return WATER_CHAMBER_DATA
 	if Research.level(team) >= AI_WORKSHOP_LEVEL and _count(WORKSHOP_DATA) == 0:
 		return WORKSHOP_DATA
 	if Research.level(team) >= AI_WORKSHOP_LEVEL and _count(RESEARCH_CENTER_DATA) == 0:
@@ -288,6 +308,67 @@ func next_building() -> BuildingData:
 	if wants_expansion():
 		return LAB_DATA
 	return null
+
+
+## True on a map with water when the roster has swimmers it has the research
+## for and there's no Water Chamber yet.
+func wants_water_chamber() -> bool:
+	if _no_shore_spot or _count(WATER_CHAMBER_DATA) > 0 or get_tree().get_nodes_in_group("deep_water").is_empty():
+		return false
+	for recipe in Armies.recipes(team):
+		if recipe.stats.can_swim and Research.can_produce(team, recipe):
+			return true
+	return false
+
+
+## The free spot on a shore nearest the home Lab where a Water Chamber fits,
+## or null if there's none.
+func shore_spot() -> Variant:
+	var home := _home()
+	var from := home.global_position if home else Vector3.ZERO
+	var setback := maxf(WATER_CHAMBER_DATA.size.x, WATER_CHAMBER_DATA.size.z) / 2.0 + BuildPlacer.CLEARANCE + 0.5
+	var best: Variant = null
+	var best_distance := INF
+	_placer.start(WATER_CHAMBER_DATA, team)
+	for area: WaterArea in get_tree().get_nodes_in_group("deep_water"):
+		var outline := area.world_polygon()
+		var centre := Vector2.ZERO
+		for corner in outline:
+			centre += corner
+		centre /= outline.size()
+		# Walk along each edge, stepping back from the water.
+		for i in outline.size():
+			var a := outline[i]
+			var b := outline[(i + 1) % outline.size()]
+			var outward := (b - a).orthogonal().normalized()
+			if outward.dot((a + b) / 2.0 - centre) < 0.0:
+				outward = -outward
+			for step in int(a.distance_to(b) / SHORE_STEP) + 1:
+				var along := a.lerp(b, minf(step * SHORE_STEP / a.distance_to(b), 1.0)) + outward * setback
+				var spot := _placer.snap(Vector3(along.x, 0.0, along.y))
+				var distance := spot.distance_to(from)
+				if distance < best_distance and _placer.can_place_at(spot):
+					best_distance = distance
+					best = spot
+	_placer.cancel()
+	return best
+
+
+## Sends idle water-only creatures to the stretch of water nearest the enemy;
+## they can't join attacks on land. Returns how many were sent.
+func manage_navy() -> int:
+	var target: Variant = wave_target()
+	if target == null:
+		return 0
+	var spot := WaterArea.nearest_water_spot(get_tree(), target)
+	var sent: Array[Creature] = []
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if unit.team == team and unit.stats.water_only and unit.order == Creature.Order.IDLE and unit.attack_target == null \
+				and unit.global_position.distance_to(spot) > NAVY_STATION_RADIUS:
+			sent.append(unit)
+	if not sent.is_empty():
+		SelectionManager.assign_formation(sent, spot, formation_spacing, &"command_attack_move")
+	return sent.size()
 
 
 ## True when population is close to the cap and the cap can still grow.
@@ -302,12 +383,24 @@ func wants_expansion() -> bool:
 	var labs := _count(LAB_DATA)
 	if labs == 0 or labs >= MAX_LABS or expansion_site() == null:
 		return false
+	return _home_coal() < EXPANSION_COAL_THRESHOLD or (labs == 1 and Economy.coal(team) >= EXPANSION_RICH_COAL)
+
+
+## True when the coal around its Labs is running out and there's somewhere to
+## expand to: a new Lab then comes before any other building.
+func coal_running_out() -> bool:
+	var labs := _count(LAB_DATA)
+	return labs > 0 and labs < MAX_LABS and _home_coal() < EXPANSION_COAL_THRESHOLD and expansion_site() != null
+
+
+## Coal left in the piles around this team's drop-offs.
+func _home_coal() -> int:
 	var nearby_coal := 0
 	for building in _buildings(true):
 		if building.data.is_drop_off:
 			for pile in _piles_near(building.global_position):
 				nearby_coal += pile.amount
-	return nearby_coal < EXPANSION_COAL_THRESHOLD or (labs == 1 and Economy.coal(team) >= EXPANSION_RICH_COAL)
+	return nearby_coal
 
 
 ## The coal pile closest to home that no Lab covers and no known enemy
@@ -476,7 +569,7 @@ func launch_wave() -> int:
 	var idle: Array[Creature] = []
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
 		if unit.team == team and not unit is Henchman and unit.order == Creature.Order.IDLE and unit.attack_target == null \
-				and unit not in retreating:
+				and unit not in retreating and not unit.stats.water_only:
 			idle.append(unit)
 	if idle.size() < mini(min_wave_size + waves_sent, MAX_WAVE_SIZE):
 		return 0
