@@ -45,12 +45,17 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
   (+20% speed), Quick Hands (gather 30% faster) and Builder's Tools (build 30% faster)
 - **Water**: Canyon is split by a river with three fords; Lakeside has a lake in the middle with a
   ford across it. Walking creatures go round deep water or wade through fords; nothing can be built
-  on water. (Swimming creatures are next.)
+  on water.
+- **Swimmers**: legs decide. Crocodile legs are amphibious (walk and swim); Shark and Electric Eel
+  have fins, and a hybrid with fins front and back lives only in deep water. Land melee creatures
+  can only hit swimmers near the shore, and water-only creatures only reach what's near the water;
+  ranged creatures and flyers hit anything. The **Water Chamber** (built on a shore, only on maps with
+  water) makes your swimming designs; the Creature Chamber makes the ones that walk.
 - **Minimap**: terrain under the fog, coal, buildings, creatures and your camera's view; click to look,
   right click to send the selection there
 
-- **Creature combiner**: pick two of 15 animals (Bat, Bison, Chameleon, Cheetah, Crocodile, Eagle,
-  Elephant, Gorilla, Kangaroo, Lion, Porcupine, Rhino, Scorpion, Skunk, Wolf), choose which one each body part comes from, see
+- **Creature combiner**: pick two of 17 animals (Bat, Bison, Chameleon, Cheetah, Crocodile, Eagle,
+  Electric Eel, Elephant, Gorilla, Kangaroo, Lion, Porcupine, Rhino, Scorpion, Shark, Skunk, Wolf), choose which one each body part comes from, see
   the hybrid and its stats live, and save an army of up to 9 designs. Matches start with 600 coal's
   worth of your army, and the Creature Chamber produces more.
 - Part-based abilities: flying (Eagle or Bat wings, for hybrids light enough), poison (Scorpion
@@ -98,9 +103,10 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 | Body part | Contributes |
 | --- | --- |
 | Head | Bite damage, some armor (Rhino, Elephant, Crocodile); Rhino: **charge**; Bat: **sonic**; Wolf: **pack hunter** |
-| Torso | Health, most of the melee armor and all of the ranged armor; most of the hybrid's size; Gorilla: **frenzy**; Elephant: **trample**; Chameleon: **camouflage**; Bison: **herding** |
+| Torso | Health, most of the melee armor and all of the ranged armor; most of the hybrid's size; Gorilla: **frenzy**; Elephant: **trample**; Chameleon: **camouflage**; Bison: **herding**; Electric Eel: **electric** |
 | Front legs | Claw damage (Gorilla fists, Scorpion pincers, Eagle talons) and half the speed |
 | Back legs | The other half of the speed; Kangaroo legs: **leap** |
+| Legs (both pairs) | Swimming: Crocodile legs swim and walk; Shark and Eel fins only swim (fins front and back: water only) |
 | Tail | Poison (Scorpion), a ranged quill attack (Porcupine) or **stink** (Skunk) |
 | Wings | Flight (Eagle, Bat), if the hybrid's size is 1.1 or less |
 
@@ -113,6 +119,8 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 - **Pack hunter** (Wolf head): +15% damage for each other pack hunter within 6 m, up to +45%.
 - **Frenzy** (Gorilla torso): below half health, attacks come 40% faster.
 - **Trample** (Elephant torso): melee hits also deal half damage to enemies right next to the target.
+- **Electric** (Electric Eel torso): every 6 s a hit shocks for 5 extra damage through armor and
+  stuns the target for 1.5 s.
 - **Herding** (Bison torso): +1 melee and ranged armor for each other herding creature within 6 m,
   up to +3.
 - **Stink** (Skunk tail): enemies within 4 m of a stinker deal 25% less damage. Several stinkers
@@ -253,6 +261,7 @@ Layers 1, 3 and 4 are baked into the navmesh.
 | Lab (+10 population) | 400 | — | 45 Henchman-seconds |
 | House (+5 population) | 50 | — | 12 Henchman-seconds |
 | Workshop | 150 | 50 | 25 Henchman-seconds |
+| Water Chamber (on a shore) | 200 | 50 | 30 Henchman-seconds |
 | Research Center (research L1) | 175 | 75 | 30 Henchman-seconds |
 | Soundbeam Tower (research L2; 14 damage / 1.2 s, 10 m) | 150 | 75 | 20 Henchman-seconds |
 

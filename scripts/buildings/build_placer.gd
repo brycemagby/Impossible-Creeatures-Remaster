@@ -9,6 +9,8 @@ const BLOCKING_MASK := 1 | 2 | 4 | 8
 ## Gap kept around buildings so units can still walk between them.
 const CLEARANCE := 0.75
 const GRID := 1.0
+## A shore building's footprint must come this close to deep water.
+const SHORE_DISTANCE := 3.0
 const VALID_COLOR := Color(0.3, 1.0, 0.4, 0.4)
 const INVALID_COLOR := Color(1.0, 0.25, 0.2, 0.4)
 
@@ -74,6 +76,8 @@ func can_place_at(spot: Vector3) -> bool:
 		return false
 	if WaterArea.touches_water(get_tree(), footprint.grow(CLEARANCE)):
 		return false
+	if data.needs_shore and not is_on_shore(spot):
+		return false
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(data.size.x + CLEARANCE * 2.0, data.size.y, data.size.z + CLEARANCE * 2.0)
 	var query := PhysicsShapeQueryParameters3D.new()
@@ -84,6 +88,12 @@ func can_place_at(spot: Vector3) -> bool:
 	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 
+## Whether a building centred on [param spot] is close enough to deep water.
+func is_on_shore(spot: Vector3) -> bool:
+	var half := maxf(data.size.x, data.size.z) / 2.0
+	return WaterArea.distance_to_deep_water(get_tree(), spot) <= half + CLEARANCE + SHORE_DISTANCE
+
+
 ## Pays for and creates a construction site at [param world_point]. Returns
 ## the new building, or null (see [member last_error]).
 func place(world_point: Vector3) -> Building:
@@ -92,7 +102,7 @@ func place(world_point: Vector3) -> Building:
 		last_error = "Requires research level %d" % data.required_research
 		return null
 	if not can_place_at(spot):
-		last_error = "Can't build there"
+		last_error = "Must be built on a shore" if data.needs_shore and not is_on_shore(spot) else "Can't build there"
 		return null
 	if not Economy.spend(team, data.cost_coal, data.cost_electricity):
 		last_error = Economy.shortfall(team, data.cost_coal, data.cost_electricity)

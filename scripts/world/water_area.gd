@@ -107,6 +107,36 @@ static func _signed_area(outline: PackedVector2Array) -> float:
 	return area / 2.0
 
 
+## How far [param point] is out into deep water (0 on land or in a ford).
+static func distance_from_shore(tree: SceneTree, point: Vector3) -> float:
+	for area: WaterArea in tree.get_nodes_in_group("deep_water"):
+		if area.contains(point):
+			return area._distance_to_edge(point)
+	return 0.0
+
+
+## A spot [param inset] metres into the deep water nearest [param point]
+## (or [param point] itself if there's no water).
+static func nearest_water_spot(tree: SceneTree, point: Vector3, inset := 1.5) -> Vector3:
+	var flat := Vector2(point.x, point.z)
+	var best := INF
+	var spot := point
+	for area: WaterArea in tree.get_nodes_in_group("deep_water"):
+		var outline := area.world_polygon()
+		var centre := Vector2.ZERO
+		for corner in outline:
+			centre += corner
+		centre /= outline.size()
+		for i in outline.size():
+			var closest := Geometry2D.get_closest_point_to_segment(flat, outline[i], outline[(i + 1) % outline.size()])
+			var distance := closest.distance_to(flat)
+			if distance < best:
+				best = distance
+				var inward := closest + (centre - closest).normalized() * inset
+				spot = Vector3(inward.x, 0.0, inward.y)
+	return spot
+
+
 func _distance_to_edge(point: Vector3) -> float:
 	var flat := Vector2(point.x, point.z)
 	var outline := world_polygon()

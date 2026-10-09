@@ -98,7 +98,7 @@ def build(layout):
     add("Script", "res://scripts/ai/ai_controller.gd", "ai")
     add("Script", "res://scripts/ui/health_bars.gd", "health_bars")
     add("PackedScene", "res://scenes/buildings/building.tscn", "building")
-    for b in ("lab", "house", "generator", "creature_chamber", "workshop", "research_center", "soundbeam_tower"):
+    for b in ("lab", "house", "generator", "creature_chamber", "workshop", "research_center", "soundbeam_tower", "water_chamber"):
         add("Resource", f"res://resources/buildings/{b}.tres", "b_" + b)
     add("Script", "res://scripts/buildings/building_data.gd", "building_data")
     add("PackedScene", "res://scenes/world/coal_pile.tscn", "coal_pile")
@@ -230,7 +230,7 @@ script = ExtResource("{ids["selection"]}")
 camera = NodePath("../RTSCamera/Camera3D")
 selection_box = NodePath("../UI/SelectionBox")
 build_placer = NodePath("../BuildPlacer")
-buildable = Array[ExtResource("{ids["building_data"]}")]([ExtResource("{ids["b_lab"]}"), ExtResource("{ids["b_house"]}"), ExtResource("{ids["b_generator"]}"), ExtResource("{ids["b_creature_chamber"]}"), ExtResource("{ids["b_workshop"]}"), ExtResource("{ids["b_research_center"]}"), ExtResource("{ids["b_soundbeam_tower"]}")])
+buildable = Array[ExtResource("{ids["building_data"]}")]([ExtResource("{ids["b_lab"]}"), ExtResource("{ids["b_house"]}"), ExtResource("{ids["b_generator"]}"), ExtResource("{ids["b_creature_chamber"]}"), ExtResource("{ids["b_workshop"]}"), ExtResource("{ids["b_research_center"]}"), ExtResource("{ids["b_soundbeam_tower"]}"), ExtResource("{ids["b_water_chamber"]}")])
 
 [node name="EnemyAI" type="Node" parent="."]
 script = ExtResource("{ids["ai"]}")

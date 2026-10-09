@@ -125,6 +125,14 @@ func _describe_selection() -> String:
 			traits.append("FRENZIED" if unit.is_frenzied() else "Frenzy")
 		if s.has_trample:
 			traits.append("Trample")
+		if s.water_only:
+			traits.append("Water only")
+		elif s.can_swim:
+			traits.append("SWIMMING" if unit.is_in_water() else "Amphibious")
+		if s.has_electric:
+			traits.append("Electric")
+		if unit.is_stunned():
+			traits.append("STUNNED")
 		if s.has_stink:
 			traits.append("Stink")
 		if s.herding:
@@ -180,7 +188,11 @@ func _rebuild_command_panel(building: Building) -> void:
 
 	if _context.begins_with("henchmen"):
 		command_title.text = "Build"
+		var has_water := not get_tree().get_nodes_in_group("deep_water").is_empty()
 		for data in selection_manager.buildable:
+			# Shore buildings only on maps with water.
+			if data.needs_shore and not has_water:
+				continue
 			var locked := Research.level(selection_manager.player_team) < data.required_research
 			var button := _add_button("%s\n%s" % [data.display_name, "needs research L%d" % data.required_research if locked
 					else _cost_text(data.cost_coal, data.cost_electricity)])
@@ -273,7 +285,8 @@ func _recipe_tooltip(recipe: UnitRecipe) -> String:
 		"  ranged" if s.is_ranged() else "", "  poison" if s.poison_dps > 0.0 else "",
 		"  flying" if s.can_fly else ""] + ("  charge" if s.can_charge else "") + ("  leap" if s.can_leap else "") \
 		+ ("  sonic" if s.has_sonic else "") + ("  pack" if s.pack_hunter else "") + ("  frenzy" if s.has_frenzy else "") \
-		+ ("  trample" if s.has_trample else "") + ("  stink" if s.has_stink else "") + ("  camouflage" if s.has_camouflage else "") + ("  herding" if s.herding else "")
+		+ ("  trample" if s.has_trample else "") + ("  stink" if s.has_stink else "") + ("  camouflage" if s.has_camouflage else "") + ("  herding" if s.herding else "") \
+		+ ("  water only" if s.water_only else ("  amphibious" if s.can_swim else "")) + ("  electric" if s.has_electric else "")
 
 
 func _on_upgrade_pressed(building: Building, upgrade: UpgradeData) -> void:

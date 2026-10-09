@@ -3,7 +3,10 @@ extends Resource
 ## One animal the combiner can draw body parts from. Each section describes
 ## what that body part contributes when chosen for a hybrid.
 
-enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP, SONIC, PACK, FRENZY, TRAMPLE, STINK, CAMOUFLAGE, HERDING }
+enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP, SONIC, PACK, FRENZY, TRAMPLE, STINK, CAMOUFLAGE, HERDING, ELECTRIC }
+## How an animal's legs cope with water: not at all, swimming as well as
+## walking, or fins only (no walking).
+enum Swimming { NONE, AMPHIBIOUS, AQUATIC }
 
 @export var display_name := "Animal"
 ## Used to colour this animal's parts on hybrid models.
@@ -25,7 +28,8 @@ enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP, SONIC, PACK, FRENZY, TRAMPLE,
 ## Ranged armor from the torso: thick hides and shells shrug off quills.
 @export var ranged_armor := 0.0
 ## FRENZY (fights faster when wounded), TRAMPLE (melee hits splash),
-## CAMOUFLAGE (vanishes while standing still) or HERDING (tougher in a herd).
+## CAMOUFLAGE (vanishes while standing still), HERDING (tougher in a herd) or
+## ELECTRIC (shocks stun).
 @export var torso_ability: Ability = Ability.NONE
 
 @export_group("Legs")
@@ -35,6 +39,10 @@ enum Ability { NONE, POISON, QUILLS, CHARGE, LEAP, SONIC, PACK, FRENZY, TRAMPLE,
 @export var back_leg_speed := 6.0
 ## LEAP (powerful hind legs) or NONE.
 @export var back_leg_ability: Ability = Ability.NONE
+## AMPHIBIOUS legs swim and walk; AQUATIC ones (fins) only swim.
+@export var swimming: Swimming = Swimming.NONE
+## Speed in deep water for legs that swim.
+@export var swim_speed := 0.0
 
 @export_group("Tail")
 @export var tail_damage := 0.0

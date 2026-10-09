@@ -75,6 +75,8 @@ func _run() -> void:
 	await _test_difficulty_and_settings()
 	await _test_canyon_map()
 	await _test_lakeside_water()
+	await _test_swimmers()
+	await _test_water_chamber()
 	await _test_skirmish_setup()
 	await _test_match_stats()
 	await _test_pause_and_speed()
@@ -684,7 +686,7 @@ func _test_combiner_rules() -> void:
 	_check(_stats("lion", "kangaroo", [0, 0, 0, 1, 0, -1]).can_leap, "kangaroo hind legs give a leap")
 	_check(not _stats("rhino", "porcupine", [0, 0, 0, 0, 1, -1]).can_charge, "quill-shooters don't charge")
 	_check(not _stats("kangaroo", "eagle", [0, 0, 0, 0, 0, 1]).can_leap, "flyers don't leap")
-	_check(Armies.all_animals().size() == 15, "15 animals are available")
+	_check(Armies.all_animals().size() == 17, "17 animals are available")
 	_check(not _stats("lion", "eagle", [0, 0, 0, 0, 0, -1]).can_fly, "no wings, no flight")
 	var heavy := _design("rhino", "eagle", [0, 0, 0, 0, 0, 1])
 	_check(not CreatureCombiner.build_stats(heavy).can_fly and CreatureCombiner.too_heavy_to_fly(heavy), "a rhino is too heavy for eagle wings")
@@ -1309,6 +1311,145 @@ func _test_lakeside_water() -> void:
 	_check(arrived and stayed_dry, "a walking creature crosses the map without swimming (arrived %s, in the water at %s, now %s)" % [arrived, wet_at, runner.global_position])
 	await _unload(main)
 	GameSettings.select_map(0)
+
+
+func _load_lakeside() -> Node3D:
+	GameSettings.select_map(3)
+	var main: Node3D = load(GameSettings.map_path()).instantiate()
+	main.get_node("EnemyAI").enabled = false
+	main.get_node("FogOfWar").reveal_all = true
+	main.spawn_starting_army = false
+	get_tree().root.add_child(main)
+	get_tree().current_scene = main
+	await _physics_frames(10)
+	return main
+
+
+func _test_swimmers() -> void:
+	print("swimmers")
+	var croc := _stats("crocodile", "crocodile", [0, 0, 0, 0, 0, -1])
+	var shark := _stats("shark", "shark", [0, 0, 0, 0, 0, -1])
+	_check(croc.can_swim and not croc.water_only, "crocodile legs make an amphibian")
+	_check(shark.water_only and shark.can_swim and shark.move_speed == shark.swim_speed, "fins front and back: water only")
+	var half := _stats("lion", "shark", [0, 0, 1, 0, 0, -1])
+	_check(half.can_swim and not half.water_only and half.move_speed >= CreatureCombiner.MIN_SPEED, "one pair of fins and one of legs: amphibious")
+	var winged := _stats("electric_eel", "bat", [0, 0, 0, 0, 0, 1])
+	_check(winged.can_fly and not winged.can_swim, "wings win: a light enough finned flyer flies over the water")
+	_check(_stats("lion", "electric_eel", [0, 1, 0, 0, 0, -1]).has_electric, "an electric eel torso is electric")
+	_check(not _stats("lion", "lion", [0, 0, 0, 0, 0, -1]).can_swim, "lions don't swim")
+
+	var main := await _load_lakeside()
+	var north := Vector3(-10, 0, 24)
+	var south := Vector3(-10, 0, -24)
+	var swimmer := _spawn(main, croc, 0, north)
+	await _physics_frames(2)
+	swimmer.command_move(south)
+	var swam := false
+	var swim_speed_ok := true
+	for i in 900:
+		await get_tree().physics_frame
+		if swimmer.is_in_water():
+			swam = true
+			if not is_equal_approx(swimmer.move_speed(), croc.swim_speed * Upgrades.speed_multiplier(0)):
+				swim_speed_ok = false
+		if swimmer.global_position.distance_to(south) < 2.0:
+			break
+	_check(swam and swimmer.global_position.distance_to(south) < 2.0, "an amphibian swims straight across the lake")
+	_check(swim_speed_ok, "at its swim speed")
+
+	var fish := _spawn(main, shark, 0, Vector3(-10, 0, 0))
+	await _physics_frames(2)
+	fish.command_move(Vector3(-30, 0, 0))
+	var stayed_in := true
+	for i in 240:
+		await get_tree().physics_frame
+		if not WaterArea.is_deep_water(get_tree(), fish.global_position):
+			stayed_in = false
+	_check(stayed_in and fish.global_position.x < -14.0, "water-only creatures go to the shore but never onto land")
+
+	fish.global_position = Vector3(-10, 0, 0)
+	fish.command_stop()
+	var lion := _spawn(main, _stats("lion", "lion", [0, 0, 0, 0, 0, -1]), 1, Vector3(-20, 0, 0))
+	lion.command_hold()
+	await _physics_frames(2)
+	_check(not lion.can_attack(fish), "a land melee creature can't reach a swimmer far from the shore")
+	_check(not fish.can_attack(lion) or WaterArea.distance_to_deep_water(get_tree(), lion.global_position) < 4.0, "and a shark can't reach far up the bank")
+	lion.global_position = Vector3(-40, 0, 0)
+	_check(not fish.can_attack(lion), "water-only creatures can't attack far inland")
+	fish.global_position = Vector3(-16, 0, 0)
+	lion.global_position = Vector3(-18, 0, 0)
+	_check(lion.can_attack(fish) and fish.can_attack(lion), "but they fight at the water's edge")
+	var spitter := _spawn(main, _stats("gorilla", "porcupine", [0, 0, 0, 0, 1, -1]), 1, Vector3(-24, 0, 0))
+	fish.global_position = Vector3(-10, 0, 0)
+	_check(spitter.can_attack(fish), "ranged creatures shoot swimmers anywhere")
+	_isolate([])
+
+	var eel := _spawn(main, _stats("lion", "electric_eel", [0, 1, 0, 0, 0, -1]), 0, Vector3(30, 0, 30))
+	var victim := _spawn(main, load("res://tests/fixtures/brute.tres"), 1, Vector3(31, 0, 30))
+	victim.command_hold()
+	await _physics_frames(2)
+	var before := victim.health
+	eel.deal_hit(victim)
+	_check(victim.is_stunned(), "an electric hit stuns")
+	_check(before - victim.health >= Creature.ELECTRIC_DAMAGE, "and shocks for extra damage")
+	var stunned_at := victim.global_position
+	victim.command_move(Vector3(40, 0, 40))
+	await _physics_frames(30)
+	_check(victim.global_position.distance_to(stunned_at) < 0.1, "stunned creatures can't move (moved %.2f m)" % victim.global_position.distance_to(stunned_at))
+	before = victim.health
+	eel.deal_hit(victim)
+	_check(before - victim.health < Creature.ELECTRIC_DAMAGE + eel.attack_damage(), "the shock needs time to recharge")
+	_isolate([])
+	await _unload(main)
+	GameSettings.select_map(0)
+
+
+func _test_water_chamber() -> void:
+	print("Water Chamber")
+	var saved := Armies.designs(0)
+	Armies.set_designs(0, [_design("lion", "lion", [0, 0, 0, 0, 0, -1]), _design("crocodile", "crocodile", [0, 0, 0, 0, 0, -1]),
+			_design("shark", "shark", [0, 0, 0, 0, 0, -1])])
+	var dry := await _load_map()
+	var manager: SelectionManager = dry.get_node("SelectionManager")
+	var hud := dry.get_node("UI/HUD")
+	manager.select_units([_first(0, "Henchman")])
+	await _process_frames(2)
+	_check(not _button_names(hud).has("Water Chamber"), "no Water Chamber on maps without water")
+	var picks: Array = dry.call("spawn_army", 0, dry.get_node("ArmySpawn0"))
+	_check(picks.all(func(u: Creature) -> bool: return not u.stats.water_only), "starting armies leave water-only creatures at home")
+	await _unload(dry)
+
+	var main := await _load_lakeside()
+	manager = main.get_node("SelectionManager")
+	hud = main.get_node("UI/HUD")
+	manager.select_units([_first(0, "Henchman")])
+	await _process_frames(2)
+	_check(_button_names(hud).has("Water Chamber"), "on Lakeside, Henchmen can build a Water Chamber")
+	var placer: BuildPlacer = manager.build_placer
+	Economy.add(0, 2000, 2000)
+	placer.start(load("res://resources/buildings/water_chamber.tres"), 0)
+	_check(placer.place(Vector3(-36, 0, 20)) == null and placer.last_error == "Must be built on a shore", "it has to be on a shore")
+	var chamber := placer.place(Vector3(-21, 0, 10))
+	_check(chamber != null, "a spot by the lake works")
+	placer.cancel()
+	if chamber == null:
+		await _unload(main)
+		Armies.set_designs(0, saved)
+		return
+	chamber.add_build_work(chamber.data.build_time)
+	var names := chamber.production_options().map(func(r: UnitRecipe) -> String: return r.stats.display_name)
+	_check(names.size() == 2 and not names.has("Lion"), "the Water Chamber makes the swimming designs (%s)" % [names])
+	var land := _add_building("res://resources/buildings/creature_chamber.tres", 0, Vector3(20, 0, 26))
+	await _physics_frames(2)
+	var land_names := land.production_options().map(func(r: UnitRecipe) -> String: return r.stats.display_name)
+	_check(land_names.size() == 2 and not land_names.has("Shark"), "the Creature Chamber makes everything that walks (%s)" % [land_names])
+	var shark_recipe: UnitRecipe = chamber.production_options().filter(func(r: UnitRecipe) -> bool: return r.stats.water_only)[0]
+	chamber.call("_spawn", shark_recipe)
+	var newest: Creature = _team_units(0).back()
+	_check(newest.stats.water_only and WaterArea.is_deep_water(get_tree(), newest.global_position), "sharks come out into the water")
+	await _unload(main)
+	GameSettings.select_map(0)
+	Armies.set_designs(0, saved)
 
 
 func _test_canyon_map() -> void:

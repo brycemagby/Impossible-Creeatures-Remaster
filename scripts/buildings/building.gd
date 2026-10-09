@@ -116,7 +116,13 @@ func _physics_process(delta: float) -> void:
 
 ## What this building can make right now.
 func production_options() -> Array[UnitRecipe]:
-	return Armies.recipes(team) if data.produces_army else data.production
+	if not data.produces_army:
+		return data.production
+	var options: Array[UnitRecipe] = []
+	for recipe in Armies.recipes(team):
+		if (recipe.stats.can_swim if data.water_production else not recipe.stats.water_only):
+			options.append(recipe)
+	return options
 
 
 ## Pays for and queues [param recipe]. Returns "" on success, or the reason it
@@ -418,6 +424,9 @@ func _spawn(recipe: UnitRecipe) -> void:
 	if container == null:
 		container = get_tree().current_scene
 	unit.position = global_position + direction * (reach + SPAWN_GAP)
+	# Swimmers from the Water Chamber come out into the water.
+	if data.water_production and recipe.stats.can_swim:
+		unit.position = WaterArea.nearest_water_spot(get_tree(), global_position)
 	container.add_child(unit)
 	if not recipe.is_worker:
 		MatchStats.add(team, "units_produced")

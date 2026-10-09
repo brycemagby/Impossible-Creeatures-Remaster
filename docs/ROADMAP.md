@@ -55,10 +55,11 @@ Then two new animals, Skunk (stink: nearby enemies deal less damage) and Chamele
 invisible while still; spotted up close or by echolocation), and Bison (herding: tougher in a herd).
 
 Follow-ups:
-- More abilities from the original (swimming, electric...)
+- More abilities from the original (most are in now; maybe more animals later)
 - Water: rivers, lakes and fords on the maps ✅ (Canyon's river, the new Lakeside map; walkers path
-  round deep water, a separate navigation layer for swimmers); swimming creatures and the Water
-  Chamber next; then the AI on water maps
+  round deep water, a separate navigation layer for swimmers); swimming creatures ✅ (amphibious
+  Crocodile legs, water-only Shark and Electric Eel fins, electric stun) and the Water Chamber ✅;
+  the AI on water maps next
 - Aviary for flyers
 
 ## M5 — Creature visuals

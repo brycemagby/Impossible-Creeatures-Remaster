@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://scripts/buildings/unit_recipe.gd" id="2_recipe"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Water Chamber"
+max_health = 1000.0
+armor = 5.0
+cost_coal = 200
+cost_electricity = 50
+build_time = 30.0
+size = Vector3(5, 3, 5)
+color = Color(0.2, 0.35, 0.5, 1)
+is_drop_off = false
+electricity_per_second = 0.0
+production = Array[ExtResource("2_recipe")]([])
+produces_army = true
+water_production = true
+needs_shore = true

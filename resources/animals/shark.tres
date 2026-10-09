@@ -4,22 +4,23 @@
 
 [resource]
 script = ExtResource("1_animal")
-display_name = "Crocodile"
-color = Color(0.3, 0.42, 0.25, 1)
-size = 1.5
+display_name = "Shark"
+color = Color(0.45, 0.52, 0.6, 1)
+size = 1.3
 bite_damage = 20.0
-head_armor = 3.0
+head_armor = 1.0
 head_ability = 0
-health = 220.0
-torso_armor = 5.0
-ranged_armor = 4.0
-claw_damage = 2.0
-front_leg_speed = 4.0
-back_leg_speed = 4.0
+health = 170.0
+torso_armor = 1.0
+ranged_armor = 1.0
+torso_ability = 0
+claw_damage = 0.0
+front_leg_speed = 1.5
+back_leg_speed = 1.5
 back_leg_ability = 0
-swimming = 1
-swim_speed = 7.0
-tail_damage = 6.0
+swimming = 2
+swim_speed = 10.0
+tail_damage = 3.0
 tail_ability = 0
 has_wings = false
 flight_speed = 0.0

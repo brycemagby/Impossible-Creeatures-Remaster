@@ -93,7 +93,12 @@ func _exit_tree() -> void:
 ## Spawns [param team]'s starting army in a grid around [param marker],
 ## facing the middle of the map. Returns the new creatures.
 func spawn_army(team: int, marker: Node3D) -> Array[Creature]:
-	var picks := pick_starting_army(Armies.recipes(team), starting_army_budget)
+	# Creatures that can only swim would be stranded on land.
+	var walkers: Array[UnitRecipe] = []
+	for recipe in Armies.recipes(team):
+		if not recipe.stats.water_only:
+			walkers.append(recipe)
+	var picks := pick_starting_army(walkers, starting_army_budget)
 	var to_center := -marker.global_position
 	var yaw := atan2(-to_center.x, -to_center.z)
 	var spawned: Array[Creature] = []

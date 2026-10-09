@@ -11,6 +11,9 @@ class_name CreatureCombiner
 ## - Tail: extra damage, poison (stinger), a ranged attack (quills) or stink
 ##   (skunk).
 ## - Wings: flight, but only for hybrids no bigger than MAX_FLYING_SIZE.
+## - Swimming comes from the legs: a hybrid with any swimming legs is
+##   amphibious; with fins front and back it can only live in water. Legs that
+##   don't swim just paddle.
 ## Legs from a small animal under a big body are slowed down (never below
 ## MIN_SPEED); legs from a big animal under a small body get a slight boost.
 ##
@@ -34,6 +37,8 @@ const FLYER_HEALTH_FACTOR := 0.85
 ## Hybrids bigger than this are too heavy for wings to lift.
 const MAX_FLYING_SIZE := 1.1
 const MAX_LEVEL := 5
+## Swim speed of legs that don't swim (paddling).
+const PADDLE_SPEED := 2.5
 ## No walking hybrid is slower than this, however tiny its legs.
 const MIN_SPEED := 3.0
 ## Power needed for levels 2, 3, 4 and 5.
@@ -102,11 +107,24 @@ static func build_stats(design: CreatureDesign) -> CreatureStats:
 	stats.has_trample = torso.torso_ability == AnimalData.Ability.TRAMPLE and not stats.is_ranged()
 	stats.has_camouflage = torso.torso_ability == AnimalData.Ability.CAMOUFLAGE
 	stats.herding = torso.torso_ability == AnimalData.Ability.HERDING
+	stats.has_electric = torso.torso_ability == AnimalData.Ability.ELECTRIC
 	stats.has_stink = tail.tail_ability == AnimalData.Ability.STINK
+
+	if front.swimming != AnimalData.Swimming.NONE or back.swimming != AnimalData.Swimming.NONE:
+		stats.can_swim = true
+		stats.water_only = front.swimming == AnimalData.Swimming.AQUATIC and back.swimming == AnimalData.Swimming.AQUATIC
+		var paddle := func(animal: AnimalData) -> float:
+			return animal.swim_speed if animal.swimming != AnimalData.Swimming.NONE else PADDLE_SPEED
+		stats.swim_speed = (paddle.call(front) + paddle.call(back)) / 2.0 * clampf(leg_size / size, MIN_LEG_LOAD, MAX_LEG_LOAD)
+		if stats.water_only:
+			stats.move_speed = stats.swim_speed
 
 	if wings != null and size <= MAX_FLYING_SIZE:
 		stats.can_fly = true
 		stats.can_leap = false
+		# Flyers go over water instead.
+		stats.can_swim = false
+		stats.water_only = false
 		stats.move_speed = maxf(stats.move_speed, wings.flight_speed * clampf(wings.size / size, MIN_LEG_LOAD, 1.0))
 		stats.max_health *= FLYER_HEALTH_FACTOR
 
@@ -150,6 +168,13 @@ static func power_rating(stats: CreatureStats) -> float:
 		power *= 1.1
 	if stats.herding:
 		power *= 1.08
+	if stats.has_electric:
+		power *= 1.15
+	if stats.water_only:
+		# Stuck in the water: it can only fight what comes near.
+		power *= 0.7
+	elif stats.can_swim:
+		power *= 1.05
 	return power
 
 

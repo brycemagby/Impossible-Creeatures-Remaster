@@ -166,6 +166,12 @@ func refresh() -> void:
 		abilities.append("Trample (hits splash nearby enemies)")
 	if stats.has_stink:
 		abilities.append("Stink (enemies within %dm deal %d%% less damage)" % [Creature.STINK_RADIUS, roundi(Creature.STINK_PENALTY * 100.0)])
+	if stats.water_only:
+		abilities.append("Water only: fins, swims at %.1f, can't leave deep water" % stats.swim_speed)
+	elif stats.can_swim:
+		abilities.append("Amphibious: walks, and swims at %.1f" % stats.swim_speed)
+	if stats.has_electric:
+		abilities.append("Electric (every %ds a hit shocks for +%d and stuns %.1fs)" % [Creature.ELECTRIC_COOLDOWN, Creature.ELECTRIC_DAMAGE, Creature.ELECTRIC_STUN])
 	if stats.herding:
 		abilities.append("Herding (+%d armor per herd mate, up to +%d)" % [Creature.HERD_ARMOR, Creature.HERD_ARMOR * Creature.HERD_MAX_MATES])
 	if stats.has_camouflage:

@@ -19,6 +19,11 @@ extends Resource
 @export var production: Array[UnitRecipe] = []
 ## Produces the owning team's army roster (see Armies) instead of [member production].
 @export var produces_army := false
+## Makes the army's swimming designs (the Water Chamber); otherwise an army
+## building makes the ones that can walk.
+@export var water_production := false
+## Has to be built on a shore (next to deep water).
+@export var needs_shore := false
 ## Research levels can be studied here (see Research).
 @export var can_research := false
 ## Heals friendly creatures within this many metres of the footprint (0 = no).

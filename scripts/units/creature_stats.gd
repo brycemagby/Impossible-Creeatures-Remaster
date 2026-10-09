@@ -59,6 +59,16 @@ extends Resource
 @export var has_camouflage := false
 ## Extra armor for each herd mate (another herding creature) nearby.
 @export var herding := false
+## Every few seconds a hit shocks: extra damage and a short stun.
+@export var has_electric := false
+
+@export_group("Swimming")
+## Can go into deep water.
+@export var can_swim := false
+## Can't leave deep water (fins only).
+@export var water_only := false
+## Speed in deep water.
+@export var swim_speed := 0.0
 
 
 func is_ranged() -> bool:

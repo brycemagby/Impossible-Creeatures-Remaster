@@ -96,6 +96,11 @@ static func _part_scale(animal: AnimalData, overall: float) -> float:
 
 
 func _add_leg(animal: AnimalData, scale_factor: float, at: Vector3) -> void:
+	if animal.swimming == AnimalData.Swimming.AQUATIC:
+		# Fins instead of legs.
+		var fin := _add_box(animal, Vector3(0.35, 0.05, 0.25) * scale_factor, at + Vector3(signf(at.x) * 0.15, 0.6, 0), 1.0)
+		fin.rotation_degrees.z = signf(at.x) * -25.0
+		return
 	var length := 0.55
 	var radius := 0.08 * scale_factor
 	_add_cylinder(animal, radius, length, at + Vector3(0, length / 2.0, 0))

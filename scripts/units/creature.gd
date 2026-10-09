@@ -101,6 +101,16 @@ const STINK_PUFF_INTERVAL := 1.5
 const CAMOUFLAGE_DELAY := 3.0
 const CAMOUFLAGE_DETECT_RADIUS := 3.0
 const ECHOLOCATION_RADIUS := 12.0
+## Electric: every ELECTRIC_COOLDOWN seconds a hit shocks for extra damage
+## (through armor) and stuns the target.
+const ELECTRIC_DAMAGE := 5.0
+const ELECTRIC_STUN := 1.5
+const ELECTRIC_COOLDOWN := 6.0
+const ELECTRIC_COLOR := Color(1.0, 0.95, 0.35, 0.8)
+## How far a swimming body sinks into the water (times its size).
+const SWIM_SINK := 0.3
+## Melee creatures on land reach this far past their attack range into water.
+const SHORE_REACH := 1.0
 ## Armor never blocks more than this share of a hit.
 const MAX_ARMOR_BLOCK := 0.6
 const ProjectileScene := preload("res://scenes/fx/projectile.tscn")
@@ -149,6 +159,10 @@ var _stink_puff := 0.0
 ## Seconds standing still without fighting or being hit (for camouflage).
 var _still_time := 0.0
 var _camouflaged := false
+var _electric_cooldown := 0.0
+var _stunned := 0.0
+## In deep water right now (swimmers only).
+var _in_water := false
 var _leap_time := 0.0
 var _leap_velocity := Vector3.ZERO
 
@@ -170,7 +184,14 @@ func _ready() -> void:
 	_scan_timer = randf() * SCAN_INTERVAL
 	_apply_size(stats.size)
 	# Headroom for speed upgrades; the actual speed comes from move_speed().
-	agent.max_speed = stats.move_speed * 1.5 * (CHARGE_SPEED_FACTOR if stats.can_charge else 1.0)
+	agent.max_speed = maxf(stats.move_speed, stats.swim_speed) * 1.5 * (CHARGE_SPEED_FACTOR if stats.can_charge else 1.0)
+	# Walkers keep to land, fins to water, amphibians use both.
+	if stats.water_only:
+		agent.navigation_layers = WaterArea.WATER_LAYER
+	elif stats.can_swim:
+		agent.navigation_layers = WaterArea.LAND_LAYER | WaterArea.WATER_LAYER
+	else:
+		agent.navigation_layers = WaterArea.LAND_LAYER
 	agent.velocity_computed.connect(_on_velocity_computed)
 	_apply_team_color()
 	if stats.design != null:
@@ -188,6 +209,9 @@ func _physics_process(delta: float) -> void:
 	_leap_cooldown = maxf(_leap_cooldown - delta, 0.0)
 	_sonic_cooldown = maxf(_sonic_cooldown - delta, 0.0)
 	_deafened = maxf(_deafened - delta, 0.0)
+	_electric_cooldown = maxf(_electric_cooldown - delta, 0.0)
+	if stats.can_swim:
+		_update_swimming()
 	_update_camouflage(delta)
 	if stats.has_stink and attack_target != null:
 		_stink_puff -= delta
@@ -203,6 +227,14 @@ func _physics_process(delta: float) -> void:
 			return
 	if _leap_time > 0.0:
 		_update_leap(delta)
+		return
+	if _stunned > 0.0:
+		_stunned -= delta
+		# Avoidance would keep applying the last velocity otherwise.
+		if agent.avoidance_enabled:
+			agent.velocity = Vector3.ZERO
+		else:
+			_on_velocity_computed(Vector3.ZERO)
 		return
 	_update_orders()
 	if stats.has_sonic and _sonic_cooldown <= 0.0 and attack_target != null:
@@ -349,6 +381,12 @@ func deal_hit(target: Node3D) -> void:
 		target.apply_poison(stats.poison_dps, stats.poison_duration)
 	if stats.has_trample and not stats.is_ranged():
 		_trample(target, damage * TRAMPLE_SHARE)
+	if stats.has_electric and _electric_cooldown <= 0.0 and is_valid_target(target):
+		_electric_cooldown = ELECTRIC_COOLDOWN
+		target.take_damage(ELECTRIC_DAMAGE + (target.armor() if target is Creature else 0.0), self)
+		if target is Creature and is_valid_target(target):
+			target.stun(ELECTRIC_STUN)
+			target._show_puff(ELECTRIC_COLOR, 1.2, 0.3)
 
 
 ## Trample: [param damage] to the other enemies right next to [param target].
@@ -435,6 +473,15 @@ func can_attack(target: Node3D) -> bool:
 		return false
 	if target is Creature and target.stats.can_fly:
 		return stats.is_ranged() or stats.can_fly or target.is_swooping()
+	# Land melee creatures only reach swimmers close to the shore.
+	if target is Creature and target.stats.can_swim and not (stats.is_ranged() or stats.can_fly or stats.can_swim):
+		if WaterArea.distance_from_shore(get_tree(), target.global_position) > stats.attack_range + SHORE_REACH:
+			return false
+	# Creatures stuck in the water only reach what's close to it.
+	if stats.water_only:
+		var reach: float = stats.attack_range + target.radius() + SHORE_REACH
+		if WaterArea.distance_to_deep_water(get_tree(), target.global_position) > reach:
+			return false
 	return true
 
 
@@ -574,7 +621,28 @@ func is_frenzied() -> bool:
 
 ## Walking speed including the team's upgrades.
 func move_speed() -> float:
-	return stats.move_speed * Upgrades.speed_multiplier(team)
+	var base := stats.swim_speed if stats.water_only or _in_water else stats.move_speed
+	return base * Upgrades.speed_multiplier(team)
+
+
+## True while swimming in deep water.
+func is_in_water() -> bool:
+	return _in_water
+
+
+func _update_swimming() -> void:
+	_in_water = stats.water_only or WaterArea.is_deep_water(get_tree(), global_position)
+	if _visual and _leap_time <= 0.0:
+		_visual.position.y = -SWIM_SINK * stats.size if _in_water else 0.0
+
+
+## Stops this creature in its tracks (no moving or attacking) for [param seconds].
+func stun(seconds: float) -> void:
+	_stunned = maxf(_stunned, seconds)
+
+
+func is_stunned() -> bool:
+	return _stunned > 0.0
 
 
 ## How far this creature reveals the fog of war.
@@ -618,7 +686,7 @@ func find_best_enemy(max_distance: float) -> Node3D:
 		return best
 	var best_distance := max_distance
 	for building: Building in get_tree().get_nodes_in_group("buildings"):
-		if not Teams.are_enemies(building.team, team) or not building.is_alive():
+		if not Teams.are_enemies(building.team, team) or not building.is_alive() or not can_attack(building):
 			continue
 		var distance := building.edge_distance_from(global_position)
 		if distance < best_distance:
@@ -909,6 +977,9 @@ func _on_arrived() -> void:
 
 
 func _on_velocity_computed(safe_velocity: Vector3) -> void:
+	if _stunned > 0.0:
+		# Not even avoidance moves a stunned creature.
+		safe_velocity = Vector3.ZERO
 	var climb := 0.0
 	if stats.can_fly:
 		climb = clampf((HOVER_HEIGHT - global_position.y) * 3.0, -CLIMB_RATE, CLIMB_RATE)
