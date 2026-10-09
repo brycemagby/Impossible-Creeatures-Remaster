@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=3]
+[gd_scene load_steps=35 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/props/rock.tscn" id="2_rock"]
@@ -25,6 +25,7 @@
 [ext_resource type="Script" path="res://scripts/game/fog_of_war.gd" id="23_fog"]
 [ext_resource type="Shader" path="res://shaders/fog_ground.gdshader" id="24_fog_shader"]
 [ext_resource type="Script" path="res://scripts/ui/minimap.gd" id="25_minimap"]
+[ext_resource type="Script" path="res://scripts/world/water_area.gd" id="26_water"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.38, 0.56, 0.78, 1)
@@ -129,6 +130,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, -18)
 
 [node name="Rock13" parent="NavigationRegion3D/Rocks" instance=ExtResource("2_rock")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0, -18)
+
+[node name="Water" type="Node3D" parent="NavigationRegion3D"]
 
 [node name="CoalPiles" type="Node3D" parent="NavigationRegion3D"]
 

@@ -77,6 +77,11 @@ func map_to_world(local: Vector2) -> Vector3:
 
 func _draw_overlay() -> void:
 	var player := selection_manager.player_team
+	for area: WaterArea in get_tree().get_nodes_in_group("water_areas"):
+		var outline := PackedVector2Array()
+		for point in area.world_polygon():
+			outline.append(world_to_map(Vector3(point.x, 0.0, point.y)))
+		_overlay.draw_colored_polygon(outline, WaterArea.SHALLOW_COLOR if area.shallow else WaterArea.DEEP_COLOR)
 	for pile: CoalPile in get_tree().get_nodes_in_group("coal_piles"):
 		if fog == null or fog.is_explored(player, pile.global_position):
 			_overlay.draw_rect(Rect2(world_to_map(pile.global_position) - Vector2(2, 2), Vector2(4, 4)), COAL_COLOR)

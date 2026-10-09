@@ -56,7 +56,10 @@ invisible while still; spotted up close or by echolocation), and Bison (herding:
 
 Follow-ups:
 - More abilities from the original (swimming, electric...)
-- Water, so swimmers and the Water Chamber make sense; Aviary for flyers
+- Water: rivers, lakes and fords on the maps ✅ (Canyon's river, the new Lakeside map; walkers path
+  round deep water, a separate navigation layer for swimmers); swimming creatures and the Water
+  Chamber next; then the AI on water maps
+- Aviary for flyers
 
 ## M5 — Creature visuals
 - Modular, rigged animal parts that can be attached to each other

@@ -74,6 +74,7 @@ func _run() -> void:
 	await _test_ai_defence_and_waves()
 	await _test_difficulty_and_settings()
 	await _test_canyon_map()
+	await _test_lakeside_water()
 	await _test_skirmish_setup()
 	await _test_match_stats()
 	await _test_pause_and_speed()
@@ -1250,6 +1251,66 @@ func _test_difficulty_and_settings() -> void:
 	GameSettings.fog_enabled = true
 
 
+func _path_length(path: PackedVector3Array) -> float:
+	var total := 0.0
+	for i in range(1, path.size()):
+		total += path[i - 1].distance_to(path[i])
+	return total
+
+
+func _test_lakeside_water() -> void:
+	print("water")
+	GameSettings.select_map(3)
+	var main: Node3D = load(GameSettings.map_path()).instantiate()
+	main.get_node("EnemyAI").enabled = false
+	main.get_node("FogOfWar").reveal_all = true
+	main.spawn_starting_army = false
+	get_tree().root.add_child(main)
+	get_tree().current_scene = main
+	await _physics_frames(10)
+	_check(GameSettings.MAPS[3].name == "Lakeside", "Lakeside is in the map list")
+	_check(WaterArea.is_deep_water(get_tree(), Vector3(-10, 0, 0)) and not WaterArea.is_deep_water(get_tree(), Vector3(0, 0, 0))
+			and not WaterArea.is_deep_water(get_tree(), Vector3(-30, 0, 0)), "the lake is deep water, the ford and shore aren't")
+	var map := main.get_world_3d().navigation_map
+	var north := Vector3(-10, 0, 25)
+	var south := Vector3(-10, 0, -25)
+	var walk := NavigationServer3D.map_get_path(map, north, south, true, WaterArea.LAND_LAYER)
+	var dry := true
+	for i in range(1, walk.size()):
+		for t in 10:
+			if WaterArea.is_deep_water(get_tree(), walk[i - 1].lerp(walk[i], t / 10.0), 0.3):
+				dry = false
+	_check(dry and walk[walk.size() - 1].distance_to(south) < 1.0, "walkers go round the lake or through the ford")
+	var swim := NavigationServer3D.map_get_path(map, Vector3(-10, 0, 8), Vector3(-10, 0, -8), true, WaterArea.WATER_LAYER)
+	_check(_path_length(swim) < 16.5 and swim[swim.size() - 1].distance_to(Vector3(-10, 0.5, -8)) < 1.0, "swimmers have a way across the water")
+	var both := NavigationServer3D.map_get_path(map, north, south, true, WaterArea.LAND_LAYER | WaterArea.WATER_LAYER)
+	_check(_path_length(both) < _path_length(walk) - 2.0, "amphibians can cut across the lake (%.0f m vs %.0f m)" % [_path_length(both), _path_length(walk)])
+
+	var placer: BuildPlacer = main.get_node("SelectionManager").build_placer
+	placer.start(load("res://resources/buildings/house.tres"), 0)
+	_check(not placer.can_place_at(Vector3(-10, 0, 0)) and not placer.can_place_at(Vector3(0, 0, 0)), "nothing can be built on water, deep or shallow")
+	_check(placer.can_place_at(Vector3(-30, 0, 18)), "but the shore is fine")
+	placer.cancel()
+
+	var runner := _spawn(main, load("res://tests/fixtures/runner.tres"), 0, north)
+	await _physics_frames(2)
+	runner.command_move(south)
+	var stayed_dry := true
+	var arrived := false
+	var wet_at := Vector3.INF
+	for i in 900:
+		await get_tree().physics_frame
+		if stayed_dry and WaterArea.is_deep_water(get_tree(), runner.global_position, 0.5):
+			stayed_dry = false
+			wet_at = runner.global_position
+		if runner.global_position.distance_to(south) < 2.0:
+			arrived = true
+			break
+	_check(arrived and stayed_dry, "a walking creature crosses the map without swimming (arrived %s, in the water at %s, now %s)" % [arrived, wet_at, runner.global_position])
+	await _unload(main)
+	GameSettings.select_map(0)
+
+
 func _test_canyon_map() -> void:
 	print("canyon map")
 	var main: Node3D = load(GameSettings.MAPS[1].path).instantiate()
@@ -1274,7 +1335,7 @@ func _test_canyon_map() -> void:
 	var walked := 0.0
 	for i in range(1, path.size()):
 		walked += path[i - 1].distance_to(path[i])
-	_check(walked > west.distance_to(east) * 2.0, "the rock wall forces a detour through a pass (%.0f m vs %.0f m)" % [walked, west.distance_to(east)])
+	_check(walked > west.distance_to(east) * 2.0, "the river forces a detour through a ford (%.0f m vs %.0f m)" % [walked, west.distance_to(east)])
 	var ai: AIController = main.get_node("EnemyAI")
 	_check(ai.wave_target().x < 0.0, "the AI's first guess is the west side")
 	await _unload(main)

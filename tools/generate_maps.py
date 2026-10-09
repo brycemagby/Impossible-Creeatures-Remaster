@@ -10,6 +10,15 @@ on the ground plane; the playable area is -50..50 on both axes.
 
 from pathlib import Path
 
+def _rect(x1, z1, x2, z2):
+    """A rectangle as a convex polygon of (x, z) points."""
+    return [(x1, z1), (x2, z1), (x2, z2), (x1, z2)]
+
+
+# A round lake of radius 18 split down the middle by a 6 m ford.
+_LAKE_WEST = [(-3, -16.63), (-6.89, -16.63), (-16.63, -6.89), (-16.63, 6.89), (-6.89, 16.63), (-3, 16.63)]
+_LAKE_EAST = [(-x, z) for x, z in reversed(_LAKE_WEST)]
+
 LAYOUTS = {
     "scenes/main.tscn": {
         "name": "Island Clearing",
@@ -24,10 +33,11 @@ LAYOUTS = {
     "scenes/maps/canyon.tscn": {
         "name": "Canyon",
         "ground_color": (0.52, 0.42, 0.28),
-        # A north-south rock wall down the middle with three passes, plus cover.
-        "rocks": [(0, z) for z in (-46, -42, -38, -34, -30, -16, -12, -8, 8, 12, 16, 30, 34, 38, 42, 46)]
-        + [(-20, -30), (20, 30), (-18, 22), (18, -22), (-12, 4), (12, -4)],
-        "coal": [(-36, -14), (-28, 12), (36, 14), (28, -12), (0, -23), (0, 23)],
+        # A north-south river down the middle with three fords, plus cover.
+        "water": [_rect(-3, -50, 3, -27), _rect(-3, -19, 3, -4), _rect(-3, 4, 3, 19), _rect(-3, 27, 3, 50)],
+        "fords": [_rect(-3, -27, 3, -19), _rect(-3, -4, 3, 4), _rect(-3, 19, 3, 27)],
+        "rocks": [(-20, -30), (20, 30), (-18, 22), (18, -22), (-12, 4), (12, -4), (-8, -40), (8, 40)],
+        "coal": [(-36, -14), (-28, 12), (36, 14), (28, -12), (-8, -23), (8, 23)],
         "bases": [
             {"lab": (-38, 0), "generator": (-42, 10), "henchmen": [(-33, -3), (-33, -1), (-33, 1), (-33, 3)], "army": (-27, 0)},
             {"lab": (38, 0), "generator": (42, -10), "henchmen": [(33, -2), (33, 0), (33, 2)], "army": (27, 0)},
@@ -47,6 +57,19 @@ LAYOUTS = {
             {"lab": (38, 38), "generator": (44, 29), "henchmen": [(32, 33), (31, 31), (33, 31)], "army": (26, 26)},
             {"lab": (38, -38), "generator": (44, -29), "henchmen": [(32, -33), (31, -31), (33, -31)], "army": (26, -26)},
             {"lab": (-38, -38), "generator": (-44, -29), "henchmen": [(-32, -33), (-31, -31), (-33, -31)], "army": (-26, -26)},
+        ],
+    },
+    "scenes/maps/lakeside.tscn": {
+        "name": "Lakeside",
+        "ground_color": (0.3, 0.45, 0.24),
+        # A lake in the middle: walk round either side or wade the ford.
+        "water": [_LAKE_WEST, _LAKE_EAST],
+        "fords": [_rect(-3, -16.63, 3, 16.63)],
+        "rocks": [(-30, -8), (30, 8), (-24, 22), (24, -22), (-38, 10), (38, -10), (14, 30), (-14, -30)],
+        "coal": [(15, 36), (17, 29), (-15, -36), (-17, -29), (-25, 0), (25, 0)],
+        "bases": [
+            {"lab": (0, 38), "generator": (-10, 43), "henchmen": [(-3, 32), (-1, 32), (1, 32), (3, 32)], "army": (0, 27)},
+            {"lab": (0, -38), "generator": (-10, -43), "henchmen": [(-2, -32), (0, -32), (2, -32)], "army": (0, -27)},
         ],
     },
 }
@@ -84,6 +107,7 @@ def build(layout):
     add("Script", "res://scripts/game/fog_of_war.gd", "fog")
     add("Shader", "res://shaders/fog_ground.gdshader", "fog_shader")
     add("Script", "res://scripts/ui/minimap.gd", "minimap")
+    add("Script", "res://scripts/world/water_area.gd", "water")
 
     sub_resources = 8
     o = [f"[gd_scene load_steps={len(ext) + sub_resources + 1} format=3]\n"]
@@ -158,6 +182,14 @@ mesh = SubResource("PlaneMesh_ground")
     for n, (x, z) in enumerate(layout["rocks"], 1):
         o.append(f'[node name="Rock{n}" parent="NavigationRegion3D/Rocks" instance=ExtResource("{ids["rock"]}")]\n'
                  f'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, {x}, 0, {z})\n')
+    # Water sits under the navigation region so the land bake is carved around it.
+    o.append('[node name="Water" type="Node3D" parent="NavigationRegion3D"]\n')
+    pools = [(p, False) for p in layout.get("water", [])] + [(p, True) for p in layout.get("fords", [])]
+    for n, (points, shallow) in enumerate(pools, 1):
+        coords = ", ".join(f"{x}, {z}" for x, z in points)
+        o.append(f'[node name="{"Ford" if shallow else "Water"}{n}" type="Node3D" parent="NavigationRegion3D/Water"]\n'
+                 f'script = ExtResource("{ids["water"]}")\n'
+                 f'polygon = PackedVector2Array({coords})\n' + ("shallow = true\n" if shallow else ""))
     o.append('[node name="CoalPiles" type="Node3D" parent="NavigationRegion3D"]\n')
     for n, (x, z) in enumerate(layout["coal"], 1):
         o.append(f'[node name="CoalPile{n}" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("{ids["coal_pile"]}")]\n'

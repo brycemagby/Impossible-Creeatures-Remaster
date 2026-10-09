@@ -72,6 +72,8 @@ func can_place_at(spot: Vector3) -> bool:
 	var footprint := Rect2(spot.x - data.size.x / 2.0, spot.z - data.size.z / 2.0, data.size.x, data.size.z)
 	if not bounds.encloses(footprint):
 		return false
+	if WaterArea.touches_water(get_tree(), footprint.grow(CLEARANCE)):
+		return false
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(data.size.x + CLEARANCE * 2.0, data.size.y, data.size.z + CLEARANCE * 2.0)
 	var query := PhysicsShapeQueryParameters3D.new()

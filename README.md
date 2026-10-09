@@ -21,7 +21,7 @@ A fan remake of Relic Entertainment's *Impossible Creatures* (2003), built in **
 Milestones 1 (**core RTS loop**), 2 (**combat**), 3 (**economy and base building**), 4 (**the
 creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 
-- **Skirmish setup**: choose the map (Island Clearing, Canyon, or the 4-player Crossroads), how many
+- **Skirmish setup**: choose the map (Island Clearing, Canyon, Lakeside, or the 4-player Crossroads), how many
   players (2–4), free-for-all or 2 vs 2, the computer opponents' difficulty (Easy, Normal, Hard) and
   whether fog of war is on
 - **Multiplayer vs AI**: one computer opponent per extra player. In 2 vs 2 you're teamed with the
@@ -43,6 +43,9 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
   and tower beams. Crocodile, Rhino, Scorpion, Elephant and Porcupine torsos resist ranged hits.
 - **Workshop**: Henchman upgrades — Coal Sacks and Coal Wagons (carry 15, then 20 coal), Sturdy Boots
   (+20% speed), Quick Hands (gather 30% faster) and Builder's Tools (build 30% faster)
+- **Water**: Canyon is split by a river with three fords; Lakeside has a lake in the middle with a
+  ford across it. Walking creatures go round deep water or wade through fords; nothing can be built
+  on water. (Swimming creatures are next.)
 - **Minimap**: terrain under the fog, coal, buildings, creatures and your camera's view; click to look,
   right click to send the selection there
 
@@ -203,6 +206,7 @@ scenes/
   main.tscn              Island Clearing map (generated)
   maps/canyon.tscn       Canyon map (generated)
   maps/crossroads.tscn   Crossroads, 4 players (generated)
+  maps/lakeside.tscn     Lakeside, a lake with a ford (generated)
   ui/skirmish_setup.tscn Map, difficulty and fog choice
   camera/rts_camera.tscn Camera rig
   units/creature.tscn    Generic creature unit (placeholder capsule)

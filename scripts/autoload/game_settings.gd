@@ -8,9 +8,11 @@ const MAPS := [
 	{"name": "Island Clearing", "path": "res://scenes/main.tscn", "players": 2,
 		"description": "Bases north and south, open ground with coal in the middle."},
 	{"name": "Canyon", "path": "res://scenes/maps/canyon.tscn", "players": 2,
-		"description": "Bases east and west, split by a rock wall with three passes."},
+		"description": "Bases east and west, split by a river with three fords."},
 	{"name": "Crossroads", "path": "res://scenes/maps/crossroads.tscn", "players": 4,
 		"description": "Four corner bases around a rocky centre. Up to 4 players: free-for-all, or 2 vs 2 with your southern neighbour."},
+	{"name": "Lakeside", "path": "res://scenes/maps/lakeside.tscn", "players": 2,
+		"description": "Bases north and south of a lake: go round it, wade the ford, or swim."},
 ]
 const DIFFICULTY_NAMES := ["Easy", "Normal", "Hard"]
 const MODE_NAMES := ["Free-for-all", "2 vs 2"]
