@@ -63,6 +63,8 @@ Follow-ups:
   keeps water-only creatures on the water nearest the enemy, and expands before its coal runs dry)
 - Aviary ✅: makes the flying designs and sells flyer upgrades (Strong Wings, Keen Eyes); the AI
   builds one once its flyers are researched
+- Upgrade layout: universal creature upgrades at the Research Center, movement-specific ones where
+  those creatures are made (Aviary: flyers ✅, Water Chamber: swimmers ✅ Streamlining, Deep Lungs)
 
 ## M5 — Creature visuals
 - Modular, rigged animal parts that can be attached to each other

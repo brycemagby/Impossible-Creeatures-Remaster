@@ -69,6 +69,14 @@ func flyer_sight_bonus(team: int) -> float:
 	return total(team, &"flyer_sight")
 
 
+func swim_speed_multiplier(team: int) -> float:
+	return 1.0 + total(team, &"swim_speed")
+
+
+func shore_reach_bonus(team: int) -> float:
+	return total(team, &"shore_reach")
+
+
 func henchman_speed_multiplier(team: int) -> float:
 	return 1.0 + total(team, &"henchman_speed")
 

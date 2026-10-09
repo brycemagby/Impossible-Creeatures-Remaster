@@ -1451,6 +1451,29 @@ func _test_water_chamber() -> void:
 	chamber.call("_spawn", shark_recipe)
 	var newest: Creature = _team_units(0).back()
 	_check(newest.stats.water_only and WaterArea.is_deep_water(get_tree(), newest.global_position), "sharks come out into the water")
+
+	# Swimmer upgrades.
+	var swimmer := newest
+	await _physics_frames(2)
+	var swim := swimmer.move_speed()
+	var target := _spawn(main, load("res://tests/fixtures/brute.tres"), 1, Vector3(-30, 0, 0))
+	target.command_hold()
+	swimmer.global_position = Vector3(-15.5, 0, 0)
+	await _physics_frames(1)
+	Research.set_level(0, 3)
+	var streamlining: UpgradeData = chamber.data.upgrades[0]
+	var lungs: UpgradeData = chamber.data.upgrades[1]
+	_check(chamber.start_upgrade(streamlining) == "", "the Water Chamber sells swimmer upgrades")
+	chamber.upgrade_time = streamlining.duration
+	await _physics_frames(3)
+	_check(is_equal_approx(swimmer.move_speed(), swim * 1.15), "Streamlining: swimmers 15% faster")
+	target.global_position = Vector3(-16.63 - (swimmer.stats.attack_range + target.radius() + Creature.SHORE_REACH + 1.0), 0, 0)
+	_check(not swimmer.can_attack(target), "a land target just out of a shark's reach")
+	Upgrades.grant(0, lungs)
+	_check(swimmer.can_attack(target), "Deep Lungs: water-only creatures reach further up the shore")
+	var walker := _spawn(main, load("res://tests/fixtures/runner.tres"), 0, Vector3(30, 0, 30))
+	await _physics_frames(1)
+	_check(walker.move_speed() == walker.stats.move_speed * Upgrades.speed_multiplier(0), "walkers don't get swimmer upgrades")
 	await _unload(main)
 	GameSettings.select_map(0)
 	Armies.set_designs(0, saved)
@@ -1479,6 +1502,9 @@ func _test_ai_on_water() -> void:
 	if chamber:
 		chamber.add_build_work(chamber.data.build_time)
 		_check(chamber.production_options().any(func(r: UnitRecipe) -> bool: return r.stats.water_only), "which can make its water-only design")
+		Economy.add(1, 1000, 1000)
+		ai.manage_upgrades()
+		_check(chamber.upgrading != null, "and it buys swimmer upgrades there")
 
 	var fighter := _spawn(main, load("res://tests/fixtures/brute.tres"), 1, lab.global_position + Vector3(0, 0, 10))
 	var shark := _spawn(main, _stats("shark", "electric_eel", [0, 1, 0, 0, 0, -1]), 1, Vector3(-10, 0, 0))

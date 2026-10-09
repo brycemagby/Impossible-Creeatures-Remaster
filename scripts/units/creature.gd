@@ -479,7 +479,7 @@ func can_attack(target: Node3D) -> bool:
 			return false
 	# Creatures stuck in the water only reach what's close to it.
 	if stats.water_only:
-		var reach: float = stats.attack_range + target.radius() + SHORE_REACH
+		var reach: float = stats.attack_range + target.radius() + SHORE_REACH + Upgrades.shore_reach_bonus(team)
 		if WaterArea.distance_to_deep_water(get_tree(), target.global_position) > reach:
 			return false
 	return true
@@ -621,7 +621,8 @@ func is_frenzied() -> bool:
 
 ## Walking speed including the team's upgrades.
 func move_speed() -> float:
-	var base := stats.swim_speed if stats.water_only or _in_water else stats.move_speed
+	var swimming := stats.water_only or _in_water
+	var base := stats.swim_speed * Upgrades.swim_speed_multiplier(team) if swimming else stats.move_speed
 	if stats.can_fly:
 		base *= Upgrades.flyer_speed_multiplier(team)
 	return base * Upgrades.speed_multiplier(team)

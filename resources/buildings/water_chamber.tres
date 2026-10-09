@@ -1,7 +1,10 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="BuildingData" load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="1_data"]
 [ext_resource type="Script" path="res://scripts/buildings/unit_recipe.gd" id="2_recipe"]
+[ext_resource type="Script" path="res://scripts/buildings/upgrade_data.gd" id="3_upgrade"]
+[ext_resource type="Resource" path="res://resources/upgrades/streamlining.tres" id="4_streamlining"]
+[ext_resource type="Resource" path="res://resources/upgrades/deep_lungs.tres" id="5_deep_lungs"]
 
 [resource]
 script = ExtResource("1_data")
@@ -19,3 +22,4 @@ production = Array[ExtResource("2_recipe")]([])
 produces_army = true
 water_production = true
 needs_shore = true
+upgrades = Array[ExtResource("3_upgrade")]([ExtResource("4_streamlining"), ExtResource("5_deep_lungs")])

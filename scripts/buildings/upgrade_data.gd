@@ -1,7 +1,7 @@
 class_name UpgradeData
 extends Resource
 ## A one-off, team-wide improvement bought at a Research Center (creatures),
-## a Workshop (Henchmen) or an Aviary (flyers). Effects add up across everything a team owns.
+## a Workshop (Henchmen), an Aviary (flyers) or a Water Chamber (swimmers). Effects add up across everything a team owns.
 
 @export var id: StringName
 @export var display_name := "Upgrade"
@@ -28,6 +28,12 @@ extends Resource
 @export var flyer_speed := 0.0
 ## Extra metres flyers see (and spot enemies from).
 @export var flyer_sight := 0.0
+
+@export_group("Swimmer effects")
+## Added to swimmers' speed multiplier in deep water.
+@export var swim_speed := 0.0
+## Extra metres water-only creatures reach past the shore.
+@export var shore_reach := 0.0
 
 @export_group("Henchman effects")
 ## Extra coal per trip.
