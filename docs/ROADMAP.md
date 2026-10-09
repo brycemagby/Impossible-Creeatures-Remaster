@@ -27,8 +27,8 @@ produces the strongest creatures it has unlocked.
 
 Follow-ups:
 - Enemy AI that expands to more coal ✅ (new Labs at unclaimed coal, saving up for them)
-- More buildings from the original: Workshop ✅ and Soundbeam Tower ✅; Lightning Rod, Aviary and
-  Water Chamber still to come (the Water Chamber needs water on the maps first)
+- More buildings from the original: Workshop ✅, Soundbeam Tower ✅, Water Chamber ✅ and Aviary ✅;
+  the Lightning Rod is still to come
 - Research ✅ and upgrades ✅: tiered creature upgrades at the Research Center (melee/ranged damage
   and melee/ranged armor), Henchman upgrades at the Workshop; research levels stay at the Lab
 - AoE2-style QoL ✅: population and Houses, Research Center, split melee/ranged armor, idle
