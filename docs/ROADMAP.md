@@ -45,6 +45,10 @@ a main menu.
 Polish pass ✅: 12 animals (added Wolf, Kangaroo, Bat, Crocodile), charge and leap abilities, and
 matches start with a budgeted army from each side's roster.
 
+Balance pass ✅: strength rating rebuilt around effective health × damage (armor valued by body
+size), level thresholds spread evenly, a walking-speed floor, armor capped at 60% of a hit, melee
+flyers hittable while swooping; checked with equal-coal battles between designs.
+
 Follow-ups:
 - More abilities from the original (swimming, sonic, electric, herding, stink...)
 - Water, so swimmers and the Water Chamber make sense; Aviary for flyers

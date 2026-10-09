@@ -8,8 +8,12 @@ class_name CreatureCombiner
 ## - Back legs: the other half of the walking speed, maybe a leap.
 ## - Tail: extra damage, poison (stinger) or a ranged attack (quills).
 ## - Wings: flight, but only for hybrids no bigger than MAX_FLYING_SIZE.
-## Legs from a small animal under a big body are slowed down; legs from a big
-## animal under a small body get a slight boost.
+## Legs from a small animal under a big body are slowed down (never below
+## MIN_SPEED); legs from a big animal under a small body get a slight boost.
+##
+## Price and level come from [method power_rating]: roughly the square root of
+## effective health times damage per second, so in a fight N creatures of one
+## design are about as strong as the same coal spent on any other design.
 
 const SIZE_WEIGHTS := {
 	CreatureDesign.Slot.HEAD: 0.15,
@@ -27,6 +31,17 @@ const FLYER_HEALTH_FACTOR := 0.85
 ## Hybrids bigger than this are too heavy for wings to lift.
 const MAX_FLYING_SIZE := 1.1
 const MAX_LEVEL := 5
+## No walking hybrid is slower than this, however tiny its legs.
+const MIN_SPEED := 3.0
+## Power needed for levels 2, 3, 4 and 5.
+const LEVEL_THRESHOLDS: Array[float] = [28.0, 38.0, 50.0, 65.0]
+## Typical incoming hits and armor that power_rating values a design against.
+const REFERENCE_MELEE_HIT := 12.0
+const REFERENCE_RANGED_HIT := 10.0
+const REFERENCE_ARMOR := 2.0
+## Share of incoming damage that is melee (the rest is ranged).
+const MELEE_SHARE := 0.6
+const COAL_PER_POWER := 3.0
 
 
 static func build_stats(design: CreatureDesign) -> CreatureStats:
@@ -53,7 +68,7 @@ static func build_stats(design: CreatureDesign) -> CreatureStats:
 
 	var leg_speed := (front.front_leg_speed + back.back_leg_speed) / 2.0
 	var leg_size := (front.size + back.size) / 2.0
-	stats.move_speed = leg_speed * clampf(leg_size / size, MIN_LEG_LOAD, MAX_LEG_LOAD)
+	stats.move_speed = maxf(leg_speed * clampf(leg_size / size, MIN_LEG_LOAD, MAX_LEG_LOAD), MIN_SPEED)
 
 	stats.attack_cooldown = clampf(1.0 + 0.25 * (size - 1.0), 0.75, 1.5)
 	if tail.tail_ability == AnimalData.Ability.QUILLS:
@@ -88,23 +103,34 @@ static func build_stats(design: CreatureDesign) -> CreatureStats:
 
 
 ## A single number for how strong a creature is; drives level and cost.
+##
+## Fighting strength grows with health times damage, so this is the square root
+## of the two: armor counts as the extra health it's worth against typical hits
+## (a lot on a big torso, little on a small one). Speed and abilities scale it.
 static func power_rating(stats: CreatureStats) -> float:
-	var dps := stats.attack_damage / stats.attack_cooldown
-	var power := stats.max_health / 8.0 + stats.armor * 4.0 + stats.ranged_armor * 3.0 + dps * 3.0 + stats.move_speed * 2.5
-	power += stats.poison_dps * stats.poison_duration * 0.75
+	var melee_health := stats.max_health * REFERENCE_MELEE_HIT / Creature.damage_after_armor(REFERENCE_MELEE_HIT, stats.armor)
+	var ranged_health := stats.max_health * REFERENCE_RANGED_HIT / Creature.damage_after_armor(REFERENCE_RANGED_HIT, stats.ranged_armor)
+	var effective_health := lerpf(ranged_health, melee_health, MELEE_SHARE)
+	var dps := maxf(stats.attack_damage - REFERENCE_ARMOR, 1.0) / stats.attack_cooldown + stats.poison_dps
+	var power := sqrt(effective_health * dps)
+	power *= 0.7 + 0.3 * stats.move_speed / 8.0
 	if stats.is_ranged():
-		power += 10.0
+		power *= 1.3
 	if stats.can_fly:
-		power += 12.0
+		power *= 1.25
 	if stats.can_charge:
-		power += 6.0
+		power *= 1.1
 	if stats.can_leap:
-		power += 6.0
+		power *= 1.1
 	return power
 
 
 static func level_for(power: float) -> int:
-	return clampi(ceili((power - 45.0) / 18.0), 1, MAX_LEVEL)
+	var level := 1
+	for threshold in LEVEL_THRESHOLDS:
+		if power >= threshold:
+			level += 1
+	return mini(level, MAX_LEVEL)
 
 
 ## Whether [param design] has wings that can't lift it.
@@ -123,7 +149,7 @@ static func make_recipe(design: CreatureDesign) -> UnitRecipe:
 	var recipe := UnitRecipe.new()
 	recipe.stats = stats
 	recipe.scene = load("res://scenes/units/creature.tscn")
-	recipe.cost_coal = int(snappedf(power * 1.5, 5.0))
+	recipe.cost_coal = int(snappedf(power * COAL_PER_POWER, 5.0))
 	recipe.cost_electricity = (stats.level - 1) * 25
-	recipe.build_time = snappedf(4.0 + power * 0.08, 0.5)
+	recipe.build_time = snappedf(4.0 + power * 0.12, 0.5)
 	return recipe

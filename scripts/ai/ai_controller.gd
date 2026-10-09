@@ -257,6 +257,17 @@ func manage_construction() -> void:
 			place_building(wanted)
 
 
+## Coal to keep for the next building (none while one is going up, or for a
+## new Lab, which has its own saving rule).
+func building_reserve() -> int:
+	if not _buildings(false).is_empty() or _henchmen().is_empty():
+		return 0
+	var wanted := next_building()
+	if wanted == null or (wanted == LAB_DATA and _count(LAB_DATA) > 0):
+		return 0
+	return wanted.cost_coal
+
+
 ## What to build next, or null if the base is complete.
 func next_building() -> BuildingData:
 	var chambers := _count(CHAMBER_DATA)
@@ -429,6 +440,7 @@ func _unguarded_lab() -> Building:
 func manage_production() -> void:
 	var henchmen := _henchmen().size() + _queued_henchmen()
 	var saving := is_saving_for_research() or is_saving_for_expansion()
+	var reserve := building_reserve()
 	for building in _buildings(true):
 		if building.queue.size() >= MAX_QUEUED:
 			continue
@@ -439,6 +451,9 @@ func manage_production() -> void:
 			if saving and not recipe.is_worker:
 				continue
 			if not Research.can_produce(team, recipe):
+				continue
+			# Creatures wait until the next building is paid for.
+			if not recipe.is_worker and Economy.coal(team) < reserve + recipe.cost_coal:
 				continue
 			if Economy.can_afford(team, recipe.cost_coal, recipe.cost_electricity):
 				options.append(recipe)

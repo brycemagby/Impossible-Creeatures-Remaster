@@ -12,6 +12,7 @@ const ANIMAL_DIR := "res://resources/animals/"
 ## something to build: [animal A, animal B, picks (head, torso, front legs,
 ## back legs, tail, wings), name].
 const PRESETS := [
+	["cheetah", "cheetah", [0, 0, 0, 0, 0, -1], ""],
 	["wolf", "wolf", [0, 0, 0, 0, 0, -1], ""],
 	["cheetah", "porcupine", [0, 0, 0, 0, 1, -1], ""],
 	["lion", "cheetah", [0, 0, 1, 1, 0, -1], ""],

@@ -106,9 +106,15 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 - **Leap**: jumps a 1.5–7 m gap to land in reach of the target. 6 s cooldown. Flyers don't leap.
 - Ranged creatures don't charge or leap.
 
-Legs from a small animal under a big body are slowed down. A strength rating sets each hybrid's
-level (1–5) and cost. Flyers pass over buildings and rocks, and only ranged or flying creatures can
-hit them. Names are portmanteaus, like the original: Lion + Eagle = *Ligle*.
+Legs from a small animal under a big body are slowed down, but nothing walks slower than 3.
+A strength rating sets each hybrid's level (1–5) and cost: roughly the square root of effective
+health (armor counts for more on a big body) times damage per second, scaled by speed and abilities,
+so the same coal buys about the same fighting strength whatever the design. Armor subtracts from
+each hit but never blocks more than 60% of it.
+
+Flyers pass over buildings and rocks. Only ranged or flying creatures can hit them, except while a
+melee flyer swoops down to fight, when its target can hit back. Names are portmanteaus, like the
+original: Lion + Eagle = *Ligle*.
 
 Animals are data files in `resources/animals/`; add a `.tres` there and it shows up in the combiner.
 

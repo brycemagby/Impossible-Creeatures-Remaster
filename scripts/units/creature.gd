@@ -69,6 +69,8 @@ const LEAP_MIN_DISTANCE := 1.5
 const LEAP_DURATION := 0.4
 const LEAP_HEIGHT := 1.2
 const LEAP_COOLDOWN := 6.0
+## Armor never blocks more than this share of a hit.
+const MAX_ARMOR_BLOCK := 0.6
 const ProjectileScene := preload("res://scenes/fx/projectile.tscn")
 
 @export var stats: CreatureStats
@@ -253,7 +255,7 @@ func take_damage(amount: float, source: Node3D = null, ranged := false) -> void:
 	if is_valid_target(source):
 		_last_attacker_team = source.team
 	_flash()
-	_lose_health(maxf(amount - (ranged_armor() if ranged else armor()), 1.0))
+	_lose_health(damage_after_armor(amount, ranged_armor() if ranged else armor()))
 	if _dead:
 		return
 	if is_valid_target(source) and Teams.are_enemies(source.team, team):
@@ -310,10 +312,23 @@ func _fights_automatically() -> bool:
 
 
 ## Ground melee creatures can't reach flyers.
+## Flyers are out of reach of melee, except while they swoop down to fight in
+## melee themselves.
 func can_attack(target: Node3D) -> bool:
 	if target is Creature and target.stats.can_fly:
-		return stats.is_ranged() or stats.can_fly
+		return stats.is_ranged() or stats.can_fly or target.is_swooping()
 	return true
+
+
+## True while this flyer is fighting in melee, low enough to be hit back.
+func is_swooping() -> bool:
+	return stats.can_fly and not stats.is_ranged() and is_valid_target(attack_target) \
+			and surface_distance_to(attack_target) <= stats.attack_range + 1.0
+
+
+## Damage a hit of [param amount] does through [param armor_value].
+static func damage_after_armor(amount: float, armor_value: float) -> float:
+	return maxf(amount - armor_value, maxf(amount * (1.0 - MAX_ARMOR_BLOCK), 1.0))
 
 
 func is_alive() -> bool:
@@ -462,6 +477,9 @@ func _update_orders() -> void:
 
 func _should_keep_target() -> bool:
 	if not is_valid_target(attack_target):
+		return false
+	# A flyer that stops swooping is out of a melee creature's reach again.
+	if not can_attack(attack_target):
 		return false
 	if not _auto_target:
 		return true

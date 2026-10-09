@@ -581,6 +581,17 @@ func _test_ai_economy() -> void:
 	await _physics_frames(2)
 	_check(_building(1, "Creature Chamber") == null, "the enemy starts without a Creature Chamber")
 	_check(ai.next_building().display_name == "Creature Chamber", "a Creature Chamber is the AI's first build")
+	_check(ai.building_reserve() == AIController.CHAMBER_DATA.cost_coal, "the AI keeps coal for its next building")
+	var lab_one := _building(1, "Lab")
+	_add_building("res://resources/buildings/creature_chamber.tres", 1, lab_one.global_position + Vector3(14, 0, 0))
+	await _physics_frames(2)
+	var chamber_one := _building(1, "Creature Chamber")
+	Economy.spend(1, Economy.coal(1) - AIController.GENERATOR_DATA.cost_coal - 50, 0)
+	ai.manage_production()
+	_check(chamber_one.queue.is_empty(), "so it doesn't spend that coal on creatures")
+	chamber_one.free()
+	await _physics_frames(2)
+	Economy.add(1, 300, 0)
 	ai.enabled = true
 	await _physics_frames(90)
 	var henchmen := _team_units(1).filter(func(u: Creature) -> bool: return u is Henchman)
@@ -697,6 +708,23 @@ func _test_combiner_rules() -> void:
 	_check(sane, "all %d animal pairs produce valid stats and costs" % (animals.size() * animals.size()))
 	_check(levels.size() == 5, "hybrids span all 5 levels")
 
+	# Balance: armor is worth health, so a small armored body isn't top tier.
+	var scorpion := _stats("scorpion", "scorpion", [0, 0, 0, 0, 0, -1])
+	_check(scorpion.level <= 3, "a pure Scorpion is mid-level, not level 5 (level %d)" % scorpion.level)
+	_check(_stats("bat", "bat", [0, 0, 0, 0, 0, 0]).level == 1 and _stats("crocodile", "crocodile", [0, 0, 0, 0, 0, -1]).level == 5,
+			"Bats are level 1 and Crocodiles level 5")
+	var crawler := _stats("elephant", "bat", [0, 0, 1, 1, 0, -1])
+	_check(crawler.move_speed >= CreatureCombiner.MIN_SPEED, "tiny legs under a huge body still walk at %.1f" % crawler.move_speed)
+	_check(is_equal_approx(Creature.damage_after_armor(10.0, 3.0), 7.0) and is_equal_approx(Creature.damage_after_armor(9.0, 9.0), 9.0 * (1.0 - Creature.MAX_ARMOR_BLOCK)),
+			"armor blocks its value, but never more than %d%% of a hit" % roundi(Creature.MAX_ARMOR_BLOCK * 100.0))
+	var armored := scorpion.duplicate()
+	armored.armor += 2.0
+	var big_armored := _stats("elephant", "elephant", [0, 0, 0, 0, 0, -1])
+	var big_base := CreatureCombiner.power_rating(big_armored)
+	big_armored.armor += 2.0
+	_check(CreatureCombiner.power_rating(big_armored) - big_base > CreatureCombiner.power_rating(armored) - CreatureCombiner.power_rating(scorpion),
+			"armor adds more power on a big body than a small one")
+
 
 func _test_army_roster() -> void:
 	print("army roster")
@@ -789,12 +817,27 @@ func _test_flying() -> void:
 
 	var melee := _spawn(main, _stats("rhino", "rhino", [0, 0, 0, 0, 0, -1]), 1, goal + Vector3(0, 0, 3))
 	var ranged := _spawn(main, _stats("gorilla", "porcupine", [0, 0, 0, 0, 1, -1]), 1, goal + Vector3(-3, 0, 3))
+	# Keep the flyer out of the fight: just flying over.
+	flyer.command_move(goal + Vector3(0, 0, -6))
 	await _physics_frames(30)
 	melee.command_attack(flyer)
-	_check(melee.attack_target != flyer and melee.find_best_enemy(50.0) != flyer, "ground melee creatures can't attack flyers")
+	_check(not flyer.is_swooping() and melee.attack_target != flyer and melee.find_best_enemy(50.0) != flyer,
+			"ground melee creatures can't attack flyers flying over")
 	_check(ranged.attack_target == flyer or ranged.attack_target == walker, "ranged creatures can")
 	ranged.command_attack(flyer)
 	_check(ranged.attack_target == flyer, "ranged creatures accept attack orders on flyers")
+	ranged.queue_free()
+	ranged.remove_from_group("units")
+	walker.queue_free()
+	walker.remove_from_group("units")
+	flyer.command_attack(melee)
+	await _wait_until(func() -> bool: return flyer.is_swooping(), 5.0)
+	_check(flyer.is_swooping() and melee.can_attack(flyer), "a flyer swooping into melee can be hit back")
+	melee.command_attack(flyer)
+	_check(melee.attack_target == flyer, "and melee creatures accept the attack order")
+	flyer.command_move(goal + Vector3(0, 0, -15))
+	await _physics_frames(30)
+	_check(melee.attack_target != flyer, "once it flies off again, melee creatures give up on it")
 	await _unload(main)
 
 
