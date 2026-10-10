@@ -1,0 +1,103 @@
+# Roadmap
+
+A rough plan. Each milestone should be playable on its own.
+
+## M1 — Core RTS loop ✅
+Camera, selection, control groups, pathfinding, avoidance, formations, placeholder units.
+
+Touch-up pass ✅: formations spaced for big creatures, crowds settle instead of jostling at a shared
+destination, box select leaves Henchmen out of army selections, inspect enemy units and buildings,
+Shift+number adds to a group and a double tap looks at it, groups listed on the HUD, camera reset
+(Backspace) and zoom towards the cursor. Extras ✅: type buttons to narrow a mixed selection,
+right-drag line formations. (Idle allies already make way through Godot's avoidance; tested.)
+
+## M2 — Combat ✅
+Health, armor, melee and ranged (projectile) attacks, death, health bars, attack and attack-move
+orders, stop, auto-targeting with a leash, allies helping when attacked, group-speed formations, and
+an enemy AI that defends and sends waves.
+
+Follow-ups — all done:
+- Smarter target choice ✅ (armor-aware, finishes wounded targets, focus fire with nearby allies)
+- Ranged units keeping their distance ✅ (kite away from melee attackers, then keep shooting)
+- Hold-position (G) and patrol (P) orders ✅
+- Abilities ✅ (arrived with the combiner in M4: poison, quills, flight, charge, leap)
+
+## M3 — Economy and base building ✅
+Coal and electricity, Henchmen that gather and build, Lab / Electrical Generator / Creature Chamber,
+placement with a ghost preview and runtime navmesh rebakes, production queues with refunds, rally
+points, destructible buildings, victory and defeat, and an enemy AI that runs an economy.
+
+Touch-up pass ✅: Henchmen repair buildings (for coal; the AI repairs too), builders go back to
+their coal afterwards, Delete demolishes a building (sites refund 75%), and much more coal on the
+maps (bigger piles plus expansion spots) so long matches don't run dry. Electricity rebalance ✅: Generators
+make 1.25/s (was 2) and hybrids cost 35 electricity per level above 1 (was 25), so it no longer
+piles up unspent. Polish ✅: cancel any queued unit by clicking it, and a
+team with no buildings and 5 or fewer creatures left is revealed to everyone.
+
+Follow-up pass ✅: research levels 1–5 at the Lab gate creature production, and the enemy AI builds
+its own Creature Chamber and Generators, researches (saving up once its army is big enough), and
+produces the strongest creatures it has unlocked.
+
+Follow-ups:
+- Enemy AI that expands to more coal ✅ (new Labs at unclaimed coal, saving up for them)
+- More buildings from the original: Workshop ✅, Soundbeam Tower ✅, Water Chamber ✅ and Aviary ✅;
+  the Lightning Rod is still to come
+- Research ✅ and upgrades ✅: tiered creature upgrades at the Research Center (melee/ranged damage
+  and melee/ranged armor), Henchman upgrades at the Workshop; research levels stay at the Lab
+- AoE2-style QoL ✅: population and Houses, Research Center, split melee/ranged armor, idle
+  Henchman key, under-attack alerts, select-all-of-type, Shift-queued orders, command hotkeys,
+  Shift + click to make 5, rally on coal. Idle-building
+  indicator ✅. Still open: unit stances
+- Minimap ✅ (M6)
+
+## M4 — The creature combiner ✅
+8 animals with per-part stats, combination rules (size, leg load, level and cost), abilities from
+parts (flying, poison, ranged quills), hybrid models assembled from parts, a combiner screen with a
+live preview, saved armies of up to 9 that the Creature Chamber produces, smarter target choice, and
+a main menu.
+
+Polish pass ✅: 12 animals (added Wolf, Kangaroo, Bat, Crocodile), charge and leap abilities, and
+matches start with a budgeted army from each side's roster.
+
+Balance pass ✅: strength rating rebuilt around effective health × damage (armor valued by body
+size), level thresholds spread evenly, a walking-speed floor, armor capped at 60% of a hit, melee
+flyers hittable while swooping; checked with equal-coal battles between designs.
+
+New abilities ✅: sonic screech (Bat head), pack hunter (Wolf head), frenzy (Gorilla torso) and
+trample (Elephant torso), each priced into the strength rating and checked in equal-coal battles.
+Then two new animals, Skunk (stink: nearby enemies deal less damage) and Chameleon (camouflage:
+invisible while still; spotted up close or by echolocation), and Bison (herding: tougher in a herd).
+
+Follow-ups:
+- More abilities from the original (most are in now; maybe more animals later)
+- Water: rivers, lakes and fords on the maps ✅ (Canyon's river, the new Lakeside map; walkers path
+  round deep water, a separate navigation layer for swimmers); swimming creatures ✅ (amphibious
+  Crocodile legs, water-only Shark and Electric Eel fins, electric stun) and the Water Chamber ✅;
+  the AI on water maps ✅ (builds a Water Chamber on the shore once its swimmers are researched,
+  keeps water-only creatures on the water nearest the enemy, and expands before its coal runs dry)
+- Aviary ✅: makes the flying designs and sells flyer upgrades (Strong Wings, Keen Eyes); the AI
+  builds one once its flyers are researched
+- Upgrade layout: universal creature upgrades at the Research Center, movement-specific ones where
+  those creatures are made (Aviary: flyers ✅, Water Chamber: swimmers ✅ Streamlining, Deep Lungs)
+
+## M5 — Creature visuals
+- Modular, rigged animal parts that can be attached to each other
+- Shared animation set (idle, walk, attack, death) that works on hybrid bodies
+- Low-poly stylised art direction that's achievable for a small team
+
+## M6 — Skirmish ✅
+Fog of war (per team, the AI included), minimap with camera jump and orders, a smarter AI (defends,
+attacks scouted targets or the likely enemy base, growing waves, rebuilds), Easy/Normal/Hard, a
+second map (Canyon), and a skirmish setup screen.
+
+Follow-ups:
+- Hide coal piles and rocks under unexplored fog; "last seen" ghosts for destroyed enemy buildings ✅
+- AI that expands to distant coal with a second Lab, retreats wounded units, and focuses fire ✅
+  (Labs now heal nearby creatures, which is where wounded AI creatures retreat to)
+- More maps, 2v2 / free-for-all with more AI players ✅ (Crossroads, up to 4 players, alliances)
+- Pause menu, game speed setting, end-of-match statistics ✅
+
+## Later
+- Single-player campaign (an original story in the spirit of the 1930s pulp-adventure setting)
+- Multiplayer (Godot high-level multiplayer, deterministic lockstep or server-authoritative)
+- Modding support: data-driven animals and maps

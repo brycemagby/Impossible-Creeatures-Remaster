@@ -1,0 +1,42 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Impossible Creatures Remake"
+config/description="A fan remake of Impossible Creatures in Godot 4."
+run/main_scene="res://scenes/ui/main_menu.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+InputActions="*res://scripts/autoload/input_actions.gd"
+Economy="*res://scripts/autoload/economy.gd"
+Armies="*res://scripts/autoload/armies.gd"
+Research="*res://scripts/autoload/research.gd"
+GameSettings="*res://scripts/autoload/game_settings.gd"
+MatchStats="*res://scripts/autoload/match_stats.gd"
+Upgrades="*res://scripts/autoload/upgrades.gd"
+Teams="*res://scripts/autoload/teams.gd"
+Population="*res://scripts/autoload/population.gd"
+Alerts="*res://scripts/autoload/alerts.gd"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+
+[layer_names]
+
+3d_physics/layer_1="world"
+3d_physics/layer_2="units"
+3d_physics/layer_3="buildings"
+3d_physics/layer_4="resources"

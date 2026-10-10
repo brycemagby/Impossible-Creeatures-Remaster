@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="UpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/upgrade_data.gd" id="1_upgrade"]
+
+[resource]
+script = ExtResource("1_upgrade")
+id = &"scales_3"
+display_name = "Scales III"
+description = "All creatures get +2 ranged armor."
+cost_coal = 300
+cost_electricity = 175
+duration = 60.0
+required_research = 4
+requires = &"scales_2"
+ranged_armor = 2.0

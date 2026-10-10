@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CreatureStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/units/creature_stats.gd" id="1_stats"]
+
+[resource]
+script = ExtResource("1_stats")
+display_name = "Skirmisher"
+max_health = 110.0
+move_speed = 6.0
+size = 1.0
+armor = 1.0
+attack_damage = 11.0
+attack_range = 8.0
+attack_cooldown = 1.4
+projectile_speed = 20.0
+sight_range = 11.0

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AnimalData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/combiner/animal_data.gd" id="1_animal"]
+
+[resource]
+script = ExtResource("1_animal")
+display_name = "Scorpion"
+color = Color(0.25, 0.2, 0.15, 1)
+size = 0.6
+bite_damage = 3.0
+head_armor = 2.0
+head_ability = 0
+health = 70.0
+torso_armor = 3.0
+ranged_armor = 4.0
+claw_damage = 8.0
+front_leg_speed = 6.0
+back_leg_speed = 6.0
+tail_damage = 4.0
+tail_ability = 1
+has_wings = false
+flight_speed = 0.0

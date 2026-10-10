@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/upgrade_data.gd" id="1_upgrade"]
+
+[resource]
+script = ExtResource("1_upgrade")
+id = &"sturdy_boots"
+display_name = "Sturdy Boots"
+description = "Henchmen walk 20% faster."
+cost_coal = 75
+cost_electricity = 25
+duration = 25.0
+required_research = 1
+henchman_speed = 0.2

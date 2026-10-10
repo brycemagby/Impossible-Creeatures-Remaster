@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/building_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://scripts/buildings/unit_recipe.gd" id="2_recipe"]
+[ext_resource type="Script" path="res://scripts/buildings/upgrade_data.gd" id="3_upgrade"]
+[ext_resource type="Resource" path="res://resources/upgrades/strong_wings.tres" id="4_strong_wings"]
+[ext_resource type="Resource" path="res://resources/upgrades/keen_eyes.tres" id="5_keen_eyes"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Aviary"
+max_health = 900.0
+armor = 4.0
+cost_coal = 225
+cost_electricity = 75
+build_time = 30.0
+size = Vector3(5, 5, 5)
+color = Color(0.55, 0.45, 0.3, 1)
+is_drop_off = false
+electricity_per_second = 0.0
+production = Array[ExtResource("2_recipe")]([])
+produces_army = true
+flyer_production = true
+upgrades = Array[ExtResource("3_upgrade")]([ExtResource("4_strong_wings"), ExtResource("5_keen_eyes")])

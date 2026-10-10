@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/buildings/upgrade_data.gd" id="1_upgrade"]
+
+[resource]
+script = ExtResource("1_upgrade")
+id = &"fleet_feet"
+display_name = "Fleet Feet"
+description = "All your creatures move 10% faster."
+cost_coal = 150
+cost_electricity = 100
+duration = 40.0
+required_research = 3
+creature_speed = 0.1
