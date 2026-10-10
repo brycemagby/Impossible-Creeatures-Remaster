@@ -589,6 +589,7 @@ func _test_ai_economy() -> void:
 	var main := await _load_map()
 	var ai: AIController = main.get_node("EnemyAI")
 	ai.wave_interval = 0.0
+	ai.think_interval = 1.0
 	_check(ai.needs_house() and ai.next_building() == AIController.HOUSE_DATA, "near its population cap the AI builds a House first")
 	_add_houses(1, 2)
 	await _physics_frames(2)
@@ -1250,11 +1251,45 @@ func _test_difficulty_and_settings() -> void:
 	_check(ai.wave_interval < 100.0 and ai.max_henchmen > 7, "Hard makes the AI attack sooner and keep more workers")
 	var coal: float = Economy.coal(1)
 	Economy.deposit_coal(1, 10)
-	_check(is_equal_approx(Economy.coal(1) - coal, 13.0), "Hard gives the AI a coal bonus")
+	_check(is_equal_approx(Economy.coal(1) - coal, 10.0 * AIController.DIFFICULTY_SETTINGS[2].income) and Economy.coal(1) - coal > 10.0,
+			"Hard gives the AI a coal bonus")
 	coal = Economy.coal(0)
 	Economy.deposit_coal(0, 10)
 	_check(is_equal_approx(Economy.coal(0) - coal, 10.0), "the player gets no bonus")
 	_check(not main.get_node("FogOfWar").enabled, "the fog setting is applied to the match")
+	await _unload(main)
+
+	GameSettings.difficulty = GameSettings.Difficulty.EASY
+	main = await _load_map()
+	ai = main.get_node("EnemyAI")
+	coal = Economy.coal(1)
+	Economy.deposit_coal(1, 10)
+	_check(Economy.coal(1) - coal < 10.0, "Easy gives the AI less income")
+	_check(ai.first_wave_delay >= 300.0 and ai.max_wave_size <= 6, "Easy attacks late and small")
+	_check(ai.max_research == 3 and ai.upgrade_tiers == 0 and not ai.retreats, "Easy stops at research level 3, buys no upgrades and doesn't retreat")
+	Research.set_level(1, 3)
+	_check(not ai.is_saving_for_research(), "at its research cap it stops saving for research")
+	var easy_workshop := _add_building("res://resources/buildings/workshop.tres", 1, _building(1, "Lab").global_position + Vector3(-12, 0, -2))
+	await _physics_frames(2)
+	Economy.add(1, 2000, 2000)
+	ai.manage_upgrades()
+	_check(easy_workshop.upgrading == null, "Easy never buys upgrades")
+	ai.min_wave_size = 1
+	for i in 10:
+		_spawn(main, load("res://tests/fixtures/brute.tres"), 1, Vector3(i - 5.0, 0, -20))
+	await _physics_frames(2)
+	_check(ai.launch_wave() <= ai.max_wave_size, "waves never send more than the cap")
+	ai.max_fighters = 0
+	var chamber := _add_building("res://resources/buildings/creature_chamber.tres", 1, _building(1, "Lab").global_position + Vector3(14, 0, 0))
+	await _physics_frames(2)
+	ai.manage_production()
+	_check(chamber.queue.is_empty(), "with its army full it makes no more creatures")
+	await _unload(main)
+
+	GameSettings.difficulty = GameSettings.Difficulty.NORMAL
+	main = await _load_map()
+	ai = main.get_node("EnemyAI")
+	_check(ai.upgrade_tiers == 1 and ai.max_research == 4, "Normal buys only first-tier upgrades and stops at level 4")
 	await _unload(main)
 	GameSettings.difficulty = GameSettings.Difficulty.NORMAL
 	GameSettings.fog_enabled = true

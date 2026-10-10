@@ -2,7 +2,7 @@ class_name AIController
 extends Node
 ## A simple opponent that runs a whole base.
 ##
-## Every THINK_INTERVAL seconds it:
+## Every [member think_interval] seconds it:
 ## - keeps Henchmen busy: idle ones gather coal, and two help build any
 ##   unfinished construction site;
 ## - builds what's missing: a Creature Chamber first, then Generators to keep
@@ -28,8 +28,11 @@ extends Node
 ## - expands: when the coal near its Labs runs low (or it's rich), it builds
 ##   another Lab next to unclaimed coal and moves some workers there.
 ## It only knows what its fog of war shows, like the player.
+##
+## Difficulty (apply_difficulty) decides how fast it thinks, its income, how
+## soon and how big it attacks, how far it researches and expands, which
+## upgrades it buys and whether it pulls wounded creatures back.
 
-const THINK_INTERVAL := 1.0
 const MAX_QUEUED := 2
 const BUILDERS_PER_SITE := 2
 const LAB_DATA := preload("res://resources/buildings/lab.tres")
@@ -57,7 +60,6 @@ const PLACEMENT_ANGLES := 16
 const DEFEND_RADIUS := 20.0
 ## Fighters this close to the threat join the defence.
 const DEFENDER_RADIUS := 45.0
-const MAX_WAVE_SIZE := 12
 ## Retreat below this fraction of health; rejoin above RETURN_HEALTH.
 const RETREAT_HEALTH := 0.3
 const RETURN_HEALTH := 0.9
@@ -67,15 +69,22 @@ const BASE_COAL_RADIUS := 25.0
 const EXPANSION_COAL_THRESHOLD := 1000
 ## ...or when it has this much coal banked and only one Lab.
 const EXPANSION_RICH_COAL := 700
-const MAX_LABS := 3
 const EXPANSION_RADII := [6.0, 8.0, 10.0, 12.0]
 ## Workers sent to each newly built Lab's coal.
 const EXPANSION_WORKERS := 2
 ## [wave interval, min wave size, max henchmen, coal income, army per level].
+## Per GameSettings.Difficulty. Easy is meant to be beatable by a new player:
+## it attacks late and small, stops at research level 3 and buys no upgrades.
 const DIFFICULTY_SETTINGS := {
-	0: [150.0, 5, 5, 0.8, 1],
-	1: [100.0, 4, 7, 1.0, 2],
-	2: [70.0, 4, 9, 1.3, 2],
+	0: {"think_interval": 3.0, "income": 0.7, "first_wave_delay": 360.0, "wave_interval": 180.0,
+		"min_wave_size": 6, "max_wave_size": 6, "max_henchmen": 5, "army_per_level": 1,
+		"max_research": 3, "max_labs": 2, "upgrade_tiers": 0, "retreats": false, "max_fighters": 15},
+	1: {"think_interval": 2.0, "income": 0.9, "first_wave_delay": 240.0, "wave_interval": 120.0,
+		"min_wave_size": 5, "max_wave_size": 10, "max_henchmen": 7, "army_per_level": 2,
+		"max_research": 4, "max_labs": 2, "upgrade_tiers": 1, "retreats": true, "max_fighters": 30},
+	2: {"think_interval": 1.0, "income": 1.2, "first_wave_delay": 150.0, "wave_interval": 90.0,
+		"min_wave_size": 4, "max_wave_size": 14, "max_henchmen": 9, "army_per_level": 2,
+		"max_research": 5, "max_labs": 3, "upgrade_tiers": 3, "retreats": true, "max_fighters": 60},
 }
 
 @export var enabled := true
@@ -85,6 +94,23 @@ const DIFFICULTY_SETTINGS := {
 ## Waves only launch when at least this many combat units are idle.
 @export var min_wave_size := 4
 @export var max_henchmen := 7
+## Seconds between decisions: slower means a lazier economy and slower reactions.
+@export var think_interval := 1.0
+## No attack waves before this many seconds into the match.
+@export var first_wave_delay := 0.0
+## Waves never ask for more fighters than this.
+@export var max_wave_size := 12
+## Highest research level it goes for.
+@export var max_research := 5
+## Most Labs it will have (1 = never expands).
+@export var max_labs := 3
+## Upgrades it buys: 0 none, 1 first tiers and Workshop/Aviary/Water Chamber
+## basics (no prerequisites), 3 everything.
+@export var upgrade_tiers := 3
+## Pulls badly wounded fighters back to heal.
+@export var retreats := true
+## Stops making creatures once it has this many.
+@export var max_fighters := 100
 @export var formation_spacing := 2.0
 ## Generators wanted per Creature Chamber (plus one).
 @export var generators_per_chamber := 1
@@ -98,6 +124,7 @@ const DIFFICULTY_SETTINGS := {
 ## Set when no shore spot fits a Water Chamber, so the AI stops trying.
 var _no_shore_spot := false
 var _wave_timer := 0.0
+var _elapsed := 0.0
 var _think_timer := 0.0
 var _placer: BuildPlacer
 var waves_sent := 0
@@ -113,11 +140,12 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if not enabled:
 		return
+	_elapsed += delta
 	_think_timer += delta
-	if _think_timer >= THINK_INTERVAL:
+	if _think_timer >= think_interval:
 		_think_timer = 0.0
 		think()
-	if wave_interval > 0.0:
+	if wave_interval > 0.0 and _elapsed >= first_wave_delay:
 		_wave_timer += delta
 		if _wave_timer >= wave_interval:
 			_wave_timer = 0.0
@@ -126,12 +154,22 @@ func _physics_process(delta: float) -> void:
 
 ## Applies a GameSettings.Difficulty level.
 func apply_difficulty(level: int) -> void:
-	var settings: Array = DIFFICULTY_SETTINGS[level]
-	wave_interval = settings[0]
-	min_wave_size = settings[1]
-	max_henchmen = settings[2]
-	Economy.set_income_multiplier(team, settings[3])
-	army_per_level = settings[4]
+	var settings: Dictionary = DIFFICULTY_SETTINGS[level]
+	think_interval = settings.think_interval
+	Economy.set_income_multiplier(team, settings.income)
+	first_wave_delay = settings.first_wave_delay
+	wave_interval = settings.wave_interval
+	min_wave_size = settings.min_wave_size
+	max_wave_size = settings.max_wave_size
+	max_henchmen = settings.max_henchmen
+	army_per_level = settings.army_per_level
+	max_research = settings.max_research
+	max_labs = settings.max_labs
+	upgrade_tiers = settings.upgrade_tiers
+	retreats = settings.retreats
+	max_fighters = settings.max_fighters
+	# The first wave check comes as soon as the grace period is over.
+	_wave_timer = wave_interval
 
 
 ## One round of decisions. Public so tests can step the AI.
@@ -152,6 +190,8 @@ func think() -> void:
 ## Sends badly wounded fighters to the nearest healing Lab and releases the
 ## ones that have recovered. Returns how many are retreating.
 func manage_retreats() -> int:
+	if not retreats:
+		return 0
 	for unit in retreating.duplicate():
 		if not Creature.is_valid_target(unit):
 			retreating.erase(unit)
@@ -396,7 +436,7 @@ func needs_house() -> bool:
 ## has only one Lab, and there's somewhere to expand to.
 func wants_expansion() -> bool:
 	var labs := _count(LAB_DATA)
-	if labs == 0 or labs >= MAX_LABS or expansion_site() == null:
+	if labs == 0 or labs >= max_labs or expansion_site() == null:
 		return false
 	return _home_coal() < EXPANSION_COAL_THRESHOLD or (labs == 1 and Economy.coal(team) >= EXPANSION_RICH_COAL)
 
@@ -405,7 +445,7 @@ func wants_expansion() -> bool:
 ## expand to: a new Lab then comes before any other building.
 func coal_running_out() -> bool:
 	var labs := _count(LAB_DATA)
-	return labs > 0 and labs < MAX_LABS and _home_coal() < EXPANSION_COAL_THRESHOLD and expansion_site() != null
+	return labs > 0 and labs < max_labs and _home_coal() < EXPANSION_COAL_THRESHOLD and expansion_site() != null
 
 
 ## Coal left in the piles around this team's drop-offs.
@@ -486,7 +526,7 @@ func place_building(data: BuildingData, near: Variant = null, radii: Array = PLA
 
 func manage_research() -> void:
 	var target := Research.next_level(team)
-	if target == 0 or _count(CHAMBER_DATA, true) == 0 or is_saving_for_expansion():
+	if target == 0 or target > max_research or _count(CHAMBER_DATA, true) == 0 or is_saving_for_expansion():
 		return
 	var reserve := 0 if is_saving_for_research() else research_reserve
 	if Economy.coal(team) < Research.coal_cost(target) + reserve:
@@ -499,7 +539,7 @@ func manage_research() -> void:
 ## True when the army is big enough for the current research level and the
 ## next level is still to come (and not already being researched).
 func is_saving_for_research() -> bool:
-	if Research.next_level(team) == 0:
+	if Research.next_level(team) == 0 or Research.next_level(team) > max_research:
 		return false
 	for lab in _buildings(true):
 		if lab.researching > 0:
@@ -517,7 +557,7 @@ func is_saving_for_expansion() -> bool:
 
 ## Buys the next affordable Workshop or Research Center upgrade, keeping some coal in reserve.
 func manage_upgrades() -> void:
-	if is_saving_for_expansion() or is_saving_for_research():
+	if upgrade_tiers <= 0 or is_saving_for_expansion() or is_saving_for_research():
 		return
 	for workshop in _buildings(true):
 		if workshop.data.upgrades.is_empty() or workshop.upgrading != null:
@@ -525,7 +565,7 @@ func manage_upgrades() -> void:
 		for upgrade in workshop.data.upgrades:
 			if Upgrades.has(team, upgrade.id) or Research.level(team) < upgrade.required_research:
 				continue
-			if upgrade.requires != &"" and not Upgrades.has(team, upgrade.requires):
+			if upgrade.requires != &"" and (upgrade_tiers <= 1 or not Upgrades.has(team, upgrade.requires)):
 				continue
 			if Economy.coal(team) >= upgrade.cost_coal + research_reserve and workshop.start_upgrade(upgrade) == "":
 				return
@@ -549,6 +589,7 @@ func manage_production() -> void:
 	var henchmen := _henchmen().size() + _queued_henchmen()
 	var saving := is_saving_for_research() or is_saving_for_expansion()
 	var reserve := building_reserve()
+	var army_full := _fighter_count() >= max_fighters
 	for building in _buildings(true):
 		if building.queue.size() >= MAX_QUEUED:
 			continue
@@ -556,7 +597,7 @@ func manage_production() -> void:
 		for recipe in building.production_options():
 			if recipe.is_worker and henchmen >= max_henchmen:
 				continue
-			if saving and not recipe.is_worker:
+			if (saving or army_full) and not recipe.is_worker:
 				continue
 			if not Research.can_produce(team, recipe):
 				continue
@@ -586,11 +627,13 @@ func launch_wave() -> int:
 		if unit.team == team and not unit is Henchman and unit.order == Creature.Order.IDLE and unit.attack_target == null \
 				and unit not in retreating and not unit.stats.water_only:
 			idle.append(unit)
-	if idle.size() < mini(min_wave_size + waves_sent, MAX_WAVE_SIZE):
+	if idle.size() < mini(min_wave_size + waves_sent, max_wave_size):
 		return 0
 	var target: Variant = wave_target()
 	if target == null:
 		return 0
+	# The rest stay home (and defend).
+	idle = idle.slice(0, max_wave_size)
 	SelectionManager.assign_formation(idle, target, formation_spacing, &"command_attack_move")
 	waves_sent += 1
 	return idle.size()
