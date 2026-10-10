@@ -20,8 +20,28 @@ var _message_timer := 0.0
 ## True while a Shift + hotkey press is being handled.
 var _hotkey_shift := false
 
+## Height of the console along the bottom of the screen.
+const CONSOLE_HEIGHT := 232.0
+const ICONS := {
+	"coal": preload("res://assets/ui/coal.svg"),
+	"electricity": preload("res://assets/ui/electricity.svg"),
+	"population": preload("res://assets/ui/population.svg"),
+	"research": preload("res://assets/ui/research.svg"),
+}
+
 @onready var selection_label: Label = $SelectionLabel
-var resource_label: Label
+## The resource gauges along the top right.
+var resource_bar: PanelContainer
+var coal_value: Label
+var electricity_value: Label
+var population_value: Label
+var research_value: Label
+## "Speed 2x", only when the game isn't at normal speed.
+var speed_label: Label
+## Brass-framed console along the bottom, behind the minimap, selection and commands.
+var console: Panel
+## On-screen controls help (F1 hides it).
+var help_panel: PanelContainer
 var command_panel: PanelContainer
 var command_title: Label
 var command_grid: GridContainer
@@ -68,11 +88,14 @@ func _on_team_exposed(team: int) -> void:
 
 func _process(delta: float) -> void:
 	var team := selection_manager.player_team
-	resource_label.text = "Coal  %d      Electricity  %d      Pop  %d / %d      Research  L%d" % [
-			Economy.coal(team), Economy.electricity(team), Population.used(team), Population.cap(team), Research.level(team)]
+	coal_value.text = "%d" % Economy.coal(team)
+	electricity_value.text = "%d" % Economy.electricity(team)
+	population_value.text = "%d / %d" % [Population.used(team), Population.cap(team)]
+	population_value.add_theme_color_override("font_color", UiTheme.WARNING if Population.used(team) >= Population.cap(team) else UiTheme.TEXT)
+	research_value.text = "L%d" % Research.level(team)
 	_warn_if_population_blocked(team)
-	if not is_equal_approx(Engine.time_scale, 1.0):
-		resource_label.text += "      Speed  %sx" % Engine.time_scale
+	speed_label.visible = not is_equal_approx(Engine.time_scale, 1.0)
+	speed_label.text = "Speed  %sx" % Engine.time_scale
 	selection_label.text = _describe_selection()
 	groups_label.text = _describe_groups()
 	_refresh_idle_button()
@@ -84,6 +107,10 @@ func _process(delta: float) -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
+	if key != null and key.pressed and not key.echo and key.physical_keycode == KEY_F1:
+		help_panel.visible = not help_panel.visible
+		get_viewport().set_input_as_handled()
+		return
 	if key == null or not key.pressed or key.echo or key.ctrl_pressed or not command_panel.visible:
 		return
 	var index := HOTKEYS.find(key.physical_keycode)
@@ -465,12 +492,9 @@ func _add_button(text: String) -> Button:
 # --- Layout -------------------------------------------------------------------
 
 func _build_layout() -> void:
-	resource_label = _make_label(20)
-	resource_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	resource_label.offset_top = 10
-	resource_label.offset_right = -16
-	resource_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	resource_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_build_console()
+	_build_resource_bar()
+	_build_help_panel()
 
 	type_bar = HFlowContainer.new()
 	type_bar.custom_minimum_size.x = 420
@@ -497,7 +521,7 @@ func _build_layout() -> void:
 	menu_button.focus_mode = Control.FOCUS_NONE
 	menu_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	menu_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	menu_button.offset_top = 44
+	menu_button.offset_top = 64
 	menu_button.offset_right = -16
 	add_child(menu_button)
 
@@ -505,13 +529,14 @@ func _build_layout() -> void:
 	command_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	command_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	command_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	command_panel.offset_right = -16
-	command_panel.offset_bottom = -16
+	command_panel.offset_right = -12
+	command_panel.offset_bottom = -12
 	command_panel.visible = false
 	add_child(command_panel)
 	var column := VBoxContainer.new()
 	command_panel.add_child(column)
 	command_title = Label.new()
+	UiTheme.style_heading(command_title, 17)
 	column.add_child(command_title)
 	command_grid = GridContainer.new()
 	command_grid.columns = 4
@@ -535,11 +560,109 @@ func _build_layout() -> void:
 	idle_button.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	idle_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	idle_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	idle_button.offset_top = 80
+	idle_button.offset_top = 104
 	idle_button.offset_right = -16
 	idle_button.visible = false
 	idle_button.pressed.connect(func() -> void: selection_manager.select_idle_building())
 	add_child(idle_button)
+
+
+## The bottom console: a full-width brass-rimmed glass strip, in the spirit of
+## the original's control panel. The minimap sits at its left, the selection
+## in the middle and the command panel on the right.
+func _build_console() -> void:
+	console = Panel.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = UiTheme.GLASS
+	style.border_color = UiTheme.BRASS
+	style.border_width_top = 3
+	style.shadow_color = Color(0, 0, 0, 0.5)
+	style.shadow_size = 8
+	console.add_theme_stylebox_override("panel", style)
+	console.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	console.offset_top = -CONSOLE_HEIGHT
+	# Clicks and drags still reach the world underneath, as before the console.
+	console.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(console)
+	move_child(console, 0)
+	# A cyan pin-stripe under the brass rim.
+	var stripe := ColorRect.new()
+	stripe.color = Color(UiTheme.GLOW, 0.35)
+	stripe.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	stripe.offset_top = 6
+	stripe.offset_bottom = 7
+	stripe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	console.add_child(stripe)
+	# The selection readout lives in the console, between minimap and commands.
+	selection_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	selection_label.offset_left = 244
+	selection_label.offset_right = 244 + 760
+	selection_label.offset_top = -CONSOLE_HEIGHT + 16
+	selection_label.offset_bottom = -8
+	selection_label.add_theme_font_size_override("font_size", 18)
+
+
+func _build_resource_bar() -> void:
+	resource_bar = PanelContainer.new()
+	resource_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	resource_bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	resource_bar.offset_top = 10
+	resource_bar.offset_right = -16
+	resource_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(resource_bar)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	resource_bar.add_child(row)
+	coal_value = _gauge(row, "coal", "Coal")
+	electricity_value = _gauge(row, "electricity", "Electricity")
+	population_value = _gauge(row, "population", "Population")
+	research_value = _gauge(row, "research", "Research level")
+	speed_label = Label.new()
+	speed_label.add_theme_color_override("font_color", UiTheme.WARNING)
+	speed_label.add_theme_font_size_override("font_size", 20)
+	speed_label.visible = false
+	row.add_child(speed_label)
+
+
+## An icon and a number; returns the number's label.
+func _gauge(row: HBoxContainer, icon: String, tooltip: String) -> Label:
+	var picture := TextureRect.new()
+	picture.texture = ICONS[icon]
+	picture.custom_minimum_size = Vector2(28, 28)
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.tooltip_text = tooltip
+	picture.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_child(picture)
+	var value := Label.new()
+	value.custom_minimum_size.x = 64
+	value.add_theme_font_override("font", UiTheme.BOLD_FONT)
+	value.add_theme_font_size_override("font_size", 22)
+	row.add_child(value)
+	return value
+
+
+## Moves the scene's controls help into a panel at the top left; F1 toggles it.
+func _build_help_panel() -> void:
+	help_panel = PanelContainer.new()
+	help_panel.position = Vector2(16, 12)
+	help_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	help_panel.self_modulate = Color(1, 1, 1, 0.85)
+	add_child(help_panel)
+	var column := VBoxContainer.new()
+	help_panel.add_child(column)
+	var heading := Label.new()
+	heading.text = "Controls   (F1 to hide)"
+	UiTheme.style_heading(heading, 14)
+	column.add_child(heading)
+	var help := get_node_or_null("ControlsLabel") as Label
+	if help != null:
+		help.get_parent().remove_child(help)
+		help.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		help.add_theme_font_size_override("font_size", 14)
+		help.add_theme_constant_override("outline_size", 0)
+		help.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
+		column.add_child(help)
 
 
 func _make_label(font_size: int) -> Label:

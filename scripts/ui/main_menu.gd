@@ -6,10 +6,7 @@ const COMBINER_SCENE := "res://scenes/ui/combiner.tscn"
 
 
 func _ready() -> void:
-	var background := ColorRect.new()
-	background.color = Color(0.1, 0.12, 0.1)
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
+	add_child(DecoBackdrop.new())
 
 	var column := VBoxContainer.new()
 	column.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -20,14 +17,13 @@ func _ready() -> void:
 
 	var title := Label.new()
 	title.text = "IMPOSSIBLE CREATURES"
-	title.add_theme_font_size_override("font_size", 56)
-	title.add_theme_color_override("font_color", Color(0.85, 0.7, 0.35))
+	UiTheme.style_title(title, 72)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(title)
 	var subtitle := Label.new()
 	subtitle.text = "fan remake  ·  prototype"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.65))
+	UiTheme.style_heading(subtitle, 18)
 	column.add_child(subtitle)
 	column.add_child(Control.new())
 
@@ -40,6 +36,7 @@ func _add_button(parent: Control, text: String, action: Callable) -> void:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(320, 52)
-	button.add_theme_font_size_override("font_size", 22)
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	button.add_theme_font_size_override("font_size", 24)
 	button.pressed.connect(action)
 	parent.add_child(button)

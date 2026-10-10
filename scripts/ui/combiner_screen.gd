@@ -215,15 +215,12 @@ func _show_message(text: String) -> void:
 # --- Layout -------------------------------------------------------------------
 
 func _build_layout() -> void:
-	var background := ColorRect.new()
-	background.color = Color(0.11, 0.12, 0.11)
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
+	add_child(DecoBackdrop.new())
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 20)
+		margin.add_theme_constant_override("margin_" + side, 36)
 	add_child(margin)
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 12)
@@ -231,8 +228,7 @@ func _build_layout() -> void:
 
 	var title := Label.new()
 	title.text = "CREATURE COMBINER"
-	title.add_theme_font_size_override("font_size", 32)
-	title.add_theme_color_override("font_color", Color(0.85, 0.7, 0.35))
+	UiTheme.style_title(title, 36)
 	root.add_child(title)
 
 	var columns := HBoxContainer.new()
@@ -275,8 +271,6 @@ func _build_layout() -> void:
 			button.custom_minimum_size.x = 130
 			button.text = "None" if pick == CreatureDesign.NONE else ""
 			button.focus_mode = Control.FOCUS_NONE
-			button.add_theme_color_override("font_pressed_color", Color(1.0, 0.8, 0.35))
-			button.add_theme_color_override("font_hover_pressed_color", Color(1.0, 0.85, 0.45))
 			button.pressed.connect(set_pick.bind(slot, pick))
 			parts.add_child(button)
 			buttons.append(button)
@@ -304,13 +298,14 @@ func _build_layout() -> void:
 	_button(edit_row, "Update", update_selected)
 	_button(edit_row, "Remove", remove_selected)
 	army_title = Label.new()
+	UiTheme.style_heading(army_title)
 	right.add_child(army_title)
 	army_list = ItemList.new()
 	army_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	army_list.item_selected.connect(select_army_item)
 	right.add_child(army_list)
 	message_label = Label.new()
-	message_label.add_theme_color_override("font_color", Color(1.0, 0.75, 0.4))
+	message_label.add_theme_color_override("font_color", UiTheme.WARNING)
 	right.add_child(message_label)
 
 	var bottom := HBoxContainer.new()
@@ -326,6 +321,7 @@ func _build_layout() -> void:
 func _animal_list(parent: Control, heading: String) -> ItemList:
 	var label := Label.new()
 	label.text = heading
+	UiTheme.style_heading(label)
 	parent.add_child(label)
 	var list := ItemList.new()
 	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -352,7 +348,8 @@ func _build_preview() -> Control:
 
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.2, 0.24, 0.2)
+	# A specimen chamber: dark teal glass, a brass plinth ringed with glow.
+	environment.background_color = Color(0.04, 0.11, 0.13)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color(0.5, 0.5, 0.5)
 	var world_environment := WorldEnvironment.new()
@@ -369,9 +366,23 @@ func _build_preview() -> Control:
 	disc.height = 0.05
 	ground.mesh = disc
 	var ground_material := StandardMaterial3D.new()
-	ground_material.albedo_color = Color(0.3, 0.38, 0.25)
+	ground_material.albedo_color = Color(0.36, 0.27, 0.14)
+	ground_material.metallic = 0.8
+	ground_material.roughness = 0.35
 	ground.material_override = ground_material
 	viewport.add_child(ground)
+	var ring := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 2.45
+	torus.outer_radius = 2.6
+	ring.mesh = torus
+	var ring_material := StandardMaterial3D.new()
+	ring_material.albedo_color = UiTheme.GLOW
+	ring_material.emission_enabled = true
+	ring_material.emission = UiTheme.GLOW
+	ring_material.emission_energy_multiplier = 1.5
+	ring.material_override = ring_material
+	viewport.add_child(ring)
 
 	preview_pivot = Node3D.new()
 	preview_pivot.rotation_degrees.y = -35.0

@@ -1136,7 +1136,7 @@ func _test_research() -> void:
 	var locked_buttons := buttons.filter(func(b: Button) -> bool: return b.text.contains("needs research"))
 	_check(not locked_buttons.is_empty() and locked_buttons.all(func(b: Button) -> bool: return b.disabled),
 			"locked creatures show as disabled in the HUD")
-	_check(hud.resource_label.text.contains("Research  L1"), "the HUD shows the research level")
+	_check(hud.research_value.text == "L1", "the HUD shows the research level")
 	await _unload(main)
 
 
@@ -1711,7 +1711,7 @@ func _test_pause_and_speed() -> void:
 	_check(is_equal_approx(Engine.time_scale, 0.5), "- slows it down")
 	menu.set_speed(2.0)
 	await _process_frames(2)
-	_check(hud.resource_label.text.contains("Speed  2"), "the HUD shows a non-normal speed")
+	_check(hud.speed_label.visible and hud.speed_label.text.contains("Speed  2"), "the HUD shows a non-normal speed")
 	menu.set_speed(1.0)
 	await _unload(main)
 	_check(not get_tree().paused and is_equal_approx(Engine.time_scale, 1.0), "leaving a match unpauses and resets speed")
@@ -2674,7 +2674,7 @@ func _test_population() -> void:
 	var hud := main.get_node("UI/HUD")
 	await _process_frames(2)
 	_check(hud.message_label.visible and hud.message_label.text.begins_with("Need more Houses"), "the HUD says to build more Houses")
-	_check(hud.resource_label.text.contains("Pop  10 / 10"), "the top bar shows population")
+	_check(hud.population_value.text == "10 / 10", "the top bar shows population")
 	var house := _add_building("res://resources/buildings/house.tres", 0, Vector3(-24, 0, 20))
 	await _physics_frames(3)
 	_check(not waiting.population_blocked and waiting.production_reserved, "a new House lets production continue")

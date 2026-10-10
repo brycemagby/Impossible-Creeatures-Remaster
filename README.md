@@ -5,6 +5,10 @@ A fan remake of Relic Entertainment's *Impossible Creatures* (2003), built in **
 > This is an unofficial, non-commercial fan project. It is not affiliated with or endorsed by
 > Relic Entertainment, Microsoft, or THQ Nordic. No original game assets are included; all art
 > and audio in this repository are original placeholders.
+>
+> Fonts: [Federo](https://fonts.google.com/specimen/Federo) and
+> [Rajdhani](https://fonts.google.com/specimen/Rajdhani), both under the SIL Open Font License
+> (licences in `assets/fonts/`).
 
 ![Hybrids fighting](docs/screenshot.png)
 

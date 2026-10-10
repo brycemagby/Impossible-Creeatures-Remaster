@@ -103,7 +103,9 @@ func _draw_overlay() -> void:
 		var color := Color.WHITE if unit.is_selected else _team_color(unit.team)
 		_overlay.draw_rect(Rect2(at - Vector2.ONE * UNIT_DOT / 2.0, Vector2.ONE * UNIT_DOT), color)
 	_draw_camera_view()
-	_overlay.draw_rect(Rect2(Vector2.ZERO, size), BORDER_COLOR, false, 2.0)
+	# Brass bezel with a cyan inner pin-stripe.
+	_overlay.draw_rect(Rect2(Vector2.ZERO, size).grow(2.0), UiTheme.BRASS, false, 3.0)
+	_overlay.draw_rect(Rect2(Vector2.ZERO, size).grow(-1.5), Color(UiTheme.GLOW, 0.5), false, 1.0)
 
 
 ## Outline of the ground area the camera currently shows.
