@@ -10,7 +10,8 @@ extends Node
 ## - Right drag with units: line them up along the drag, facing away from where
 ##   they are now
 ## - Right click with a building: set its rally point (on coal: new Henchmen gather)
-## - Period: next idle Henchman; Home: next Lab; Space: jump to the latest alert
+## - Period: next idle Henchman; Comma: next idle production building; Home: next
+##   Lab; Space: jump to the latest alert
 ## - Clicking an enemy unit or building shows its stats (no orders)
 ## - Delete: demolish the selected building (a site refunds most of its cost;
 ##   a finished building needs a second press)
@@ -208,6 +209,24 @@ func select_idle_henchman() -> Henchman:
 	_set_selection([henchman], null)
 	_focus(henchman.global_position)
 	return henchman
+
+
+## The player's production buildings that are making nothing.
+func idle_buildings() -> Array:
+	return get_tree().get_nodes_in_group("buildings").filter(
+			func(b: Building) -> bool: return b.team == player_team and b.is_idle())
+
+
+## Selects and centres on the next idle production building. Returns it, or null.
+func select_idle_building() -> Building:
+	var idle := idle_buildings()
+	if idle.is_empty():
+		message.emit("No idle buildings")
+		return null
+	var building: Building = _next_after(idle, selected_building)
+	select_building(building)
+	_focus(building.global_position)
+	return building
 
 
 ## Selects and centres on the next of the player's Labs. Returns it, or null.
@@ -646,6 +665,8 @@ func _handle_key(event: InputEventKey) -> void:
 		issue_stop()
 	elif event.is_action_pressed("idle_henchman"):
 		select_idle_henchman()
+	elif event.is_action_pressed("idle_building"):
+		select_idle_building()
 	elif event.is_action_pressed("select_lab"):
 		select_next_lab()
 	elif event.is_action_pressed("jump_to_alert"):

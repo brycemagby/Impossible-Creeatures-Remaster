@@ -33,6 +33,11 @@ var groups_label: Label
 ## type, Shift+click: drop it).
 var type_bar: HFlowContainer
 var _type_context := ""
+## "2 idle buildings": click (or Comma) to go to the next one.
+var idle_button: Button
+## The selected building's queue, one button per unit: click to cancel it.
+var queue_bar: HFlowContainer
+var _queue_context := ""
 var pause_menu: PauseMenu
 var end_screen: EndScreen
 
@@ -44,6 +49,21 @@ func _ready() -> void:
 	selection_manager.menu_requested.connect(pause_menu.open)
 	selection_manager.message.connect(show_message)
 	Alerts.raised.connect(_on_alert)
+	_connect_fog.call_deferred()
+
+
+func _connect_fog() -> void:
+	var fog := get_tree().get_first_node_in_group("fog") as FogOfWar
+	if fog != null:
+		fog.team_exposed.connect(_on_team_exposed)
+
+
+func _on_team_exposed(team: int) -> void:
+	var player := selection_manager.player_team
+	if team == player:
+		show_message("No buildings left: the enemy can see your last creatures")
+	elif Teams.are_enemies(team, player):
+		show_message("An enemy has no buildings left: its last creatures are revealed")
 
 
 func _process(delta: float) -> void:
@@ -55,6 +75,7 @@ func _process(delta: float) -> void:
 		resource_label.text += "      Speed  %sx" % Engine.time_scale
 	selection_label.text = _describe_selection()
 	groups_label.text = _describe_groups()
+	_refresh_idle_button()
 	_refresh_type_bar()
 	_refresh_command_panel()
 	_message_timer -= delta
@@ -236,6 +257,35 @@ func _refresh_command_panel() -> void:
 		entry[0].disabled = not Economy.can_afford(team, entry[1], entry[2]) or Research.level(team) < entry[3]
 	if context.begins_with("building"):
 		command_status.text = _building_status(building)
+	_refresh_queue_bar(building if context.begins_with("building") else null)
+
+
+func _refresh_idle_button() -> void:
+	var count := selection_manager.idle_buildings().size()
+	idle_button.visible = count > 0
+	idle_button.text = "%d idle building%s  [,]" % [count, "" if count == 1 else "s"]
+
+
+## One button per queued unit; clicking one cancels it (with a refund).
+func _refresh_queue_bar(building: Building) -> void:
+	var names := PackedStringArray()
+	if building != null and building.team == selection_manager.player_team:
+		for recipe in building.queue:
+			names.append(recipe.display_name())
+	var context := "%d:%s" % [building.get_instance_id() if building else 0, ",".join(names)]
+	if context == _queue_context:
+		return
+	_queue_context = context
+	for child in queue_bar.get_children():
+		child.queue_free()
+	queue_bar.visible = not names.is_empty()
+	for i in names.size():
+		var button := Button.new()
+		button.text = ("> " if i == 0 else "") + names[i] + "  x"
+		button.focus_mode = Control.FOCUS_NONE
+		button.tooltip_text = "Click to cancel (full refund)"
+		button.pressed.connect(building.cancel_at.bind(i))
+		queue_bar.add_child(button)
 
 
 func _rebuild_command_panel(building: Building) -> void:
@@ -326,13 +376,9 @@ func _building_status(building: Building) -> String:
 	if building.population_blocked:
 		lines.append("Waiting for population room: build more Houses")
 	elif not building.queue.is_empty():
-		lines.append("Making %s  %d%%" % [building.queue[0].display_name(), roundi(building.production_fraction() * 100.0)])
-		if building.queue.size() > 1:
-			var waiting := PackedStringArray()
-			for recipe in building.queue.slice(1):
-				waiting.append(recipe.display_name())
-			lines.append("Queued: " + ", ".join(waiting))
-	elif not building.production_options().is_empty():
+		lines.append("Making %s  %d%%  (click a unit above to cancel it)" % [building.queue[0].display_name(),
+				roundi(building.production_fraction() * 100.0)])
+	elif building.is_idle():
 		lines.append("Idle")
 	return "\n".join(lines)
 
@@ -470,6 +516,10 @@ func _build_layout() -> void:
 	command_grid = GridContainer.new()
 	command_grid.columns = 4
 	column.add_child(command_grid)
+	queue_bar = HFlowContainer.new()
+	queue_bar.custom_minimum_size.x = 480
+	queue_bar.visible = false
+	column.add_child(queue_bar)
 	command_status = Label.new()
 	column.add_child(command_status)
 
@@ -478,6 +528,18 @@ func _build_layout() -> void:
 	pause_menu = PauseMenu.new()
 	add_child(pause_menu)
 	menu_button.pressed.connect(pause_menu.open)
+
+	idle_button = Button.new()
+	idle_button.focus_mode = Control.FOCUS_NONE
+	idle_button.tooltip_text = "Production buildings making nothing. Click or press Comma to go to the next one."
+	idle_button.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	idle_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	idle_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	idle_button.offset_top = 80
+	idle_button.offset_right = -16
+	idle_button.visible = false
+	idle_button.pressed.connect(func() -> void: selection_manager.select_idle_building())
+	add_child(idle_button)
 
 
 func _make_label(font_size: int) -> Label:

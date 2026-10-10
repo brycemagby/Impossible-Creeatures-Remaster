@@ -76,12 +76,15 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
   on what nearby allies are already attacking
 - Ranged creatures back off from melee attackers that come for them, then keep shooting
 - Orders: move, attack, attack-move, patrol, hold position, stop; Shift queues them
-- Alerts when your creatures or buildings are attacked (Space looks there), idle Henchman key
+- Alerts when your creatures or buildings are attacked (Space looks there), idle Henchman key, and an
+  "idle buildings" counter for production buildings making nothing (click it or press Comma)
 - Unit behavior: idle units engage enemies in sight, chase up to a leash range and then return to their post; units fight back when hit and call nearby allies to help
 - Economy: coal (gathered from coal piles by Henchmen) and electricity (made by Electrical Generators)
 - Base building: Lab, Electrical Generator and Creature Chamber, placed with a ghost preview and
   constructed by Henchmen; the navmesh updates as buildings go up or come down
-- Production queues (up to 5, cancel refunds), rally points
+- Production queues (up to 5; click any queued unit to cancel it with a full refund), rally points
+- No endless hunts: once a team has no buildings and 5 or fewer creatures left, everyone can see
+  them wherever they are, camouflage included
 - Buildings can be attacked and destroyed, and nearby units come to defend them
 - Win by destroying every enemy unit and building
 - **Research**: each team starts at research level 1 and researches levels 2–5 at its Lab; the
@@ -167,6 +170,7 @@ Animals are data files in `resources/animals/`; add a `.tres` there and it shows
 | Command panel buttons (bottom right) | Build (Henchmen selected) or produce units (building selected); Shift + click makes 5 |
 | Z X C V B N M, then T Y U I O | Press the command panel buttons in order (Shift: make 5) |
 | Period (.) | Select and look at the next idle Henchman |
+| Comma (,) | Select and look at the next idle production building |
 | Home | Select and look at your Lab (press again for the next one) |
 | Space | Jump to the latest "under attack" alert |
 | Minimap: left click / drag | Move the camera there |

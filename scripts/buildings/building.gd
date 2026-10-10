@@ -148,15 +148,28 @@ func enqueue(recipe: UnitRecipe) -> String:
 
 ## Removes the last queued unit and refunds its cost.
 func cancel_last() -> void:
-	if queue.is_empty():
+	cancel_at(queue.size() - 1)
+
+
+## Removes the queued unit at [param index] and refunds its cost. Cancelling
+## the one in progress starts the next from scratch.
+func cancel_at(index: int) -> void:
+	if index < 0 or index >= queue.size():
 		return
-	var recipe: UnitRecipe = queue.pop_back()
+	var recipe: UnitRecipe = queue.pop_at(index)
 	Economy.add(team, recipe.cost_coal, recipe.cost_electricity)
-	if queue.is_empty():
+	if index == 0:
 		production_time = 0.0
 		production_reserved = false
 		population_blocked = false
 	production_changed.emit(self)
+
+
+## A finished building that can make units but is making, researching and
+## upgrading nothing.
+func is_idle() -> bool:
+	return is_complete and is_alive() and queue.is_empty() and researching == 0 and upgrading == null \
+			and not production_options().is_empty()
 
 
 # --- Towers -------------------------------------------------------------------

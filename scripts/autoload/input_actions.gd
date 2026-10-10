@@ -18,6 +18,7 @@ const KEY_BINDINGS := {
 	"hold": [KEY_G],
 	"patrol": [KEY_P],
 	"idle_henchman": [KEY_PERIOD],
+	"idle_building": [KEY_COMMA],
 	"jump_to_alert": [KEY_SPACE],
 	"select_lab": [KEY_HOME],
 	"demolish": [KEY_DELETE],

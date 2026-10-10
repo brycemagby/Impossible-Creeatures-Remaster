@@ -102,6 +102,9 @@ func _run() -> void:
 	await _test_m1_touch_ups()
 	await _test_m1_extras()
 	await _test_m3_touch_ups()
+	await _test_idle_buildings()
+	await _test_cancel_queued_unit()
+	await _test_last_enemies_revealed()
 	await _test_queued_orders()
 	await _test_command_hotkeys()
 	await _test_rally_on_coal()
@@ -2413,6 +2416,81 @@ func _test_m1_extras() -> void:
 	_check(walker.global_position.distance_to(Vector3(0, 0, -8)) < 1.5, "and the walker gets through")
 	await _wait_until(func() -> bool: return not walker2.is_moving, 8.0)
 	_check(holder.order == Creature.Order.HOLD and holder.get("_guard_position").distance_to(held) < 0.1, "creatures holding position keep their post")
+	await _unload(main)
+
+
+func _test_idle_buildings() -> void:
+	print("idle buildings")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var hud = main.get_node("UI/HUD")
+	var lab := _building(0, "Lab")
+	var generator := _building(0, "Electrical Generator")
+	_check(lab.is_idle() and lab in manager.idle_buildings(), "a Lab making nothing counts as idle")
+	_check(not generator.is_idle(), "a Generator (makes no units) never counts as idle")
+	await _process_frames(2)
+	_check(hud.idle_button.visible and hud.idle_button.text.begins_with("1 idle building"), "the HUD shows how many buildings are idle")
+	manager.select_units([_first(0, "Henchman")])
+	_key(KEY_COMMA)
+	await _process_frames(1)
+	_check(manager.selected_building == lab, "Comma selects the next idle building")
+	Economy.add(0, 500)
+	lab.enqueue(lab.data.production[0])
+	await _process_frames(2)
+	_check(not lab.is_idle() and manager.idle_buildings().is_empty() and not hud.idle_button.visible, "a building making something isn't idle")
+	await _unload(main)
+
+
+func _test_cancel_queued_unit() -> void:
+	print("cancel any queued unit")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var hud = main.get_node("UI/HUD")
+	var lab := _building(0, "Lab")
+	var recipe: UnitRecipe = lab.data.production[0]
+	Economy.add(0, 1000)
+	for i in 3:
+		lab.enqueue(recipe)
+	await _physics_frames(30)
+	var progress: float = lab.production_time
+	var coal: float = Economy.coal(0)
+	lab.cancel_at(1)
+	_check(lab.queue.size() == 2 and Economy.coal(0) == coal + recipe.cost_coal, "cancelling a unit in the middle of the queue refunds it")
+	_check(progress > 0.0 and is_equal_approx(lab.production_time, progress), "the unit in progress keeps its progress")
+	manager.select_building(lab)
+	await _process_frames(2)
+	var buttons: Array = hud.queue_bar.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
+	_check(hud.queue_bar.visible and buttons.size() == 2, "the selected building's queue shows one button per unit")
+	buttons[0].pressed.emit()
+	_check(lab.queue.size() == 1 and lab.production_time == 0.0, "clicking the unit in progress cancels it and the next starts fresh")
+	await _process_frames(2)
+	buttons = hud.queue_bar.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
+	_check(buttons.size() == 1, "the queue buttons update")
+	await _unload(main)
+
+
+func _test_last_enemies_revealed() -> void:
+	print("last enemies revealed")
+	var main := await _load_map()
+	var fog: FogOfWar = main.get_node("FogOfWar")
+	fog.reveal_all = false
+	var exposed := []
+	fog.team_exposed.connect(func(team: int) -> void: exposed.append(team))
+	var hider := _first(1, "Henchman")
+	_isolate([hider, _first(0, "Henchman")])
+	hider.global_position = Vector3(40, 0, -40)
+	hider.command_stop()
+	await _fog_frames()
+	_check(not fog.is_exposed(1) and not hider.visible, "a team with buildings left stays hidden in the fog")
+	for building: Building in get_tree().get_nodes_in_group("buildings"):
+		if building.team == 1:
+			building.remove_from_group("buildings")
+			building.remove_from_group("targets")
+			building.queue_free()
+	await _fog_frames()
+	_check(fog.is_exposed(1) and exposed == [1], "with no buildings and few creatures left, a team is exposed")
+	_check(fog.is_visible(0, hider.global_position) and hider.visible, "its last creatures can be seen anywhere")
+	_check(not fog.is_exposed(0), "the player, who still has buildings, isn't exposed")
 	await _unload(main)
 
 

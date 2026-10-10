@@ -11,6 +11,9 @@ extends Node
 ## - rocks and coal piles (group "fog_hidden") are hidden until explored;
 ## - an enemy building destroyed while out of sight leaves a "last seen"
 ##   ghost until the player looks at that spot again.
+## A team down to its last few creatures with no buildings left is "exposed":
+## everyone sees them wherever they are (camouflage included), so a match
+## doesn't drag on hunting one hidden Henchman.
 ## The AI asks is_explored()/is_visible() too, so it doesn't cheat.
 
 const UPDATE_INTERVAL := 0.2
@@ -18,6 +21,13 @@ const UNEXPLORED := 0
 const EXPLORED := 128
 const VISIBLE := 255
 const GHOST_COLOR := Color(0.6, 0.6, 0.6, 0.35)
+## A team with no buildings is exposed once it has this many creatures or fewer.
+const EXPOSE_AT := 5
+## How far around an exposed creature everyone can see.
+const EXPOSE_RADIUS := 3.0
+
+## [param team] just became exposed (see EXPOSE_AT).
+signal team_exposed(team: int)
 
 ## When false, everyone sees everything (the setting in the skirmish menu).
 @export var enabled := true:
@@ -46,6 +56,8 @@ var _timer := 0.0
 var _material: ShaderMaterial
 ## Last-seen ghosts: [{position, size, node}].
 var ghosts: Array[Dictionary] = []
+## Teams currently exposed.
+var _exposed := {}
 
 
 func _ready() -> void:
@@ -77,6 +89,7 @@ func update_now() -> void:
 	for target: Node3D in get_tree().get_nodes_in_group("targets"):
 		if target.is_alive() and target.team in Teams.active:
 			_reveal(_grids(target.team), target.global_position, target.vision_range())
+	_update_exposed()
 	_update_texture()
 	_apply_to_player()
 	_clear_seen_ghosts()
@@ -107,6 +120,42 @@ func _grids(team: int) -> Array[PackedByteArray]:
 		_visible[alliance] = visible
 		_explored[alliance] = explored
 	return [_visible[alliance], _explored[alliance]]
+
+
+## Whether [param team] is down to its last few creatures with no buildings.
+func is_exposed(team: int) -> bool:
+	return _exposed.has(team)
+
+
+func _update_exposed() -> void:
+	var creatures := {}
+	var has_buildings := {}
+	for target: Node3D in get_tree().get_nodes_in_group("targets"):
+		if not target.is_alive():
+			continue
+		if target is Building:
+			has_buildings[target.team] = true
+		else:
+			creatures[target.team] = creatures.get(target.team, 0) + 1
+	for team in Teams.active:
+		var exposed: bool = not has_buildings.has(team) and creatures.get(team, 0) in range(1, EXPOSE_AT + 1)
+		if exposed and not _exposed.has(team):
+			_exposed[team] = true
+			team_exposed.emit(team)
+		elif not exposed:
+			_exposed.erase(team)
+	if _exposed.is_empty():
+		return
+	# Everyone else sees the exposed creatures (allies already do).
+	var alliances := {}
+	for team in Teams.active:
+		alliances[Teams.alliance(team)] = team
+	for unit: Creature in get_tree().get_nodes_in_group("units"):
+		if not unit.is_alive() or not _exposed.has(unit.team):
+			continue
+		for alliance: int in alliances:
+			if alliance != Teams.alliance(unit.team):
+				_reveal(_grids(alliances[alliance]), unit.global_position, EXPOSE_RADIUS)
 
 
 ## Whether the local player can see [param node] (used by picking and the HUD).

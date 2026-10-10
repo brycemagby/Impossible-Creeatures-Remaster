@@ -31,7 +31,8 @@ Touch-up pass ✅: Henchmen repair buildings (for coal; the AI repairs too), bui
 their coal afterwards, Delete demolishes a building (sites refund 75%), and much more coal on the
 maps (bigger piles plus expansion spots) so long matches don't run dry. Electricity rebalance ✅: Generators
 make 1.25/s (was 2) and hybrids cost 35 electricity per level above 1 (was 25), so it no longer
-piles up unspent.
+piles up unspent. Polish ✅: cancel any queued unit by clicking it, and a
+team with no buildings and 5 or fewer creatures left is revealed to everyone.
 
 Follow-up pass ✅: research levels 1–5 at the Lab gate creature production, and the enemy AI builds
 its own Creature Chamber and Generators, researches (saving up once its army is big enough), and
@@ -45,7 +46,8 @@ Follow-ups:
   and melee/ranged armor), Henchman upgrades at the Workshop; research levels stay at the Lab
 - AoE2-style QoL ✅: population and Houses, Research Center, split melee/ranged armor, idle
   Henchman key, under-attack alerts, select-all-of-type, Shift-queued orders, command hotkeys,
-  Shift + click to make 5, rally on coal. Still open: unit stances, an idle-building indicator
+  Shift + click to make 5, rally on coal. Idle-building
+  indicator ✅. Still open: unit stances
 - Minimap ✅ (M6)
 
 ## M4 — The creature combiner ✅

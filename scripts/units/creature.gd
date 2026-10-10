@@ -503,6 +503,9 @@ func is_camouflaged() -> bool:
 func is_hidden_from(viewer_team: int) -> bool:
 	if not _camouflaged or not Teams.are_enemies(team, viewer_team):
 		return false
+	var fog := get_tree().get_first_node_in_group("fog") as FogOfWar
+	if fog != null and fog.is_exposed(team):
+		return false
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
 		if not unit.is_alive() or not Teams.are_allies(unit.team, viewer_team):
 			continue

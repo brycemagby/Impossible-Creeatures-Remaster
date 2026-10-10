@@ -378,7 +378,7 @@ text = "Left click / drag: select   Shift: add   Double click / Ctrl + click: al
 Right click: move / attack / gather (Henchmen) / rally point (building)
 Shift + right click: queue   Right drag: line up   F or Ctrl + right click: attack-move
 P: patrol   G: hold   H: stop   Esc: cancel   Delete: demolish   Period: idle Henchman   Home: Lab
-Space: last alert   Ctrl / Shift + 1-9: set / add group   1-9: recall (twice: look)
+Space: last alert   Comma: idle building   Ctrl / Shift + 1-9: set / add group   1-9: recall (twice: look)
 WASD / edges / middle drag: pan   Q / E: rotate   Backspace: north   Wheel: zoom
 Z X C V B N M: command buttons (Shift: make 5)   Minimap: click to look, right click to order"
 vertical_alignment = 2
