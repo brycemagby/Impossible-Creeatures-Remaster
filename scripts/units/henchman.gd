@@ -19,6 +19,8 @@ var gather_target: CoalPile = null
 var build_target: Building = null
 
 var _work_timer := 0.0
+## The pile it was mining before being sent to build, to go back to afterwards.
+var _last_pile: CoalPile = null
 
 
 func command_gather(pile: CoalPile) -> void:
@@ -26,12 +28,14 @@ func command_gather(pile: CoalPile) -> void:
 	_clear_target()
 	order = Order.GATHER
 	gather_target = pile
+	_last_pile = pile
 	_group_speed = INF
 	_halt()
 
 
+## Builds [param site], or repairs it if it's finished but damaged.
 func command_build(site: Building) -> void:
-	if not Creature.is_valid_target(site) or site.is_complete or site.team != team:
+	if not Creature.is_valid_target(site) or not site.needs_work() or site.team != team:
 		return
 	_stop_work()
 	_clear_target()
@@ -127,14 +131,20 @@ func _return_coal() -> void:
 
 
 func _update_build(delta: float) -> void:
-	if not Creature.is_valid_target(build_target) or build_target.is_complete:
+	if not Creature.is_valid_target(build_target) or not build_target.needs_work():
 		build_target = null
-		_become_idle()
+		_back_to_work()
 		return
 	if build_target.edge_distance_from(global_position) - radius() <= WORK_REACH:
 		_halt()
 		_face(build_target.global_position)
-		build_target.add_build_work(delta * Upgrades.build_speed_multiplier(team))
+		var work := delta * Upgrades.build_speed_multiplier(team)
+		if not build_target.is_complete:
+			build_target.add_build_work(work)
+		elif not build_target.add_repair_work(work):
+			# Out of coal to pay for repairs.
+			build_target = null
+			_back_to_work()
 	elif not is_moving:
 		_navigate(build_target.global_position)
 
@@ -161,6 +171,19 @@ func _find_drop_off() -> Building:
 			best_distance = distance
 			best = building
 	return best
+
+
+## After building or repairing: back to the coal it was mining (or the
+## nearest), unless it has queued orders to get on with.
+func _back_to_work() -> void:
+	if queued_orders() > 0:
+		_become_idle()
+		return
+	var pile := _last_pile if is_instance_valid(_last_pile) and not _last_pile.is_depleted() else find_coal_pile(PILE_SEARCH_RADIUS)
+	if pile != null:
+		command_gather(pile)
+	else:
+		_become_idle()
 
 
 func _become_idle() -> void:

@@ -140,6 +140,18 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32, 0, 4)
 [node name="CoalPile6" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("22_coal_pile")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32, 0, -4)
 
+[node name="CoalPile7" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("22_coal_pile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, -22)
+
+[node name="CoalPile8" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("22_coal_pile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 0, 22)
+
+[node name="CoalPile9" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("22_coal_pile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44, 0, 8)
+
+[node name="CoalPile10" parent="NavigationRegion3D/CoalPiles" instance=ExtResource("22_coal_pile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -44, 0, -8)
+
 [node name="Buildings" type="Node3D" parent="NavigationRegion3D" groups=["building_container"]]
 
 [node name="Team0Lab" parent="NavigationRegion3D/Buildings" instance=ExtResource("11_building")]
@@ -280,7 +292,7 @@ theme_override_constants/outline_size = 4
 text = "Left click / drag: select   Shift: add   Double click / Ctrl + click: all of a type
 Right click: move / attack / gather (Henchmen) / rally point (building)
 Shift + right click: queue   Right drag: line up   F or Ctrl + right click: attack-move
-P: patrol   G: hold   H: stop   Esc: cancel   Period: idle Henchman   Home: Lab
+P: patrol   G: hold   H: stop   Esc: cancel   Delete: demolish   Period: idle Henchman   Home: Lab
 Space: last alert   Ctrl / Shift + 1-9: set / add group   1-9: recall (twice: look)
 WASD / edges / middle drag: pan   Q / E: rotate   Backspace: north   Wheel: zoom
 Z X C V B N M: command buttons (Shift: make 5)   Minimap: click to look, right click to order"

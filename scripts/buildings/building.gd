@@ -23,6 +23,8 @@ const BEAM_COLOR := Color(0.45, 0.75, 1.0, 0.95)
 ## Pre-placed buildings start finished; placed ones start as construction sites.
 @export var start_complete := true
 
+## Coal owed for repairs so far, paid a whole unit at a time.
+var _repair_debt := 0.0
 var health := 0.0
 var is_complete := false
 ## Construction progress from 0 to 1.
@@ -318,6 +320,51 @@ func set_rally_point(point: Variant, pile: CoalPile = null) -> void:
 
 # --- Construction -------------------------------------------------------------
 
+## Repairs heal this share of the building's health per build-time second
+## (so a full repair takes 1 / REPAIR_RATE times its build time)...
+const REPAIR_RATE := 0.5
+## ...and cost this share of its coal price for a full repair.
+const REPAIR_COST_SHARE := 0.3
+## Share of the price refunded when an unfinished site is demolished.
+const SITE_REFUND := 0.75
+
+
+## True when it's finished but damaged.
+func needs_repair() -> bool:
+	return is_complete and not _dead and health < data.max_health
+
+
+## True when Henchmen have something to do here: finish it or repair it.
+func needs_work() -> bool:
+	return not _dead and (not is_complete or needs_repair())
+
+
+## Adds [param seconds] of repair work, paying coal as it goes. Returns false
+## when the team can't pay for any more.
+func add_repair_work(seconds: float) -> bool:
+	if not needs_repair() or Economy.coal(team) < 1.0:
+		return false
+	var heal := minf(data.max_health * REPAIR_RATE * seconds / data.build_time, data.max_health - health)
+	_repair_debt += heal * data.cost_coal * REPAIR_COST_SHARE / data.max_health
+	var owed := floori(_repair_debt)
+	if owed > 0:
+		if not Economy.spend(team, owed, 0):
+			return false
+		_repair_debt -= owed
+	health += heal
+	return true
+
+
+## Pulls the building down: an unfinished site refunds most of its price,
+## a finished building just goes.
+func demolish() -> void:
+	if _dead:
+		return
+	if not is_complete:
+		Economy.add(team, int(data.cost_coal * SITE_REFUND), int(data.cost_electricity * SITE_REFUND))
+	_die(false)
+
+
 ## Adds [param seconds] of Henchman work. Health grows along with progress.
 func add_build_work(seconds: float) -> void:
 	if is_complete or _dead:
@@ -439,7 +486,9 @@ func _spawn(recipe: UnitRecipe) -> void:
 		unit.command_move(rally_point)
 
 
-func _die() -> void:
+## [param destroyed]: knocked down by an enemy (counts in the stats, may leave
+## a ghost); false when demolished by its owner.
+func _die(destroyed := true) -> void:
 	_dead = true
 	remove_from_group("buildings")
 	remove_from_group("targets")
@@ -451,8 +500,9 @@ func _die() -> void:
 		cancel_last()
 	cancel_research()
 	cancel_upgrade()
-	MatchStats.record_building_lost(team, _last_attacker_team)
-	get_tree().call_group("building_watchers", "building_destroyed", self)
+	if destroyed:
+		MatchStats.record_building_lost(team, _last_attacker_team)
+		get_tree().call_group("building_watchers", "building_destroyed", self)
 	died.emit(self)
 	get_tree().call_group("navmesh", "request_rebake")
 	var tween := create_tween()

@@ -101,6 +101,7 @@ func _run() -> void:
 	await _test_selection_shortcuts()
 	await _test_m1_touch_ups()
 	await _test_m1_extras()
+	await _test_m3_touch_ups()
 	await _test_queued_orders()
 	await _test_command_hotkeys()
 	await _test_rally_on_coal()
@@ -503,7 +504,8 @@ func _test_placement_and_construction() -> void:
 	await _wait_until(func() -> bool: return site.is_complete, 20.0)
 	_check(site.is_complete and is_equal_approx(site.health, site.data.max_health), "Henchmen finish construction at full health")
 	await _physics_frames(2)
-	_check(henchmen.all(func(u: Henchman) -> bool: return u.order == Creature.Order.IDLE), "Henchmen go idle when the building is done")
+	_check(henchmen.all(func(u: Henchman) -> bool: return u.order == Creature.Order.GATHER or u.order == Creature.Order.IDLE),
+			"when the building is done, Henchmen go and mine coal nearby (or wait if there's none)")
 	await _wait_until(func() -> bool: return not main.is_baking(), 5.0)
 	await _physics_frames(5)
 	var map := main.get_world_3d().navigation_map
@@ -2411,6 +2413,80 @@ func _test_m1_extras() -> void:
 	_check(walker.global_position.distance_to(Vector3(0, 0, -8)) < 1.5, "and the walker gets through")
 	await _wait_until(func() -> bool: return not walker2.is_moving, 8.0)
 	_check(holder.order == Creature.Order.HOLD and holder.get("_guard_position").distance_to(held) < 0.1, "creatures holding position keep their post")
+	await _unload(main)
+
+
+func _test_m3_touch_ups() -> void:
+	print("M3 touch-ups")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var hud := main.get_node("UI/HUD")
+
+	# Builders go back to the coal they were mining.
+	var worker: Henchman = _first(0, "Henchman")
+	var pile := _nearest_pile(worker.global_position)
+	worker.command_gather(pile)
+	var house := _add_building("res://resources/buildings/house.tres", 0, Vector3(8, 0, 28), false)
+	await _physics_frames(2)
+	worker.command_build(house)
+	await _wait_until(func() -> bool: return house.is_complete, 30.0)
+	await _physics_frames(2)
+	_check(house.is_complete and worker.order == Creature.Order.GATHER and worker.gather_target == pile, "after building, a Henchman goes back to the pile it was mining")
+
+	# Repairs.
+	var lab := _building(0, "Lab")
+	lab.take_damage(600.0)
+	var damaged := lab.health
+	_check(lab.needs_repair(), "a damaged building needs repair")
+	manager.select_units([worker])
+	manager.issue_build(lab)
+	_check(worker.order == Creature.Order.BUILD and worker.build_target == lab, "Henchmen can be sent to repair it")
+	var coal: float = Economy.coal(0)
+	await _wait_until(func() -> bool: return lab.health > damaged + 100.0, 15.0)
+	_check(lab.health > damaged + 100.0, "repairs restore health")
+	_check(Economy.coal(0) < coal, "and cost coal")
+	Economy.spend(0, Economy.coal(0), 0)
+	var stuck_at := lab.health
+	await _physics_frames(60)
+	_check(lab.health - stuck_at < 5.0 and worker.order != Creature.Order.BUILD, "with no coal, repairs stop and the Henchman goes back to work")
+	Economy.add(0, 5000, 0)
+	manager.select_building(lab)
+	await _process_frames(2)
+	_check(hud.selection_label.text.contains("repair"), "the panel points out a damaged building can be repaired")
+	lab.health = lab.data.max_health
+	_check(not lab.needs_repair() and not lab.needs_work(), "full health: nothing to repair")
+
+	# Demolishing.
+	var site := _add_building("res://resources/buildings/generator.tres", 0, Vector3(-22, 0, 22), false)
+	await _physics_frames(2)
+	coal = Economy.coal(0)
+	manager.select_building(site)
+	_key(KEY_DELETE)
+	_check(not Creature.is_valid_target(site) and Economy.coal(0) == coal + int(site.data.cost_coal * Building.SITE_REFUND),
+			"Delete cancels a construction site and refunds most of it")
+	var lost := MatchStats.get_stat(0, "buildings_lost")
+	var done := _add_building("res://resources/buildings/house.tres", 0, Vector3(-22, 0, 30))
+	await _physics_frames(2)
+	manager.select_building(done)
+	_key(KEY_DELETE)
+	_check(Creature.is_valid_target(done), "a finished building asks for a second press")
+	_key(KEY_DELETE)
+	_check(not Creature.is_valid_target(done) and MatchStats.get_stat(0, "buildings_lost") == lost, "then it's demolished (and not counted as lost)")
+	var enemy_lab := _building(1, "Lab")
+	manager.inspect(enemy_lab)
+	_key(KEY_DELETE)
+	_key(KEY_DELETE)
+	_check(Creature.is_valid_target(enemy_lab), "you can't demolish someone else's building")
+	manager.clear_selection()
+	enemy_lab.take_damage(enemy_lab.data.max_health * 0.6)
+	(main.get_node("EnemyAI") as AIController).manage_workers()
+	_check(_team_units(1).any(func(u: Creature) -> bool: return u is Henchman and u.build_target == enemy_lab), "the AI sends a Henchman to repair a badly damaged building")
+
+	# More coal on the maps.
+	var total := 0
+	for coal_pile: CoalPile in get_tree().get_nodes_in_group("coal_piles"):
+		total += coal_pile.amount
+	_check(total >= 20000, "Island Clearing holds plenty of coal (%d)" % total)
 	await _unload(main)
 
 

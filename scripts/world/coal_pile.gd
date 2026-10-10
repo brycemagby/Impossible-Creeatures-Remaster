@@ -5,7 +5,7 @@ extends StaticBody3D
 
 const RADIUS := 1.2
 
-@export var amount := 1500
+@export var amount := 2500
 
 var _starting_amount := 0
 

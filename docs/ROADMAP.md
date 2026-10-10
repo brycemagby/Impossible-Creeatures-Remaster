@@ -27,6 +27,10 @@ Coal and electricity, Henchmen that gather and build, Lab / Electrical Generator
 placement with a ghost preview and runtime navmesh rebakes, production queues with refunds, rally
 points, destructible buildings, victory and defeat, and an enemy AI that runs an economy.
 
+Touch-up pass ✅: Henchmen repair buildings (for coal; the AI repairs too), builders go back to
+their coal afterwards, Delete demolishes a building (sites refund 75%), and much more coal on the
+maps (bigger piles plus expansion spots) so long matches don't run dry.
+
 Follow-up pass ✅: research levels 1–5 at the Lab gate creature production, and the enemy AI builds
 its own Creature Chamber and Generators, researches (saving up once its army is big enough), and
 produces the strongest creatures it has unlocked.

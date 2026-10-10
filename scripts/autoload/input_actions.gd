@@ -20,6 +20,7 @@ const KEY_BINDINGS := {
 	"idle_henchman": [KEY_PERIOD],
 	"jump_to_alert": [KEY_SPACE],
 	"select_lab": [KEY_HOME],
+	"demolish": [KEY_DELETE],
 	"pause_menu": [KEY_F10],
 	"speed_up": [KEY_EQUAL, KEY_KP_ADD],
 	"speed_down": [KEY_MINUS, KEY_KP_SUBTRACT],

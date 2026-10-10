@@ -12,6 +12,8 @@ extends Node
 ## - Right click with a building: set its rally point (on coal: new Henchmen gather)
 ## - Period: next idle Henchman; Home: next Lab; Space: jump to the latest alert
 ## - Clicking an enemy unit or building shows its stats (no orders)
+## - Delete: demolish the selected building (a site refunds most of its cost;
+##   a finished building needs a second press)
 ## - Ctrl+1..9 sets a control group, Shift+1..9 adds to it, 1..9 recalls it
 ##   (twice quickly: centre the camera on it)
 ## - F then left click, or Ctrl + right click: attack-move
@@ -45,6 +47,7 @@ const PATROL := &"patrol"
 const DOUBLE_TAP_TIME := 0.4
 ## A right-button drag longer than this (pixels) lines the selection up.
 const LINE_DRAG_THRESHOLD := 20.0
+const DEMOLISH_CONFIRM_TIME := 3.0
 ## Gap kept between neighbours in a formation, on top of their sizes.
 const FORMATION_GAP := 0.4
 const MoveMarkerScene := preload("res://scenes/fx/move_marker.tscn")
@@ -72,6 +75,9 @@ var _press_position := Vector2.ZERO
 var _pressing := false
 var _dragging := false
 var _double_click := false
+## A finished building waiting for a second Delete press, and when the first came.
+var _demolish_pending: Building = null
+var _demolish_time := -10.0
 var _right_pressing := false
 var _right_press_position := Vector2.ZERO
 var _last_group_key := -1
@@ -216,6 +222,26 @@ func select_next_lab() -> Building:
 	return lab
 
 
+## Demolishes the selected building. Unfinished sites go at once (most of the
+## price back); a finished building needs a second press within
+## DEMOLISH_CONFIRM_TIME seconds. Returns whether it was demolished.
+func demolish_selected() -> bool:
+	var building := selected_building
+	if not Creature.is_valid_target(building) or building.team != player_team:
+		return false
+	var now := Time.get_ticks_msec() / 1000.0
+	if building.is_complete and (building != _demolish_pending or now - _demolish_time > DEMOLISH_CONFIRM_TIME):
+		_demolish_pending = building
+		_demolish_time = now
+		message.emit("Press Delete again to demolish the %s" % building.data.display_name)
+		return false
+	_demolish_pending = null
+	message.emit("%s demolished%s" % [building.data.display_name, "" if building.is_complete else " (most of its cost refunded)"])
+	building.demolish()
+	clear_selection()
+	return true
+
+
 ## Centres the camera on the player's latest "under attack" alert.
 func jump_to_alert() -> bool:
 	if not Alerts.has_alert(player_team):
@@ -324,7 +350,7 @@ func issue_build(site: Building, queue := false) -> void:
 	for henchman in selected_henchmen():
 		var build := func() -> void:
 			var current: Variant = site_ref.get_ref()
-			if Creature.is_valid_target(current) and not current.is_complete:
+			if Creature.is_valid_target(current) and current.needs_work():
 				henchman.command_build(current)
 		_dispatch(henchman, build, queue)
 		others.erase(henchman)
@@ -394,7 +420,7 @@ func issue_order_at_screen(screen_position: Vector2, attack_move := false, queue
 		if Teams.are_enemies(player_team, building.team):
 			issue_attack(building, queue)
 			return
-		if not building.is_complete and not selected_henchmen().is_empty():
+		if building.team == player_team and building.needs_work() and not selected_henchmen().is_empty():
 			issue_build(building, queue)
 			return
 	if not attack_move:
@@ -624,6 +650,8 @@ func _handle_key(event: InputEventKey) -> void:
 		select_next_lab()
 	elif event.is_action_pressed("jump_to_alert"):
 		jump_to_alert()
+	elif event.is_action_pressed("demolish"):
+		demolish_selected()
 	elif event.keycode >= KEY_1 and event.keycode <= KEY_9:
 		var group := event.keycode - KEY_0
 		if event.ctrl_pressed:

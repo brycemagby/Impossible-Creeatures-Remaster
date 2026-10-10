@@ -98,8 +98,12 @@ func _describe_selection() -> String:
 	if Creature.is_valid_target(building):
 		lines.append(building.data.display_name)
 		lines.append("  Health  %d / %d    Armor  %d" % [ceili(building.health), building.data.max_health, building.data.armor])
+		if building.needs_repair():
+			lines.append("  Damaged: right click it with Henchmen to repair")
 		if building.is_complete:
-			lines.append("  Right click: set rally point")
+			lines.append("  Right click: set rally point    Delete: demolish")
+		else:
+			lines.append("  Delete: cancel (most of the cost back)")
 	elif Creature.is_valid_target(selection_manager.inspected):
 		var target = selection_manager.inspected
 		var owner := "Allied" if Teams.are_allies(target.team, selection_manager.player_team) else "Enemy"

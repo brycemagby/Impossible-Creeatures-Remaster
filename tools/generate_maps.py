@@ -24,7 +24,9 @@ LAYOUTS = {
         "name": "Island Clearing",
         "ground_color": (0.3, 0.42, 0.2),
         "rocks": [(-12, -6), (10, -4), (-4, -14), (16, 10), (-18, 12), (4, -24), (-26, -20), (24, -18)],
-        "coal": [(15, 34), (17, 27), (-15, -34), (-17, -27), (-32, 4), (32, -4)],
+        "coal": [(15, 34), (17, 27), (-15, -34), (-17, -27), (-32, 4), (32, -4),
+                 # Expansion spots on the flanks.
+                 (40, -22), (-40, 22), (44, 8), (-44, -8)],
         "bases": [
             {"lab": (0, 36), "generator": (-10, 42), "henchmen": [(-3, 31), (-1, 31), (1, 31), (3, 31)], "army": (0, 25)},
             {"lab": (0, -40), "generator": (-10, -43), "henchmen": [(-2, -35), (0, -35), (2, -35)], "army": (0, -31)},
@@ -37,7 +39,8 @@ LAYOUTS = {
         "water": [_rect(-3, -50, 3, -27), _rect(-3, -19, 3, -4), _rect(-3, 4, 3, 19), _rect(-3, 27, 3, 50)],
         "fords": [_rect(-3, -27, 3, -19), _rect(-3, -4, 3, 4), _rect(-3, 19, 3, 27)],
         "rocks": [(-20, -30), (20, 30), (-18, 22), (18, -22), (-12, 4), (12, -4), (-8, -40), (8, 40)],
-        "coal": [(-36, -14), (-28, 12), (36, 14), (28, -12), (-8, -23), (8, 23)],
+        "coal": [(-36, -14), (-28, 12), (36, 14), (28, -12), (-8, -23), (8, 23),
+                 (-30, -38), (30, 38), (-26, 36), (26, -36)],
         "bases": [
             {"lab": (-38, 0), "generator": (-42, 10), "henchmen": [(-33, -3), (-33, -1), (-33, 1), (-33, 3)], "army": (-27, 0)},
             {"lab": (38, 0), "generator": (42, -10), "henchmen": [(33, -2), (33, 0), (33, 2)], "army": (27, 0)},
@@ -66,7 +69,8 @@ LAYOUTS = {
         "water": [_LAKE_WEST, _LAKE_EAST],
         "fords": [_rect(-3, -16.63, 3, 16.63)],
         "rocks": [(-30, -8), (30, 8), (-24, 22), (24, -22), (-38, 10), (38, -10), (14, 30), (-14, -30)],
-        "coal": [(15, 36), (17, 29), (-15, -36), (-17, -29), (-25, 0), (25, 0)],
+        "coal": [(15, 36), (17, 29), (-15, -36), (-17, -29), (-25, 0), (25, 0),
+                 (-40, 26), (40, -26), (-42, -20), (42, 20)],
         "bases": [
             {"lab": (0, 38), "generator": (-10, 43), "henchmen": [(-3, 32), (-1, 32), (1, 32), (3, 32)], "army": (0, 27)},
             {"lab": (0, -38), "generator": (-10, -43), "henchmen": [(-2, -32), (0, -32), (2, -32)], "army": (0, -27)},
@@ -292,7 +296,7 @@ theme_override_constants/outline_size = 4
 text = "Left click / drag: select   Shift: add   Double click / Ctrl + click: all of a type
 Right click: move / attack / gather (Henchmen) / rally point (building)
 Shift + right click: queue   Right drag: line up   F or Ctrl + right click: attack-move
-P: patrol   G: hold   H: stop   Esc: cancel   Period: idle Henchman   Home: Lab
+P: patrol   G: hold   H: stop   Esc: cancel   Delete: demolish   Period: idle Henchman   Home: Lab
 Space: last alert   Ctrl / Shift + 1-9: set / add group   1-9: recall (twice: look)
 WASD / edges / middle drag: pan   Q / E: rotate   Backspace: north   Wheel: zoom
 Z X C V B N M: command buttons (Shift: make 5)   Minimap: click to look, right click to order"

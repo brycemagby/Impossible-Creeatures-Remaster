@@ -159,7 +159,7 @@ Animals are data files in `resources/animals/`; add a `.tres` there and it shows
 | Right click ground | Move selected units |
 | Right click enemy unit or building | Attack it |
 | Right click coal (Henchmen selected) | Gather coal |
-| Right click unfinished building (Henchmen selected) | Help build it |
+| Right click unfinished or damaged building (Henchmen selected) | Help build it, or repair it (costs some coal) |
 | Shift + right click | Queue the order after the current ones (waypoints, attack then move on, ...) |
 | Right drag with units | Line them up along the drag, facing away from where they are (Ctrl: attack-move) |
 | Type buttons under a mixed selection | Click: keep only that type; Shift+click: drop it |
@@ -177,6 +177,7 @@ Animals are data files in `resources/animals/`; add a `.tres` there and it shows
 | G | Hold position: stay put, only attack what's in reach |
 | H | Stop |
 | Esc | Cancel placement or order targeting, then deselect, then open the pause menu |
+| Delete | Demolish the selected building: a site is cancelled with 75% back; a finished one needs a second press |
 | F10 / Menu button | Pause menu (resume, restart, game speed, quit) |
 | - / = | Slower / faster game (0.5×–2×) |
 | Ctrl+1–9 / Shift+1–9 / 1–9 | Assign / add to / recall a control group (press twice to look at it) |
@@ -296,7 +297,9 @@ Layers 1, 3 and 4 are baked into the navmesh.
 | Quick Hands: gather 30% faster | 150 | 50 | 35 s | research L2 |
 | Builder's Tools: build 30% faster | 100 | 50 | 30 s | research L2 |
 
-Teams start with 300 coal and 100 electricity. Henchmen carry 10 coal per trip.
+Teams start with 300 coal and 100 electricity. Henchmen carry 10 coal per trip. Coal piles hold 2,500 each.
+Henchmen go back to the coal they were mining when they finish building or repairing. A full repair
+costs 30% of the building's coal price and takes twice its build time.
 
 | Research | Coal | Electricity | Time |
 | --- | --- | --- | --- |

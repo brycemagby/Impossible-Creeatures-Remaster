@@ -35,6 +35,8 @@ extends Node
 
 const MAX_QUEUED := 2
 const BUILDERS_PER_SITE := 2
+## Buildings below this share of health get a Henchman sent to repair them.
+const REPAIR_BELOW := 0.6
 const LAB_DATA := preload("res://resources/buildings/lab.tres")
 const GENERATOR_DATA := preload("res://resources/buildings/generator.tres")
 const CHAMBER_DATA := preload("res://resources/buildings/creature_chamber.tres")
@@ -265,6 +267,16 @@ func manage_workers() -> void:
 				continue
 			henchman.command_build(site)
 			builders.append(henchman)
+	# One Henchman each on badly damaged buildings.
+	for building in _buildings(true):
+		if building.health >= building.data.max_health * REPAIR_BELOW:
+			continue
+		if henchmen.any(func(h: Henchman) -> bool: return h.build_target == building):
+			continue
+		for henchman in henchmen:
+			if henchman.order != Creature.Order.BUILD and henchman.attack_target == null:
+				henchman.command_build(building)
+				break
 	for henchman in henchmen:
 		if henchman.order == Creature.Order.IDLE and henchman.attack_target == null:
 			var pile: CoalPile = henchman.find_coal_pile(INF)
