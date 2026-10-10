@@ -14,5 +14,5 @@ build_time = 18.0
 size = Vector3(3, 4, 3)
 color = Color(0.25, 0.32, 0.45, 1)
 is_drop_off = false
-electricity_per_second = 2.0
+electricity_per_second = 1.25
 production = Array[ExtResource("2_recipe")]([])

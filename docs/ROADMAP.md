@@ -29,7 +29,9 @@ points, destructible buildings, victory and defeat, and an enemy AI that runs an
 
 Touch-up pass ✅: Henchmen repair buildings (for coal; the AI repairs too), builders go back to
 their coal afterwards, Delete demolishes a building (sites refund 75%), and much more coal on the
-maps (bigger piles plus expansion spots) so long matches don't run dry.
+maps (bigger piles plus expansion spots) so long matches don't run dry. Electricity rebalance ✅: Generators
+make 1.25/s (was 2) and hybrids cost 35 electricity per level above 1 (was 25), so it no longer
+piles up unspent.
 
 Follow-up pass ✅: research levels 1–5 at the Lab gate creature production, and the enemy AI builds
 its own Creature Chamber and Generators, researches (saving up once its army is big enough), and

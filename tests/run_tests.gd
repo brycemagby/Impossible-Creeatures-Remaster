@@ -402,7 +402,7 @@ func _test_generator() -> void:
 	var before: float = Economy.electricity(0)
 	await _physics_frames(120)
 	var gained: float = Economy.electricity(0) - before
-	_check(gained > 3.0 and gained < 5.0, "generator produces about 2 electricity per second (%.1f in 2s)" % gained)
+	_check(gained > 2.0 and gained < 3.0, "generator produces about 1.25 electricity per second (%.1f in 2s)" % gained)
 	await _unload(main)
 
 

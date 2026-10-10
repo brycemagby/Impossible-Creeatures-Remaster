@@ -203,6 +203,6 @@ static func make_recipe(design: CreatureDesign) -> UnitRecipe:
 	recipe.stats = stats
 	recipe.scene = load("res://scenes/units/creature.tscn")
 	recipe.cost_coal = int(snappedf(power * COAL_PER_POWER, 5.0))
-	recipe.cost_electricity = (stats.level - 1) * 25
+	recipe.cost_electricity = (stats.level - 1) * 35
 	recipe.build_time = snappedf(4.0 + power * 0.12, 0.5)
 	return recipe

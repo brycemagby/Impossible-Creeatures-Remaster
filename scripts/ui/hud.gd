@@ -309,7 +309,7 @@ func _building_status(building: Building) -> String:
 		return "Under construction  %d%%" % roundi(building.build_progress * 100.0)
 	var lines := PackedStringArray()
 	if building.data.electricity_per_second > 0.0:
-		lines.append("Producing %.1f electricity / s" % building.data.electricity_per_second)
+		lines.append("Producing %.2f electricity / s" % building.data.electricity_per_second)
 	if building.researching > 0:
 		lines.append("Researching level %d  %d%%" % [building.researching, roundi(building.research_fraction() * 100.0)])
 	if building.upgrading != null:

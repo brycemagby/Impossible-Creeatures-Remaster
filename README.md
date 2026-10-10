@@ -271,8 +271,8 @@ Layers 1, 3 and 4 are baked into the navmesh.
 | | Coal | Electricity | Time |
 | --- | --- | --- | --- |
 | Henchman | 50 | — | 6 s |
-| Hybrids | ~80–200 | 0–100 (by level) | ~8–15 s |
-| Electrical Generator (+2 electricity/s) | 150 | — | 18 Henchman-seconds |
+| Hybrids | ~80–200 | 0–140 (35 per level above 1) | ~8–15 s |
+| Electrical Generator (+1.25 electricity/s) | 150 | — | 18 Henchman-seconds |
 | Creature Chamber | 200 | 50 | 30 Henchman-seconds |
 | Lab (+10 population) | 400 | — | 45 Henchman-seconds |
 | House (+5 population) | 50 | — | 12 Henchman-seconds |
