@@ -8,6 +8,12 @@ const HOTKEYS: Array[Key] = [KEY_Z, KEY_X, KEY_C, KEY_V, KEY_B, KEY_N, KEY_M,
 		KEY_T, KEY_Y, KEY_U, KEY_I, KEY_O, KEY_J, KEY_K, KEY_L]
 ## How many units Shift + click queues at once.
 const BATCH_SIZE := 5
+## Command panel buttons for an army selection: stance -> [label, tooltip].
+const STANCES := {
+	Creature.Stance.AGGRESSIVE: ["Aggressive", "Chase any enemy you see for as long as it stays in sight."],
+	Creature.Stance.DEFENSIVE: ["Defensive", "Chase enemies a short way, then come back (the default)."],
+	Creature.Stance.STAND_GROUND: ["Stand ground", "Never move; only attack enemies within reach."],
+}
 ## Hover help for the selection readout: how to select and order units.
 const SELECTION_HELP := """Select
   Left click / drag: select    Shift: add    Esc: deselect
@@ -296,6 +302,8 @@ func _refresh_command_panel() -> void:
 				_owned_upgrades(building.team)]
 	elif not selection_manager.selected_henchmen().is_empty():
 		context = "henchmen:%d" % Research.level(selection_manager.player_team)
+	elif not selection_manager.selected_army().is_empty():
+		context = "army:%d" % _shared_stance()
 	if context != _context:
 		_context = context
 		_rebuild_command_panel(building)
@@ -344,7 +352,16 @@ func _rebuild_command_panel(building: Building) -> void:
 	command_panel.visible = _context != "none"
 	command_panel.tooltip_text = "Right click the ground: set a rally point.  Delete: demolish." if _context.begins_with("building") else ""
 
-	if _context.begins_with("henchmen"):
+	if _context.begins_with("army"):
+		command_title.text = "Stance"
+		var current := _shared_stance()
+		for stance: int in STANCES:
+			var button := _add_button(STANCES[stance][0])
+			button.tooltip_text = STANCES[stance][1]
+			button.toggle_mode = true
+			button.button_pressed = stance == current
+			button.pressed.connect(selection_manager.set_stance.bind(stance))
+	elif _context.begins_with("henchmen"):
 		command_title.text = "Build"
 		var has_water := not get_tree().get_nodes_in_group("deep_water").is_empty()
 		for data in selection_manager.buildable:
@@ -402,6 +419,16 @@ func _rebuild_command_panel(building: Building) -> void:
 					research.pressed.connect(_on_research_pressed.bind(building))
 					_cost_buttons.append([research, Research.coal_cost(next), Research.electricity_cost(next), 0])
 		command_status.text = _building_status(building)
+
+
+## The stance every selected creature shares, or -1 when they differ.
+func _shared_stance() -> int:
+	var result := -1
+	for unit in selection_manager.selected_army():
+		if result != -1 and unit.stance != result:
+			return -1
+		result = unit.stance
+	return result
 
 
 func _building_status(building: Building) -> String:

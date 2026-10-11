@@ -30,6 +30,13 @@ func _ready() -> void:
 
 
 func _run() -> void:
+	# TEST_ONLY=_test_name runs just that test, for quick iteration.
+	var only := OS.get_environment("TEST_ONLY")
+	if only != "":
+		await call(only)
+		print("\n%d checks, %d failed" % [_checks, _failures])
+		get_tree().quit(1 if _failures > 0 else 0)
+		return
 	_test_formation_offsets()
 	await _test_selection_and_movement()
 	await _test_armor()
@@ -114,6 +121,7 @@ func _run() -> void:
 	await _test_kiting()
 	await _test_hold_position()
 	await _test_patrol()
+	await _test_stances()
 	await _test_focus_fire()
 	await _test_combiner_screen()
 	await _test_main_menu()
@@ -2829,6 +2837,57 @@ func _test_hold_position() -> void:
 	var health := brute.health
 	await _wait_until(func() -> bool: return brute.health < health, 3.0)
 	_check(brute.health < health and guard.order == Creature.Order.HOLD, "it attacks enemies that come within reach")
+	await _unload(main)
+
+
+func _test_stances() -> void:
+	print("stances")
+	var main := await _load_map()
+	var guard := _first(0, "Runner")
+	var shooter := _first(1, "Skirmisher")
+	_isolate([guard, shooter])
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var hud := main.get_node("UI/HUD")
+	manager.select_units([guard])
+	await _process_frames(2)
+	_check(hud.command_title.text == "Stance" and hud.command_grid.get_child_count() == 3, "an army selection shows the stance buttons")
+	_check(guard.stance == Creature.Stance.DEFENSIVE, "creatures start defensive")
+	var post := Vector3(0, 0, 0)
+	# Stand ground: shot at from out of reach, it stays put.
+	_place(guard, post)
+	_place(shooter, Vector3(0, 0, -6))
+	_key(KEY_C)
+	_check(guard.stance == Creature.Stance.STAND_GROUND, "the third stance button (C) sets stand ground")
+	shooter.command_hold()
+	shooter.command_attack(guard)
+	await _physics_frames(120)
+	_check(guard.health < guard.stats.max_health and _flat(guard.global_position - post) < 0.3,
+			"a creature standing its ground doesn't chase an attacker out of reach")
+	# Defensive: chases, but walks back to its post past the leash.
+	guard.health = guard.stats.max_health
+	manager.set_stance(Creature.Stance.DEFENSIVE)
+	_place(guard, post)
+	guard.command_stop()
+	shooter.command_move(Vector3(0, 0, -6))
+	await _physics_frames(10)
+	shooter.command_attack(guard)
+	await _wait_until(func() -> bool: return guard.attack_target == shooter, 3.0)
+	_check(guard.attack_target == shooter, "a defensive creature fights back")
+	shooter.command_move(Vector3(0, 0, -40))
+	await _wait_until(func() -> bool: return guard.attack_target == null, 8.0)
+	await _wait_until(func() -> bool: return _flat(guard.global_position - post) < 1.5, 8.0)
+	_check(_flat(guard.global_position - post) < 1.5, "it gives up past its leash and walks back")
+	# Aggressive: keeps chasing past the leash.
+	manager.set_stance(Creature.Stance.AGGRESSIVE)
+	_place(guard, post)
+	guard.command_stop()
+	_place(shooter, Vector3(0, 0, -6))
+	shooter.command_attack(guard)
+	await _wait_until(func() -> bool: return guard.attack_target == shooter, 3.0)
+	shooter.command_move(Vector3(0, 0, -30))
+	await _physics_frames(150)
+	_check(guard.attack_target == shooter and _flat(guard.global_position - post) > guard.stats.leash_range,
+			"an aggressive creature chases past its leash")
 	await _unload(main)
 
 

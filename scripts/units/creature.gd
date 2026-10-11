@@ -13,6 +13,11 @@ extends CharacterBody3D
 ## - PATROL: walks back and forth between two points, fighting on the way.
 ## - GATHER / BUILD: Henchman-only work orders (see Henchman).
 ##
+## Stances change how an idle creature fights back:
+## - AGGRESSIVE: chases enemies it sees for as long as they stay in sight.
+## - DEFENSIVE (default): chases up to its leash range, then walks back.
+## - STAND_GROUND: never moves, only attacks what comes within reach.
+##
 ## Anything attackable (creatures and buildings) is in the "targets" group and
 ## provides team, is_alive(), take_damage(), edge_distance_from(),
 ## center_height(), radius(), bar_height(), get_armor() and get_max_health().
@@ -29,6 +34,7 @@ signal health_changed(current: float, maximum: float)
 signal died(creature: Creature)
 
 enum Order { IDLE, MOVE, ATTACK, ATTACK_MOVE, GATHER, BUILD, HOLD, PATROL }
+enum Stance { AGGRESSIVE, DEFENSIVE, STAND_GROUND }
 
 const TURN_SPEED := 12.0
 ## Capsule radius and centre height at size 1.0 (see creature.tscn).
@@ -125,6 +131,7 @@ const ProjectileScene := preload("res://scenes/fx/projectile.tscn")
 
 var health := 0.0
 var order := Order.IDLE
+var stance := Stance.DEFENSIVE
 var attack_target: Node3D = null
 var is_selected := false
 var is_moving := false
@@ -468,6 +475,11 @@ func respond_to_attack(attacker: Node3D) -> void:
 		_engage(attacker, true)
 
 
+## Holding position, or idle in the stand-ground stance: fight only within reach.
+func _holds_ground() -> bool:
+	return order == Order.HOLD or (order == Order.IDLE and stance == Stance.STAND_GROUND)
+
+
 ## Orders under which the creature picks its own targets.
 func _fights_automatically() -> bool:
 	return order in [Order.IDLE, Order.ATTACK_MOVE, Order.HOLD, Order.PATROL]
@@ -756,7 +768,7 @@ func _update_orders() -> void:
 	if scanning and retarget and _scan_timer <= 0.0:
 		_scan_timer = SCAN_INTERVAL
 		# Holding creatures only look as far as they can hit.
-		var scan_range := stats.attack_range + radius() if order == Order.HOLD else sight_range()
+		var scan_range := stats.attack_range + radius() if _holds_ground() else sight_range()
 		var enemy := find_best_enemy(scan_range)
 		if enemy != null and (attack_target == null or enemy is Creature):
 			_engage(enemy, true)
@@ -773,9 +785,9 @@ func _should_keep_target() -> bool:
 		return false
 	if not _auto_target:
 		return true
-	if order == Order.HOLD:
+	if _holds_ground():
 		return surface_distance_to(attack_target) <= stats.attack_range + 0.3
-	if order == Order.IDLE:
+	if order == Order.IDLE and stance == Stance.DEFENSIVE:
 		return _flat_distance(_guard_position) <= stats.leash_range
 	# Attack-moving units have no post to leash to, so they give up on
 	# targets that run out of sight instead of chasing across the map.
@@ -795,12 +807,14 @@ func _lose_target() -> void:
 		Order.HOLD:
 			_halt()
 		Order.IDLE:
-			if target_alive:
+			if target_alive and stance == Stance.DEFENSIVE:
 				# Chased too far: walk back to the guard post, ignoring enemies.
 				order = Order.MOVE
 				_group_speed = INF
 				_navigate(_guard_position)
 			else:
+				# Aggressive creatures stay wherever the chase ended.
+				_guard_position = global_position
 				_halt()
 
 
@@ -831,7 +845,7 @@ func _pursue_and_attack(target: Node3D) -> void:
 			_cooldown = attack_cooldown()
 			_perform_attack(target)
 		return
-	if order == Order.HOLD:
+	if _holds_ground():
 		return
 	if stats.can_leap and _leap_cooldown <= 0.0 and gap >= LEAP_MIN_DISTANCE and gap <= LEAP_MAX_DISTANCE:
 		_start_leap(target, gap)
@@ -844,7 +858,7 @@ func _pursue_and_attack(target: Node3D) -> void:
 
 ## Ranged creatures back off from a melee creature that's coming for them.
 func _should_kite(target: Node3D, gap: float) -> bool:
-	if not stats.is_ranged() or order == Order.HOLD or _kite_cooldown > 0.0:
+	if not stats.is_ranged() or _holds_ground() or _kite_cooldown > 0.0:
 		return false
 	if not target is Creature or target.stats.is_ranged() or not target.can_attack(self):
 		return false

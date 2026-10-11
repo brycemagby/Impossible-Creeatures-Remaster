@@ -411,6 +411,21 @@ func issue_stop() -> void:
 		unit.command_stop()
 
 
+## The selected creatures other than Henchmen.
+func selected_army() -> Array[Creature]:
+	var result: Array[Creature] = []
+	for unit in _valid_selected():
+		if not unit is Henchman:
+			result.append(unit)
+	return result
+
+
+## Sets the stance of the selected army (see Creature.Stance).
+func set_stance(stance: Creature.Stance) -> void:
+	for unit in selected_army():
+		unit.stance = stance
+
+
 func issue_hold() -> void:
 	for unit in _valid_selected():
 		unit.clear_order_queue()
