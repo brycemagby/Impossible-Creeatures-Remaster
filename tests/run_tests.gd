@@ -124,6 +124,7 @@ func _run() -> void:
 	await _test_stances()
 	await _test_sounds()
 	await _test_creature_models()
+	await _test_building_models()
 	await _test_focus_fire()
 	await _test_combiner_screen()
 	await _test_main_menu()
@@ -2113,7 +2114,7 @@ func _test_two_vs_two() -> void:
 	_check(Teams.are_allies(0, 1) and Teams.are_enemies(0, 2), "you and team 1 are allies")
 	_check(Teams.color(0) == Teams.BLUE and Teams.color(1) == Teams.GREEN and Teams.color(2) == Teams.RED,
 			"you're blue, your ally green, enemies red")
-	_check((_building(1, "Lab").team_band.material_override as StandardMaterial3D).albedo_color == Teams.GREEN,
+	_check(_building(1, "Lab").model.team_color() == Teams.GREEN,
 			"your ally's buildings show the ally colour")
 	var mine := _fighters(0)[0]
 	var ally := _fighters(1)[0]
@@ -2944,6 +2945,55 @@ func _test_creature_models() -> void:
 	add_child(copy)
 	await _process_frames(2)
 	_check(copy.get_node_or_null("Rig/Body") != null, "the portrait copy keeps the rig")
+	copy.queue_free()
+	await _unload(main)
+
+
+func _test_building_models() -> void:
+	print("building models")
+	var signatures := {}
+	var all_inside := true
+	for file in DirAccess.get_files_at("res://resources/buildings"):
+		if not file.ends_with(".tres"):
+			continue
+		var data: BuildingData = load("res://resources/buildings/" + file)
+		var model := BuildingModel.new()
+		add_child(model)
+		model.build(data, Teams.RED)
+		var meshes := model.find_children("*", "MeshInstance3D", true, false)
+		signatures[model.id] = meshes.size()
+		for mesh: MeshInstance3D in meshes:
+			var at := model.to_local(mesh.global_position)
+			if absf(at.x) > data.size.x / 2.0 + 0.3 or absf(at.z) > data.size.z / 2.0 + 0.3 or at.y < -0.1 or at.y > data.size.y + 1.0:
+				all_inside = false
+				print("  outside: ", model.id, " ", mesh.name, " ", at)
+		model.queue_free()
+	_check(signatures.size() == 9 and not signatures.has("") and signatures.values().all(func(n: int) -> bool: return n > 10),
+			"every building has its own detailed model")
+	_check(all_inside, "models stay inside the building's footprint")
+
+	var main := await _load_map()
+	var lab := _building(0, "Lab")
+	var team_parts := lab.model.find_children("Team*", "MeshInstance3D", true, false)
+	_check(not team_parts.is_empty() and team_parts.all(func(m: MeshInstance3D) -> bool:
+			return (m.material_override as StandardMaterial3D).albedo_color == Teams.color(0)), "buildings carry their team colour")
+	var site: Building = preload("res://scenes/buildings/building.tscn").instantiate()
+	site.data = lab.data
+	site.team = 0
+	site.start_complete = false
+	site.position = lab.global_position + Vector3(20, 0, 0)
+	main.add_child(site)
+	var scaffold := site.model.find_children("*", "MeshInstance3D", true, false).filter(func(m: Node) -> bool: return m.has_meta("scaffold"))
+	var lamps := site.model.find_children("*", "MeshInstance3D", true, false).filter(func(m: Node) -> bool: return m.has_meta("lit"))
+	_check(site.model.scale.y < 0.5 and scaffold.all(func(m: Node3D) -> bool: return m.visible)
+			and lamps.all(func(m: Node3D) -> bool: return not m.visible), "construction sites are low, in scaffolding, with lamps off")
+	site.add_build_work(site.data.build_time)
+	_check(site.is_complete and is_equal_approx(site.model.scale.y, 1.0) and scaffold.all(func(m: Node3D) -> bool: return not m.visible)
+			and lamps.all(func(m: Node3D) -> bool: return m.visible), "finished buildings lose the scaffolding and light up")
+	var copy := lab.portrait_visual()
+	add_child(copy)
+	await _process_frames(2)
+	_check(copy.find_children("*", "MeshInstance3D", true, false).size() > 10, "the portrait shows the building's model")
 	copy.queue_free()
 	await _unload(main)
 
