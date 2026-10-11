@@ -85,6 +85,11 @@ var _last_group_key := -1
 var _last_group_time := -1.0
 
 
+func _ready() -> void:
+	if Net.is_online():
+		player_team = Net.local_team
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		_handle_mouse_button(event)
@@ -423,7 +428,7 @@ func selected_army() -> Array[Creature]:
 ## Sets the stance of the selected army (see Creature.Stance).
 func set_stance(stance: Creature.Stance) -> void:
 	for unit in selected_army():
-		unit.stance = stance
+		unit.set_stance(stance)
 
 
 func issue_hold() -> void:
@@ -522,6 +527,9 @@ func place_building_at_screen(screen_position: Vector2, keep_placing := false) -
 	var point: Variant = ground_at_screen(screen_position)
 	if point == null:
 		return null
+	if Net.is_client():
+		_request_placement(point, keep_placing)
+		return null
 	var site := build_placer.place(point)
 	if site == null:
 		message.emit(build_placer.last_error)
@@ -532,6 +540,22 @@ func place_building_at_screen(screen_position: Vector2, keep_placing := false) -
 	if not keep_placing or not Economy.can_afford(player_team, build_placer.data.cost_coal, build_placer.data.cost_electricity):
 		cancel_placement()
 	return site
+
+
+## Online, for the joining player: checks the spot here, then asks the host
+## to place the site and send the selected Henchmen to build it.
+func _request_placement(point: Vector3, keep_placing: bool) -> void:
+	var spot := build_placer.snap(point)
+	var error := build_placer.check(spot)
+	if error != "":
+		message.emit(error)
+		return
+	Net.sync.send_place(build_placer.data, spot, selected_henchmen())
+	Sfx.play_at("place", spot)
+	# Coal isn't taken until the host's reply, so keep placing only with room for two.
+	var data := build_placer.data
+	if not keep_placing or not Economy.can_afford(player_team, data.cost_coal * 2, data.cost_electricity * 2):
+		cancel_placement()
 
 
 ## Grid offsets for [param count] units centred on the origin, rotated so the

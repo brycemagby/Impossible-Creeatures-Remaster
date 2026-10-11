@@ -88,6 +88,25 @@ func _ready() -> void:
 	Alerts.raised.connect(_on_alert)
 	Sfx.player_team = selection_manager.player_team
 	_connect_fog.call_deferred()
+	if Net.is_online():
+		Net.command_rejected.connect(show_error)
+		Net.disconnected.connect(_on_net_disconnected)
+		if Net.sync:
+			Net.sync.waiting_changed.connect(_on_waiting_changed)
+
+
+func _on_waiting_changed(waiting: bool) -> void:
+	if waiting:
+		show_message("Waiting for the other player to load the map...")
+	else:
+		show_message("The match has started. Good luck!")
+
+
+func _on_net_disconnected(reason: String) -> void:
+	if Net.is_host():
+		show_error(reason)
+	else:
+		end_screen.show_disconnected(reason)
 
 
 func _connect_fog() -> void:

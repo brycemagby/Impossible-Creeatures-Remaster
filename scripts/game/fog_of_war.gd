@@ -61,6 +61,8 @@ var _exposed := {}
 
 
 func _ready() -> void:
+	if Net.is_online():
+		player_team = Net.local_team
 	add_to_group("fog")
 	add_to_group("building_watchers")
 	_width = int(bounds.size.x)

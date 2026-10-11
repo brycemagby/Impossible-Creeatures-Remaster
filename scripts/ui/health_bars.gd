@@ -15,6 +15,8 @@ const BACKGROUND_COLOR := Color(0, 0, 0, 0.7)
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_IGNORE
+	if Net.is_online():
+		player_team = Net.local_team
 
 
 func _process(_delta: float) -> void:

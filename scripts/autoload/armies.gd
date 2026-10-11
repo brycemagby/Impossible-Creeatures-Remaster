@@ -91,6 +91,53 @@ func animal(file_name: String) -> AnimalData:
 	return load(ANIMAL_DIR + file_name + ".tres")
 
 
+## Designs as plain data for sending over the network:
+## [animal A file name, animal B file name, picks, custom name] each.
+static func encode_designs(list: Array[CreatureDesign]) -> Array:
+	var result := []
+	for design in list:
+		result.append([design.animal_a.resource_path.get_file().get_basename(),
+				design.animal_b.resource_path.get_file().get_basename(), Array(design.picks), design.custom_name])
+	return result
+
+
+## The reverse of encode_designs. Anything malformed (unknown animals, bad
+## picks) is skipped rather than trusted.
+static func decode_designs(data: Array) -> Array[CreatureDesign]:
+	var result: Array[CreatureDesign] = []
+	for entry in data:
+		var design := decode_design(entry)
+		if design != null and result.size() < MAX_SIZE:
+			result.append(design)
+	return result
+
+
+static func decode_design(entry: Variant) -> CreatureDesign:
+	if not entry is Array or entry.size() != 4 or not entry[2] is Array or entry[2].size() != CreatureDesign.Slot.size():
+		return null
+	var animals: Array[AnimalData] = []
+	for i in 2:
+		var file := str(entry[i])
+		if not file.is_valid_identifier() or not ResourceLoader.exists(ANIMAL_DIR + file + ".tres"):
+			return null
+		animals.append(load(ANIMAL_DIR + file + ".tres"))
+	var picks: Array[int] = []
+	for pick in entry[2]:
+		if not pick is int or pick < CreatureDesign.NONE or pick > CreatureDesign.FROM_B:
+			return null
+		picks.append(pick)
+	var design := CreatureDesign.create(animals[0], animals[1], picks, str(entry[3]).left(24))
+	return design if design.is_valid() else null
+
+
+## After an online match: your own saved army again, the presets for the rest.
+func restore_local() -> void:
+	_designs.clear()
+	_recipes.clear()
+	load_player_army()
+	set_designs(1, default_designs())
+
+
 func save_player_army() -> Error:
 	var roster := ArmyRoster.new()
 	roster.designs = designs(0)

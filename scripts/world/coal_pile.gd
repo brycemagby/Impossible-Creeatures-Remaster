@@ -22,10 +22,20 @@ func _ready() -> void:
 func take(requested: int) -> int:
 	var taken := mini(requested, amount)
 	amount -= taken
-	mesh.scale = Vector3.ONE * lerpf(0.4, 1.0, float(amount) / _starting_amount)
+	_update_size()
 	if amount <= 0:
 		_deplete()
 	return taken
+
+
+## Online: the host says how much is left.
+func set_amount(value: int) -> void:
+	amount = value
+	_update_size()
+
+
+func _update_size() -> void:
+	mesh.scale = Vector3.ONE * lerpf(0.4, 1.0, float(maxi(amount, 0)) / _starting_amount)
 
 
 func is_depleted() -> bool:

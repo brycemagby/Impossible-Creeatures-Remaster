@@ -2,7 +2,8 @@ class_name PauseMenu
 extends Control
 ## Pause menu (F10, Esc with nothing selected, or the HUD's Menu button):
 ## resume, restart, change game speed, or quit to the main menu.
-## The - and = keys change game speed during play.
+## The - and = keys change game speed during play. Online, the game keeps
+## running behind the menu and the speed stays at 1x for both players.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 const SPEEDS := [0.5, 1.0, 1.5, 2.0]
@@ -41,7 +42,8 @@ func _ready() -> void:
 	UiTheme.style_title(title, 36)
 	column.add_child(title)
 	_button(column, "Resume", close)
-	_button(column, "Restart match", restart)
+	var restart_button := _button(column, "Restart match", restart)
+	restart_button.visible = not Net.is_online()
 
 	var speed_label := Label.new()
 	speed_label.text = "Game speed"
@@ -49,6 +51,8 @@ func _ready() -> void:
 	column.add_child(speed_label)
 	var speeds := HBoxContainer.new()
 	column.add_child(speeds)
+	speed_label.visible = not Net.is_online()
+	speeds.visible = not Net.is_online()
 	var group := ButtonGroup.new()
 	for speed: float in SPEEDS:
 		var button := Button.new()
@@ -90,13 +94,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func open() -> void:
 	visible = true
-	get_tree().paused = true
+	get_tree().paused = not Net.is_online()
 	_refresh_speed_buttons()
 
 
 func close() -> void:
 	visible = false
-	get_tree().paused = false
+	if not Net.is_online():
+		get_tree().paused = false
 
 
 func toggle() -> void:
@@ -107,6 +112,8 @@ func toggle() -> void:
 
 
 func set_speed(speed: float) -> void:
+	if Net.is_online():
+		return
 	GameSettings.game_speed = speed
 	Engine.time_scale = speed
 	_refresh_speed_buttons()
@@ -127,6 +134,8 @@ func restart() -> void:
 
 func quit_to_menu() -> void:
 	close()
+	get_tree().paused = false
+	Net.leave()
 	get_tree().change_scene_to_file(MENU_SCENE)
 
 

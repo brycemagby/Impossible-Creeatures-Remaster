@@ -8,6 +8,7 @@ const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 var title: Label
 var time_label: Label
 var table: GridContainer
+var play_again_button: Button
 
 
 func _ready() -> void:
@@ -45,11 +46,14 @@ func _ready() -> void:
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_child(buttons)
-	_button(buttons, "Play again", func() -> void:
+	play_again_button = _button(buttons, "Play again", func() -> void:
 		get_tree().paused = false
 		get_tree().reload_current_scene())
+	# Online, a rematch means hosting again from the lobby.
+	play_again_button.visible = not Net.is_online()
 	_button(buttons, "Main menu", func() -> void:
 		get_tree().paused = false
+		Net.leave()
 		get_tree().change_scene_to_file(MENU_SCENE))
 
 
@@ -84,6 +88,20 @@ func show_results(winner: int, player_team: int) -> void:
 	get_tree().paused = true
 
 
+## Online: the connection to the other player is gone.
+func show_disconnected(reason: String) -> void:
+	if visible:
+		return
+	MatchStats.stop()
+	title.text = "DISCONNECTED"
+	title.add_theme_color_override("font_color", UiTheme.DANGER)
+	time_label.text = reason
+	for child in table.get_children():
+		child.queue_free()
+	visible = true
+	get_tree().paused = true
+
+
 ## The value shown for [param key] and [param team] (for tests).
 func cell_text(row: int, column: int) -> String:
 	var cells := table.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
@@ -93,6 +111,9 @@ func cell_text(row: int, column: int) -> String:
 static func _team_label(team: int, player_team: int, team_count: int) -> String:
 	if team == player_team:
 		return "You"
+	var peer := Net.peer_of_team(team)
+	if peer != 0:
+		return Net.players[peer].name
 	if Teams.are_allies(team, player_team):
 		return "Ally"
 	return "Enemy" if team_count == 2 else "Enemy %d" % (team + 1)
@@ -106,10 +127,11 @@ func _cell(text: String, heading := false) -> void:
 	table.add_child(label)
 
 
-func _button(parent: Control, text: String, action: Callable) -> void:
+func _button(parent: Control, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(160, 44)
 	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(action)
 	parent.add_child(button)
+	return button

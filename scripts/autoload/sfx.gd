@@ -99,6 +99,19 @@ func play_at(sound: String, where: Vector3, pitch := 1.0) -> void:
 	player.play()
 
 
+## Plays [param sound] for [param team]'s player only (at [param where], or
+## as an interface sound when null). Online, the host sends it on when that
+## player is on the other machine.
+func play_for(team: int, sound: String, where: Variant = null, pitch := 1.0) -> void:
+	if team == player_team:
+		if where is Vector3:
+			play_at(sound, where, pitch)
+		else:
+			play(sound, pitch)
+	elif Net.sync:
+		Net.sync.send_sound(team, sound, where, pitch)
+
+
 ## A creature's voice line: bigger creatures sound deeper.
 func voice(sound: String, creature: Creature) -> void:
 	play(sound, voice_pitch(creature))

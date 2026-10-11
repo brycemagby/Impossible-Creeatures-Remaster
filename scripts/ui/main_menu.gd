@@ -1,8 +1,9 @@
 extends Control
-## Title screen: start a skirmish or open the creature combiner.
+## Title screen: start a skirmish, play online or open the creature combiner.
 
 const SETUP_SCENE := "res://scenes/ui/skirmish_setup.tscn"
 const COMBINER_SCENE := "res://scenes/ui/combiner.tscn"
+const ONLINE_SCENE := "res://scenes/ui/multiplayer_lobby.tscn"
 
 
 func _ready() -> void:
@@ -28,6 +29,7 @@ func _ready() -> void:
 	column.add_child(Control.new())
 
 	_add_button(column, "Play Skirmish", func() -> void: get_tree().change_scene_to_file(SETUP_SCENE))
+	_add_button(column, "Play Online", func() -> void: get_tree().change_scene_to_file(ONLINE_SCENE))
 	_add_button(column, "Creature Combiner", func() -> void: get_tree().change_scene_to_file(COMBINER_SCENE))
 	_add_button(column, "Quit", func() -> void: get_tree().quit())
 

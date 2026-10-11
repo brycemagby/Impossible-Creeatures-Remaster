@@ -54,6 +54,17 @@ func record_building_lost(team: int, killer_team: int) -> void:
 		add(killer_team, "buildings_destroyed")
 
 
+## Everything the end screen shows, for sending over the network.
+func export_data() -> Dictionary:
+	return {"stats": _stats.duplicate(true), "elapsed": elapsed}
+
+
+func import_data(data: Dictionary) -> void:
+	if data.get("stats") is Dictionary:
+		_stats = data.stats.duplicate(true)
+	elapsed = float(data.get("elapsed", elapsed))
+
+
 func teams() -> Array:
 	return _stats.keys()
 
