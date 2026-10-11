@@ -8,6 +8,17 @@ const HOTKEYS: Array[Key] = [KEY_Z, KEY_X, KEY_C, KEY_V, KEY_B, KEY_N, KEY_M,
 		KEY_T, KEY_Y, KEY_U, KEY_I, KEY_O, KEY_J, KEY_K, KEY_L]
 ## How many units Shift + click queues at once.
 const BATCH_SIZE := 5
+## Hover help for the selection readout: how to select and order units.
+const SELECTION_HELP := """Select
+  Left click / drag: select    Shift: add    Esc: deselect
+  Double click / Ctrl + click: all of that type on screen
+Order
+  Right click: move / attack / gather coal (Henchmen)
+  Shift + right click: queue    Right drag: line up
+  F or Ctrl + right click: attack-move
+  P: patrol    G: hold    H: stop
+Groups
+  Ctrl + 1-9: set    Shift + 1-9: add    1-9: recall (twice: look)"""
 
 @export var selection_manager: SelectionManager
 @export var game_rules: GameRules
@@ -42,8 +53,6 @@ var speed_label: Label
 var console: Panel
 ## The selected creature or building, turning in a brass porthole.
 var portrait: UnitPortrait
-## On-screen controls help (F1 hides it).
-var help_panel: PanelContainer
 var command_panel: PanelContainer
 var command_title: Label
 var command_grid: GridContainer
@@ -110,10 +119,6 @@ func _process(delta: float) -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
-	if key != null and key.pressed and not key.echo and key.physical_keycode == KEY_F1:
-		help_panel.visible = not help_panel.visible
-		get_viewport().set_input_as_handled()
-		return
 	if key == null or not key.pressed or key.echo or key.ctrl_pressed or not command_panel.visible:
 		return
 	var index := HOTKEYS.find(key.physical_keycode)
@@ -337,6 +342,7 @@ func _rebuild_command_panel(building: Building) -> void:
 	_cost_buttons.clear()
 	command_status.text = ""
 	command_panel.visible = _context != "none"
+	command_panel.tooltip_text = "Right click the ground: set a rally point.  Delete: demolish." if _context.begins_with("building") else ""
 
 	if _context.begins_with("henchmen"):
 		command_title.text = "Build"
@@ -349,6 +355,7 @@ func _rebuild_command_panel(building: Building) -> void:
 			var button := _add_button("%s\n%s" % [data.display_name, "needs research L%d" % data.required_research if locked
 					else _cost_text(data.cost_coal, data.cost_electricity)])
 			button.pressed.connect(selection_manager.begin_placement.bind(data))
+			button.tooltip_text = "Click, then left click the ground to place it.  Right click or Esc: cancel."
 			_cost_buttons.append([button, data.cost_coal, data.cost_electricity, data.required_research])
 	elif _context.begins_with("building"):
 		command_title.text = building.data.display_name
@@ -360,7 +367,7 @@ func _rebuild_command_panel(building: Building) -> void:
 				var button := _add_button("%s\n%s" % [label, "needs research L%d" % recipe.stats.level if locked
 						else _cost_text(recipe.cost_coal, recipe.cost_electricity)])
 				button.pressed.connect(_on_produce_pressed.bind(building, recipe))
-				button.tooltip_text = _recipe_tooltip(recipe)
+				button.tooltip_text = _recipe_tooltip(recipe) + "\n\nShift + click or Shift + hotkey: make %d" % BATCH_SIZE
 				var needed: int = recipe.stats.level if recipe.stats.design else 0
 				_cost_buttons.append([button, recipe.cost_coal, recipe.cost_electricity, needed])
 			if not options.is_empty():
@@ -510,7 +517,6 @@ func _add_button(text: String) -> Button:
 func _build_layout() -> void:
 	_build_console()
 	_build_resource_bar()
-	_build_help_panel()
 
 	type_bar = HFlowContainer.new()
 	type_bar.custom_minimum_size.x = 440
@@ -539,6 +545,7 @@ func _build_layout() -> void:
 	menu_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	menu_button.offset_top = 64
 	menu_button.offset_right = -16
+	menu_button.tooltip_text = "Pause, restart, game speed or quit.  F10, or Esc with nothing selected."
 	add_child(menu_button)
 
 	command_panel = PanelContainer.new()
@@ -620,6 +627,8 @@ func _build_console() -> void:
 	selection_label.offset_top = -CONSOLE_HEIGHT + 30
 	selection_label.offset_bottom = -8
 	selection_label.add_theme_font_size_override("font_size", 18)
+	selection_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	selection_label.tooltip_text = SELECTION_HELP
 
 
 func _build_resource_bar() -> void:
@@ -633,10 +642,10 @@ func _build_resource_bar() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	resource_bar.add_child(row)
-	coal_value = _gauge(row, "coal", "Coal")
+	coal_value = _gauge(row, "coal", "Coal, gathered by Henchmen.  Period: go to an idle Henchman.")
 	electricity_value = _gauge(row, "electricity", "Electricity")
 	population_value = _gauge(row, "population", "Population")
-	research_value = _gauge(row, "research", "Research level")
+	research_value = _gauge(row, "research", "Research level, raised at the Lab.  Home: go to your Lab.")
 	speed_label = Label.new()
 	speed_label.add_theme_color_override("font_color", UiTheme.WARNING)
 	speed_label.add_theme_font_size_override("font_size", 20)
@@ -660,29 +669,6 @@ func _gauge(row: HBoxContainer, icon: String, tooltip: String) -> Label:
 	value.add_theme_font_size_override("font_size", 22)
 	row.add_child(value)
 	return value
-
-
-## Moves the scene's controls help into a panel at the top left; F1 toggles it.
-func _build_help_panel() -> void:
-	help_panel = PanelContainer.new()
-	help_panel.position = Vector2(16, 12)
-	help_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	help_panel.self_modulate = Color(1, 1, 1, 0.85)
-	add_child(help_panel)
-	var column := VBoxContainer.new()
-	help_panel.add_child(column)
-	var heading := Label.new()
-	heading.text = "Controls   (F1 to hide)"
-	UiTheme.style_heading(heading, 14)
-	column.add_child(heading)
-	var help := get_node_or_null("ControlsLabel") as Label
-	if help != null:
-		help.get_parent().remove_child(help)
-		help.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		help.add_theme_font_size_override("font_size", 14)
-		help.add_theme_constant_override("outline_size", 0)
-		help.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
-		column.add_child(help)
 
 
 func _make_label(font_size: int) -> Label:

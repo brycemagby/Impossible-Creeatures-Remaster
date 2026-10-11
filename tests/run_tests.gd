@@ -106,6 +106,7 @@ func _run() -> void:
 	await _test_cancel_queued_unit()
 	await _test_last_enemies_revealed()
 	await _test_unit_portrait()
+	await _test_control_tooltips()
 	await _test_queued_orders()
 	await _test_command_hotkeys()
 	await _test_rally_on_coal()
@@ -2492,6 +2493,23 @@ func _test_last_enemies_revealed() -> void:
 	_check(fog.is_exposed(1) and exposed == [1], "with no buildings and few creatures left, a team is exposed")
 	_check(fog.is_visible(0, hider.global_position) and hider.visible, "its last creatures can be seen anywhere")
 	_check(not fog.is_exposed(0), "the player, who still has buildings, isn't exposed")
+	await _unload(main)
+
+
+func _test_control_tooltips() -> void:
+	print("control tooltips")
+	var main := await _load_map()
+	var hud := main.get_node("UI/HUD")
+	_check(hud.get_node_or_null("ControlsLabel") == null, "there is no on-screen controls list")
+	_check("Right click" in hud.selection_label.tooltip_text, "the selection readout explains orders on hover")
+	var minimap: Minimap = main.get_node("UI/HUD/Minimap")
+	_check("Wheel: zoom" in minimap.tooltip_text, "the minimap explains the camera on hover")
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	manager.select_building(_building(0, "Lab"))
+	await _process_frames(2)
+	_check("rally point" in hud.command_panel.tooltip_text, "a building's command panel explains rally points")
+	var make := hud.command_grid.get_child(0) as Button
+	_check("make 5" in make.tooltip_text, "production buttons explain Shift to make 5")
 	await _unload(main)
 
 

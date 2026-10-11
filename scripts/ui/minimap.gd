@@ -27,6 +27,11 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(MAP_SIZE, MAP_SIZE)
 	size = custom_minimum_size
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	tooltip_text = """Click / drag: look there    Right click: send the selection there
+Camera
+  WASD / screen edges / middle drag: pan    Wheel: zoom
+  Q / E: rotate    Backspace: face north
+  Space: jump to the last alert"""
 	_terrain = TextureRect.new()
 	_terrain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_terrain.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
