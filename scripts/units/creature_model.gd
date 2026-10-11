@@ -48,6 +48,7 @@ var _phase := 0.0
 var _time := 0.0
 var _stride := 0.0
 var _attack_tween: Tween
+var _dying := false
 
 
 func build(design: CreatureDesign) -> void:
@@ -260,6 +261,108 @@ func flash() -> void:
 		create_tween().tween_property(material, "albedo_color", _base_colors[i], 0.15)
 
 
+## The death pratfall, timed to the slide-whistle sound: a startled hop,
+## then the creature keels over onto its side with a bounce, legs stiff in
+## the air, head lolling, and its legs give a last twitch. Then use fade().
+func die() -> void:
+	_resolve_rig()
+	_dying = true
+	if _attack_tween:
+		_attack_tween.kill()
+	var rig := get_node_or_null("Rig") as Node3D
+	if rig == null:
+		return
+	var side := -1.0 if randf() < 0.5 else 1.0
+	# Tipping over about the feet would sink the body into the ground, so the
+	# rig also slides back over the spot and lifts by half the body's width.
+	var height := _body_height if _body != null else 0.5
+	var half_width := 0.25
+	if _body != null:
+		for child in _body.get_children():
+			if child.has_meta("extents"):
+				half_width = (child.get_meta("extents") as Vector3).x / 2.0
+				break
+	var hop := create_tween()
+	hop.tween_property(rig, "position:y", 0.35 + half_width, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	hop.tween_property(rig, "position:y", half_width, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	var topple := create_tween()
+	topple.tween_interval(0.1)
+	topple.tween_property(rig, "rotation:z", side * PI / 2.0, 0.45).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	topple.parallel().tween_property(rig, "position:x", side * height, 0.45).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	topple.tween_callback(_dust)
+	if _body == null:
+		return
+	var limp := create_tween().set_parallel()
+	for i in _hips.size():
+		if _hips[i].get_child_count() == 0:
+			continue
+		var leg := _hips[i].get_child(0) as Node3D
+		# Legs splay stiffly, front ones forwards and back ones back.
+		limp.tween_property(leg, "rotation:x", 0.45 if i < 2 else -0.45, 0.25)
+		var knee := leg.get_node_or_null("Knee") as Node3D
+		if knee != null:
+			limp.tween_property(knee, "rotation:x", 0.0, 0.25)
+			var twitch := create_tween()
+			twitch.tween_interval(0.75 + i * 0.05)
+			for k in 2:
+				twitch.tween_property(knee, "rotation:x", 0.5, 0.06)
+				twitch.tween_property(knee, "rotation:x", 0.0, 0.1)
+				twitch.tween_interval(0.12)
+	if _neck != null:
+		limp.tween_property(_neck, "rotation", Vector3(0.5, 0.0, side * 0.3), 0.4)
+	for seg in _tail:
+		limp.tween_property(seg, "rotation", Vector3.ZERO, 0.4)
+	for wing in _wings:
+		var wing_side := -1.0 if wing.name.ends_with("L") else 1.0
+		limp.tween_property(wing, "rotation", Vector3(0.0, 0.0, wing_side * 0.9), 0.3)
+
+
+## Fades the whole model out over [param duration] seconds.
+func fade(duration: float) -> void:
+	var seen := {}
+	var tween := create_tween().set_parallel()
+	for node in find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var material := mesh.material_override as StandardMaterial3D
+		if material == null or seen.has(material):
+			continue
+		seen[material] = true
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		tween.tween_property(material, "albedo_color:a", 0.0, duration)
+
+
+## A ring of dust puffs where the body hits the ground.
+func _dust() -> void:
+	var owner_node := get_parent() as Node3D
+	if owner_node == null:
+		return
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.72, 0.66, 0.52, 0.8)
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.16 * scale.x
+	mesh.height = 0.32 * scale.x
+	mesh.radial_segments = 8
+	mesh.rings = 4
+	var tween := owner_node.create_tween().set_parallel()
+	var count := 6
+	for i in count:
+		var puff := MeshInstance3D.new()
+		puff.name = "Dust%d" % i
+		puff.mesh = mesh
+		puff.material_override = material
+		puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var direction := Vector3.FORWARD.rotated(Vector3.UP, TAU * i / count + randf() * 0.4)
+		puff.position = direction * 0.3 * scale.x + Vector3.UP * 0.1
+		owner_node.add_child(puff)
+		tween.tween_property(puff, "position", puff.position + direction * 0.7 * scale.x + Vector3.UP * 0.25, 0.6) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(puff, "scale", Vector3.ONE * 1.8, 0.6)
+	tween.tween_property(material, "albedo_color:a", 0.0, 0.6)
+
+
 ## A bite and a swipe: the head snaps forward and the front legs strike.
 func attack() -> void:
 	_resolve_rig()
@@ -312,7 +415,7 @@ func add_shape(parent: Node3D, mesh: Mesh, at: Vector3, color: Color, glow := fa
 
 func _process(delta: float) -> void:
 	_resolve_rig()
-	if _body == null:
+	if _body == null or _dying:
 		return
 	_time += delta
 	var creature := get_parent() as Creature

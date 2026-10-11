@@ -95,12 +95,18 @@ Touch-ups ✅: splayed scorpion legs (on hybrids too), flat cheetah spots, a two
 knuckle-walking gorilla, and a kangaroo hop that hybrids with kangaroo legs inherit.
 
 Still open:
-- Death animation (creatures currently just disappear)
+- Death animation: first pass ✅: a cartoon pratfall timed to the slide whistle (a startled hop,
+  keeling over with a bounce and a puff of dust, a last twitch, then fading away); flyers drop out
+  of the sky in a spin first
 - Building visuals: first pass ✅ (placeholder art): each building has its own retro-futurist model
   (`scripts/buildings/building_model.gd`) with turning gears, dishes and paddle wheels, pulsing coils,
   chimney smoke and scaffolding while it's built. Real art drops in at
   `assets/buildings/<id>.tscn` (or .glb); meshes named `Team…` take the owner's colour
-- Terrain visuals: ground texture, coal piles, rocks, water and shorelines
+- Terrain visuals: first pass ✅: patchy painted ground with bare earth, scattered grass, pebbles
+  and flowers (swaying, darkened by fog), faceted rock outcrops with moss, coal heaps of glossy
+  lumps, and rippling water with foam along the shore. Real art drops in at
+  `assets/terrain/<rock|coal_pile|grass|pebble|flower>.tscn` (or .glb), or as a tiled texture on the
+  ground shader (`use_texture`)
 - Final art from human artists, replacing the placeholders part by part
 
 Related polish:

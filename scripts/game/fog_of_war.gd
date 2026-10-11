@@ -172,6 +172,11 @@ func explored_fraction(team: int) -> float:
 	return float(count) / explored.size()
 
 
+## Hands the fog to every ground-level surface again (after new ones appear).
+func refresh_surfaces() -> void:
+	_refresh_shader()
+
+
 func _refresh_shader() -> void:
 	if _material == null or texture == null:
 		return
@@ -179,7 +184,7 @@ func _refresh_shader() -> void:
 	_material.set_shader_parameter("map_rect", Vector4(bounds.position.x, bounds.position.y, bounds.size.x, bounds.size.y))
 	_material.set_shader_parameter("fog_enabled", enabled and not reveal_all)
 	# Other ground-level surfaces (water) darken with the same fog.
-	for surface: MeshInstance3D in get_tree().get_nodes_in_group("fog_surfaces"):
+	for surface: GeometryInstance3D in get_tree().get_nodes_in_group("fog_surfaces"):
 		var material := surface.material_override as ShaderMaterial
 		if material:
 			material.set_shader_parameter("fog", texture)

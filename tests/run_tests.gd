@@ -125,6 +125,8 @@ func _run() -> void:
 	await _test_sounds()
 	await _test_creature_models()
 	await _test_building_models()
+	await _test_death_animation()
+	await _test_terrain_visuals()
 	await _test_focus_fire()
 	await _test_combiner_screen()
 	await _test_main_menu()
@@ -2996,6 +2998,55 @@ func _test_building_models() -> void:
 	_check(copy.find_children("*", "MeshInstance3D", true, false).size() > 10, "the portrait shows the building's model")
 	copy.queue_free()
 	await _unload(main)
+
+
+func _test_death_animation() -> void:
+	print("death animation")
+	var main := await _load_map()
+	var stats := CreatureCombiner.build_stats(Armies.default_designs()[0])
+	var victim := _spawn(main, stats, 1, Vector3(0, 0, 10))
+	await _physics_frames(2)
+	var rig := (victim.find_children("*", "CreatureModel", false, false)[0] as Node).get_node("Rig") as Node3D
+	victim.take_damage(100000.0)
+	_check(not victim.is_alive() and is_instance_valid(victim), "a dead creature stays to play its death")
+	var fallen := func() -> bool:
+		return absf(rig.rotation.z) > 1.4 and not victim.find_children("Dust*", "MeshInstance3D", false, false).is_empty()
+	await _wait_until(fallen, 1.5)
+	_check(absf(rig.rotation.z) > 1.4, "it keels over onto its side")
+	_check(not victim.find_children("Dust*", "MeshInstance3D", false, false).is_empty(), "with a puff of dust")
+	await _wait_until(func() -> bool: return not is_instance_valid(victim),
+			Creature.DEATH_LIE_TIME + Creature.DEATH_FADE_TIME + 1.5)
+	_check(not is_instance_valid(victim), "then fades away and is removed")
+	await _unload(main)
+
+
+func _test_terrain_visuals() -> void:
+	print("terrain visuals")
+	var main := await _load_lakeside()
+	var decor := main.get_node_or_null("TerrainDecor")
+	_check(decor != null and decor.get_node("Grass").multimesh.instance_count > 1000, "maps are scattered with grass")
+	var clear := true
+	for point: Vector3 in decor.placed["grass"]:
+		for water: WaterArea in get_tree().get_nodes_in_group("water_areas"):
+			if water.contains(point):
+				clear = false
+		for prop: Node3D in get_tree().get_nodes_in_group("fog_hidden"):
+			if _flat(prop.global_position - point) < 2.0:
+				clear = false
+	_check(clear, "but none in the water, on rocks or on coal")
+	_check(decor.get_node("Grass").is_in_group("fog_surfaces")
+			and (decor.get_node("Grass").material_override as ShaderMaterial).get_shader_parameter("fog") != null,
+			"and it darkens with the fog like the ground")
+	var rock: Node3D = main.get_node("NavigationRegion3D/Rocks").get_child(0)
+	_check(rock.find_children("*", "MeshInstance3D", true, false).size() >= 3, "rocks are outcrops of several boulders")
+	var pile: CoalPile = get_tree().get_nodes_in_group("coal_piles")[0]
+	_check(pile.mesh.get_child_count() == CoalPile.LUMPS, "coal piles are heaps of lumps")
+	pile.take(pile.amount / 2)
+	_check(pile.mesh.scale.x < 1.0, "which shrink as they are mined")
+	var water: WaterArea = get_tree().get_nodes_in_group("water_areas")[0]
+	_check((water._surface.material_override as ShaderMaterial).shader.resource_path.ends_with("water.gdshader"), "water has its own rippling surface")
+	await _unload(main)
+	_reset_match_settings()
 
 
 func _test_patrol() -> void:

@@ -111,7 +111,11 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - Placeholder creature models: each animal's head, torso, legs and tail on a shared rig with
   procedural walk, idle, flap, swim and attack animation, so any hybrid moves; Henchmen are little
   workers in team-coloured overalls. Hand-made art can replace any part: see
-  `scripts/units/creature_model.gd` (`ART_DIR`)
+  `scripts/units/creature_model.gd` (`ART_DIR`). Creatures die in a cartoon pratfall and fade away
+- Placeholder buildings, each with its own retro-futurist model (turning gears and dishes, pulsing
+  coils, chimney smoke, scaffolding while built); real art drops in at `assets/buildings/<id>.tscn`
+- Placeholder terrain: patchy ground, scattered grass, pebbles and flowers, rock outcrops, coal heaps
+  and rippling water; real art drops in at `assets/terrain/` (see `scripts/world/terrain_props.gd`)
 - Headless tests
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
