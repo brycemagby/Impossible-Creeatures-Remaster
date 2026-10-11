@@ -410,6 +410,14 @@ func take_damage(amount: float, source: Node3D = null, _ranged := false) -> void
 				unit.respond_to_attack(source)
 
 
+## A copy of this building's model for the HUD portrait, at the origin.
+func portrait_visual() -> Node3D:
+	var copy := Node3D.new()
+	copy.add_child(body.duplicate())
+	copy.add_child(team_band.duplicate())
+	return copy
+
+
 func is_alive() -> bool:
 	return not _dead
 

@@ -105,6 +105,7 @@ func _run() -> void:
 	await _test_idle_buildings()
 	await _test_cancel_queued_unit()
 	await _test_last_enemies_revealed()
+	await _test_unit_portrait()
 	await _test_queued_orders()
 	await _test_command_hotkeys()
 	await _test_rally_on_coal()
@@ -2491,6 +2492,27 @@ func _test_last_enemies_revealed() -> void:
 	_check(fog.is_exposed(1) and exposed == [1], "with no buildings and few creatures left, a team is exposed")
 	_check(fog.is_visible(0, hider.global_position) and hider.visible, "its last creatures can be seen anywhere")
 	_check(not fog.is_exposed(0), "the player, who still has buildings, isn't exposed")
+	await _unload(main)
+
+
+func _test_unit_portrait() -> void:
+	print("unit portrait")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var portrait: UnitPortrait = main.get_node("UI/HUD").portrait
+	await _process_frames(2)
+	_check(portrait.subject == null, "the portrait is empty with nothing selected")
+	var brute := _first(0, "Brute")
+	manager.select_units([brute])
+	await _process_frames(2)
+	_check(portrait.subject == brute, "selecting a creature shows it in the portrait")
+	var lab := _building(0, "Lab")
+	manager.select_building(lab)
+	await _process_frames(2)
+	_check(portrait.subject == lab, "selecting a building shows the building")
+	manager.select_units([])
+	await _process_frames(2)
+	_check(portrait.subject == null, "deselecting empties it again")
 	await _unload(main)
 
 

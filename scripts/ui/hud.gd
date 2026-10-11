@@ -40,6 +40,8 @@ var research_value: Label
 var speed_label: Label
 ## Brass-framed console along the bottom, behind the minimap, selection and commands.
 var console: Panel
+## The selected creature or building, turning in a brass porthole.
+var portrait: UnitPortrait
 ## On-screen controls help (F1 hides it).
 var help_panel: PanelContainer
 var command_panel: PanelContainer
@@ -97,6 +99,7 @@ func _process(delta: float) -> void:
 	speed_label.visible = not is_equal_approx(Engine.time_scale, 1.0)
 	speed_label.text = "Speed  %sx" % Engine.time_scale
 	selection_label.text = _describe_selection()
+	portrait.show_subject(_portrait_subject())
 	groups_label.text = _describe_groups()
 	_refresh_idle_button()
 	_refresh_type_bar()
@@ -175,6 +178,19 @@ func _describe_selection() -> String:
 	return "\n".join(lines)
 
 
+## What the portrait shows: the selected or inspected building or creature,
+## else the first selected unit.
+func _portrait_subject() -> Node3D:
+	if Creature.is_valid_target(selection_manager.selected_building):
+		return selection_manager.selected_building
+	if Creature.is_valid_target(selection_manager.inspected):
+		return selection_manager.inspected
+	for unit in selection_manager.selected:
+		if Creature.is_valid_target(unit):
+			return unit
+	return null
+
+
 func _refresh_type_bar() -> void:
 	var counts := {}
 	for unit in selection_manager.selected:
@@ -183,7 +199,7 @@ func _refresh_type_bar() -> void:
 	var context := str(counts) if counts.size() > 1 else ""
 	# Just under the text, whatever size the label's box is.
 	var text_height := selection_label.get_line_count() * selection_label.get_line_height()
-	type_bar.position = Vector2(16, selection_label.position.y + text_height + 8)
+	type_bar.position = Vector2(selection_label.position.x, selection_label.position.y + text_height + 8)
 	if context == _type_context:
 		return
 	_type_context = context
@@ -497,7 +513,7 @@ func _build_layout() -> void:
 	_build_help_panel()
 
 	type_bar = HFlowContainer.new()
-	type_bar.custom_minimum_size.x = 420
+	type_bar.custom_minimum_size.x = 440
 	type_bar.visible = false
 	add_child(type_bar)
 
@@ -572,32 +588,36 @@ func _build_layout() -> void:
 ## in the middle and the command panel on the right.
 func _build_console() -> void:
 	console = Panel.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = UiTheme.GLASS
-	style.border_color = UiTheme.BRASS
-	style.border_width_top = 3
-	style.shadow_color = Color(0, 0, 0, 0.5)
-	style.shadow_size = 8
-	console.add_theme_stylebox_override("panel", style)
+	console.add_theme_stylebox_override("panel", UiTheme.console_style())
 	console.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	console.offset_top = -CONSOLE_HEIGHT
 	# Clicks and drags still reach the world underneath, as before the console.
 	console.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(console)
 	move_child(console, 0)
-	# A cyan pin-stripe under the brass rim.
-	var stripe := ColorRect.new()
-	stripe.color = Color(UiTheme.GLOW, 0.35)
-	stripe.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	stripe.offset_top = 6
-	stripe.offset_bottom = 7
-	stripe.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	console.add_child(stripe)
-	# The selection readout lives in the console, between minimap and commands.
+	# The portrait porthole, then the selection readout, between minimap and commands.
+	portrait = UnitPortrait.new()
+	portrait.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	portrait.offset_left = 236
+	portrait.offset_top = -CONSOLE_HEIGHT + 34
+	portrait.offset_right = 236 + UnitPortrait.SIZE
+	portrait.offset_bottom = -CONSOLE_HEIGHT + 34 + UnitPortrait.SIZE
+	add_child(portrait)
+	move_child(portrait, 1)
+	# A riveted bezel behind the minimap.
+	var bezel := Panel.new()
+	bezel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	bezel.offset_left = 4
+	bezel.offset_top = -228
+	bezel.offset_right = 228
+	bezel.offset_bottom = -4
+	bezel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bezel)
+	move_child(bezel, 1)
 	selection_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	selection_label.offset_left = 244
-	selection_label.offset_right = 244 + 760
-	selection_label.offset_top = -CONSOLE_HEIGHT + 16
+	selection_label.offset_left = 428
+	selection_label.offset_right = 428 + 440
+	selection_label.offset_top = -CONSOLE_HEIGHT + 30
 	selection_label.offset_bottom = -8
 	selection_label.add_theme_font_size_override("font_size", 18)
 

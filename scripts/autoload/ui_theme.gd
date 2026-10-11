@@ -70,25 +70,27 @@ func build_theme() -> Theme:
 	t.default_font_size = 18
 
 	# Panels: smoked glass in a brass frame.
-	var panel := framed(GLASS, BRASS, 2)
-	panel.content_margin_left = 12
-	panel.content_margin_right = 12
-	panel.content_margin_top = 10
-	panel.content_margin_bottom = 10
+	# Panels: a heavy riveted brass bezel around dark glass (frame_panel.png).
+	var panel := textured("frame_panel", 26)
+	panel.content_margin_left = 18
+	panel.content_margin_right = 18
+	panel.content_margin_top = 14
+	panel.content_margin_bottom = 14
 	t.set_stylebox("panel", "PanelContainer", panel)
 	t.set_stylebox("panel", "Panel", panel)
 
 	# Buttons: dark glass plates; hover lights the valve glow.
-	var normal := framed(GLASS_LIGHT, BRASS_DARK, 2)
-	var hover := framed(Color(0.1, 0.24, 0.27, 0.97), GLOW, 2)
-	var pressed := framed(Color(0.14, 0.36, 0.38, 0.98), GLOW, 2)
-	var disabled := framed(Color(0.06, 0.08, 0.09, 0.85), Color(0.25, 0.22, 0.17), 1)
+	# Bevelled brass-rimmed plates; pressed ones sink and glow.
+	var normal := textured("button_normal", 12)
+	var hover := textured("button_hover", 12)
+	var pressed := textured("button_pressed", 12)
+	var disabled := textured("button_disabled", 12)
 	var focus := StyleBoxEmpty.new()
 	for style in [normal, hover, pressed, disabled]:
-		style.content_margin_left = 10
-		style.content_margin_right = 10
-		style.content_margin_top = 4
-		style.content_margin_bottom = 4
+		style.content_margin_left = 12
+		style.content_margin_right = 12
+		style.content_margin_top = 6
+		style.content_margin_bottom = 6
 	for type in ["Button", "OptionButton", "CheckBox", "CheckButton", "MenuButton"]:
 		t.set_stylebox("normal", type, normal)
 		t.set_stylebox("hover", type, hover)
@@ -168,11 +170,11 @@ func build_theme() -> Theme:
 	t.set_stylebox("grabber_area", "HSlider", slider_fill)
 	t.set_stylebox("grabber_area_highlight", "HSlider", slider_fill)
 	# Item lists (map picker, combiner): rows light up like valves.
-	var list := framed(Color(0.02, 0.05, 0.06, 0.92), BRASS_DARK, 1)
-	list.content_margin_left = 6
-	list.content_margin_right = 6
-	list.content_margin_top = 6
-	list.content_margin_bottom = 6
+	var list := textured("frame_panel", 26)
+	list.content_margin_left = 14
+	list.content_margin_right = 14
+	list.content_margin_top = 12
+	list.content_margin_bottom = 12
 	t.set_stylebox("panel", "ItemList", list)
 	t.set_stylebox("focus", "ItemList", StyleBoxEmpty.new())
 	var row_selected := framed(Color(0.12, 0.32, 0.34, 0.95), GLOW, 1, 4)
@@ -190,6 +192,30 @@ func build_theme() -> Theme:
 	t.set_stylebox("fill", "ProgressBar", bar_fill)
 	t.set_color("font_color", "ProgressBar", TEXT)
 	return t
+
+
+## A nine-sliced texture from assets/ui (painted by tools/generate_ui_textures.py);
+## [param margin] is the unstretched border in pixels.
+static func textured(texture_name: String, margin: int) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = load("res://assets/ui/%s.png" % texture_name)
+	style.texture_margin_left = margin
+	style.texture_margin_right = margin
+	style.texture_margin_top = margin
+	style.texture_margin_bottom = margin
+	return style
+
+
+## The bottom console strip: a riveted brass band over machined gunmetal,
+## repeated sideways.
+static func console_style() -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = load("res://assets/ui/console.png")
+	style.texture_margin_top = 20
+	style.texture_margin_bottom = 2
+	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+	return style
 
 
 ## A chamfered box: [param fill] inside a [param border]-coloured frame.

@@ -249,7 +249,11 @@ func _build_layout() -> void:
 	var middle := VBoxContainer.new()
 	middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(middle)
-	middle.add_child(_build_preview())
+	# The preview sits in a riveted frame like the HUD's panels.
+	var preview_frame := PanelContainer.new()
+	preview_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview_frame.add_child(_build_preview())
+	middle.add_child(preview_frame)
 	var parts := GridContainer.new()
 	parts.columns = 4
 	parts.add_theme_constant_override("h_separation", 8)

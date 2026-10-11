@@ -549,6 +549,14 @@ static func damage_after_armor(amount: float, armor_value: float) -> float:
 	return maxf(amount - armor_value, maxf(amount * (1.0 - MAX_ARMOR_BLOCK), 1.0))
 
 
+## A copy of this creature's model for the HUD portrait, at the origin.
+func portrait_visual() -> Node3D:
+	var copy: Node3D = (_model if _model else body).duplicate()
+	copy.position = Vector3(0, copy.position.y if copy == body else 0.0, 0)
+	copy.rotation = Vector3.ZERO
+	return copy
+
+
 func is_alive() -> bool:
 	return not _dead
 
