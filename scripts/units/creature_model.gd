@@ -36,7 +36,13 @@ var _wings: Array[Node3D] = []
 var _rig_ready := false
 var _body_height := 0.0
 var _aquatic := false
+var _hopper := false
+var _pitch := 0.0
 var _flying := false
+
+## Walking speed (m/s) to animate at when not on a creature, e.g. in a
+## preview; negative means stand still.
+var preview_speed := -1.0
 
 var _phase := 0.0
 var _time := 0.0
@@ -74,16 +80,33 @@ func build(design: CreatureDesign) -> void:
 	if back.back_leg_ability == AnimalData.Ability.LEAP:
 		back_length *= 1.15
 	var aquatic := front.swimming == AnimalData.Swimming.AQUATIC and back.swimming == AnimalData.Swimming.AQUATIC
+	# Birds stand on their two hind legs; kangaroo legs hop upright with the
+	# front legs held up off the ground.
+	var biped := CreatureParts.is_biped(front) and CreatureParts.is_biped(back)
+	var hopper := back.back_leg_ability == AnimalData.Ability.LEAP and not aquatic
 	var hip_y := -e.y * 0.25
 	var hip_z := e.z * 0.33
-	var height := maxf((front_length + back_length) / 2.0 - hip_y, e.y * 0.5 + 0.15)
+	var back_hip_z := e.z * 0.05 if biped else hip_z
+	var pitch := 0.0
+	var height := 0.0
+	if biped or hopper:
+		pitch = 0.3 if biped else 0.4
+		# Lift the body until the back feet touch the ground once tilted.
+		height = back_length - (hip_y * cos(pitch) - back_hip_z * sin(pitch))
+	elif not aquatic:
+		# Longer back legs tip the nose down, longer front legs lift it.
+		pitch = atan2(front_length - back_length, hip_z * 2.0)
+		height = (front_length + back_length) / 2.0 - hip_y
+	height = maxf(height, e.y * 0.5 + 0.15)
 	body.position.y = height
-	# Longer back legs tip the nose down, longer front legs lift it.
-	body.rotation.x = atan2(front_length - back_length, hip_z * 2.0) if not aquatic else 0.0
+	body.rotation.x = pitch
 	body.set_meta("height", height)
 	body.set_meta("aquatic", aquatic)
+	body.set_meta("hopper", hopper)
 
-	var legs := [[front, front_scale, front_length, -hip_z, true, "F"], [back, back_scale, back_length, hip_z, false, "B"]]
+	var legs := [[front, front_scale, front_length, -hip_z, true, "F"], [back, back_scale, back_length, back_hip_z, false, "B"]]
+	if biped:
+		legs.pop_front()
 	for entry: Array in legs:
 		var animal: AnimalData = entry[0]
 		for side: float in [-1.0, 1.0]:
@@ -91,6 +114,10 @@ func build(design: CreatureDesign) -> void:
 			hip.name = "Hip%s%s" % [entry[5], "L" if side < 0 else "R"]
 			hip.position = Vector3(side * e.x * 0.32, hip_y, entry[3])
 			hip.rotation.x = -body.rotation.x
+			if hopper and entry[4]:
+				# Front legs held up and forwards.
+				hip.rotation.x = 0.9 - body.rotation.x
+				hip.set_meta("tucked", true)
 			body.add_child(hip)
 			var length: float = entry[2]
 			var thickness: float = 0.08 * entry[1]
@@ -289,7 +316,7 @@ func _process(delta: float) -> void:
 		return
 	_time += delta
 	var creature := get_parent() as Creature
-	var speed := 0.0
+	var speed := maxf(preview_speed, 0.0)
 	if creature != null and creature.is_alive():
 		speed = Vector2(creature.velocity.x, creature.velocity.z).length() / maxf(scale.x, 0.1)
 		_flying = creature.stats.can_fly
@@ -299,10 +326,13 @@ func _process(delta: float) -> void:
 				sack.visible = creature.carried_coal > 0
 	# Ease in and out of the stride rather than snapping.
 	_stride = move_toward(_stride, clampf(speed / 2.5, 0.0, 1.0), delta * 4.0)
-	_phase = fmod(_phase + TAU * speed * STRIDES_PER_METRE * delta, TAU)
+	var rate := STRIDES_PER_METRE * (0.6 if _hopper else 1.0)
+	_phase = fmod(_phase + TAU * speed * rate * delta, TAU)
 
 	var breathe := sin(_time * 2.2) * 0.012
-	if _aquatic:
+	if _hopper:
+		_animate_hop(delta, breathe)
+	elif _aquatic:
 		_body.position.y = _body_height + sin(_time * 1.6) * 0.04
 		_body.rotation.y = sin(_time * 3.0 + _phase) * (0.06 + 0.1 * _stride)
 	else:
@@ -312,7 +342,7 @@ func _process(delta: float) -> void:
 	for i in _hips.size():
 		var hip := _hips[i]
 		var leg := hip.get_child(0) if hip.get_child_count() > 0 else null
-		if leg == null:
+		if leg == null or _hopper:
 			continue
 		# Trot: front-left with back-right, front-right with back-left.
 		var offset := 0.0 if i == 0 or i == 3 else PI
@@ -345,7 +375,8 @@ func _process(delta: float) -> void:
 	var wag := 0.25 + 0.2 * _stride
 	for i in _tail.size():
 		_tail[i].rotation.y = sin(_time * 2.6 - i * 0.7) * wag * (0.4 + i * 0.15)
-		_tail[i].rotation.x = _tail_rest[i] + sin(_time * 1.3 - i * 0.5) * 0.05
+		var balance := -cos(_phase) * 0.15 * _stride if _hopper else 0.0
+		_tail[i].rotation.x = _tail_rest[i] + sin(_time * 1.3 - i * 0.5) * 0.05 + balance
 
 	for wing in _wings:
 		var side := -1.0 if wing.name.ends_with("L") else 1.0
@@ -355,6 +386,27 @@ func _process(delta: float) -> void:
 			# Folded back along the body.
 			wing.rotation.z = side * -0.35
 			wing.rotation.y = side * -0.9
+
+
+## Kangaroo legs: both hind legs push off together and the body bounds along
+## in arcs, tail swinging to balance; the front legs stay tucked up.
+func _animate_hop(delta: float, breathe: float) -> void:
+	var air := maxf(0.0, sin(_phase))
+	_body.position.y = _body_height + air * 0.35 * _stride + breathe
+	_body.rotation.x = _pitch + cos(_phase) * 0.12 * _stride
+	for hip in _hips:
+		if hip.get_child_count() == 0:
+			continue
+		var leg := hip.get_child(0) as Node3D
+		var knee := leg.get_node_or_null("Knee") as Node3D
+		if hip.get_meta("tucked", false):
+			if knee != null and (_attack_tween == null or not _attack_tween.is_running()):
+				knee.rotation.x = lerpf(knee.rotation.x, 0.9, delta * 6.0)
+			continue
+		# Legs trail behind in the air and swing forwards to land.
+		leg.rotation.x = (-0.6 * air + 0.35 * cos(_phase)) * _stride
+		if knee != null:
+			knee.rotation.x = -(1.0 - air) * 0.5 * _stride
 
 
 func _resolve_rig() -> void:
@@ -367,6 +419,8 @@ func _resolve_rig() -> void:
 	_rig_ready = true
 	_body_height = _body.get_meta("height", _body.position.y)
 	_aquatic = _body.get_meta("aquatic", false)
+	_hopper = _body.get_meta("hopper", false)
+	_pitch = _body.rotation.x
 	_neck = _body.get_node_or_null("Neck") as Node3D
 	_hips.clear()
 	_wings.clear()

@@ -45,7 +45,7 @@ const ACCENTS := {
 const TORSO_SHAPES := {
 	"lion": Vector3(0.6, 0.55, 1.1), "cheetah": Vector3(0.5, 0.45, 1.15), "wolf": Vector3(0.52, 0.5, 1.05),
 	"eagle": Vector3(0.5, 0.5, 0.85), "elephant": Vector3(0.8, 0.75, 1.15), "rhino": Vector3(0.72, 0.65, 1.15),
-	"bison": Vector3(0.7, 0.65, 1.1), "gorilla": Vector3(0.75, 0.75, 0.85), "kangaroo": Vector3(0.55, 0.6, 0.9),
+	"bison": Vector3(0.7, 0.65, 1.1), "gorilla": Vector3(0.8, 0.75, 0.8), "kangaroo": Vector3(0.55, 0.6, 0.9),
 	"bat": Vector3(0.5, 0.45, 0.75), "crocodile": Vector3(0.65, 0.35, 1.3), "scorpion": Vector3(0.65, 0.3, 1.0),
 	"shark": Vector3(0.55, 0.6, 1.35), "electric_eel": Vector3(0.38, 0.4, 1.45), "porcupine": Vector3(0.6, 0.5, 0.9),
 	"skunk": Vector3(0.55, 0.45, 0.95), "chameleon": Vector3(0.45, 0.55, 0.95),
@@ -53,13 +53,13 @@ const TORSO_SHAPES := {
 
 ## Leg length per animal (lion: 0.55); a hybrid's body rests on its legs.
 const LEG_LENGTHS := {
-	"elephant": 0.7, "rhino": 0.55, "bison": 0.6, "cheetah": 0.62, "wolf": 0.58, "gorilla": 0.6,
+	"elephant": 0.7, "rhino": 0.55, "bison": 0.6, "cheetah": 0.62, "wolf": 0.58, "gorilla": 0.42,
 	"kangaroo": 0.62, "crocodile": 0.32, "scorpion": 0.35, "porcupine": 0.38, "skunk": 0.38,
 	"chameleon": 0.42, "bat": 0.4, "eagle": 0.5,
 }
 
 ## Front legs relative to back legs, where they differ (kangaroo arms are short).
-const FRONT_LEG_FACTORS := {"kangaroo": 0.75, "gorilla": 1.1}
+const FRONT_LEG_FACTORS := {"kangaroo": 0.75, "gorilla": 1.55}
 
 var model: CreatureModel
 
@@ -82,6 +82,11 @@ static func leg_length(animal: AnimalData, front := false) -> float:
 	return length * FRONT_LEG_FACTORS.get(id_of(animal), 1.0) if front else length
 
 
+## Animals that stand on two legs (birds).
+static func is_biped(animal: AnimalData) -> bool:
+	return id_of(animal) == "eagle"
+
+
 static func torso_shape(animal: AnimalData) -> Vector3:
 	return TORSO_SHAPES.get(id_of(animal), Vector3(0.6, 0.55, 1.1))
 
@@ -101,7 +106,12 @@ func torso(animal: AnimalData) -> Node3D:
 	var c := animal.color
 	var a := accent(animal)
 	match id:
-		"elephant", "rhino", "gorilla", "porcupine", "skunk", "bat":
+		"gorilla":
+			# A huge barrel chest and shoulders tapering to small hips.
+			ellipsoid(root, Vector3(e.x * 1.1, e.y * 1.05, e.z * 0.7), Vector3(0, e.y * 0.08, -e.z * 0.18), c)
+			ellipsoid(root, Vector3(e.x * 1.25, e.y * 0.55, e.z * 0.45), Vector3(0, e.y * 0.3, -e.z * 0.28), c)
+			ellipsoid(root, Vector3(e.x * 0.75, e.y * 0.7, e.z * 0.5), Vector3(0, -e.y * 0.08, e.z * 0.25), c)
+		"elephant", "rhino", "porcupine", "skunk", "bat":
 			ellipsoid(root, e * Vector3(1.0, 1.0, 1.0), Vector3.ZERO, c)
 		"shark", "electric_eel":
 			ellipsoid(root, e, Vector3.ZERO, c)
@@ -114,13 +124,8 @@ func torso(animal: AnimalData) -> Node3D:
 		"lion":
 			ellipsoid(root, Vector3(e.x * 0.7, e.y * 0.4, e.z * 0.7), Vector3(0, -e.y * 0.3, 0), a.lightened(0.6))
 		"cheetah":
-			var rng := RandomNumberGenerator.new()
-			rng.seed = 7
-			for i in 14:
-				var side := -1.0 if i % 2 == 0 else 1.0
-				var at := Vector3(side * e.x * rng.randf_range(0.32, 0.46), rng.randf_range(-0.1, 0.4) * e.y,
-						rng.randf_range(-0.42, 0.42) * e.z)
-				ellipsoid(root, Vector3(0.07, 0.07, 0.07), at, BLACK)
+			spots(root, Vector3(e.x, e.y, e.z * 0.62), Vector3(0, 0.02, -e.z * 0.2), 12, 0.075, 7)
+			spots(root, Vector3(e.x * 0.92, e.y * 0.92, e.z * 0.6), Vector3(0, 0, e.z * 0.2), 12, 0.075, 8)
 		"wolf":
 			ellipsoid(root, Vector3(e.x * 1.1, e.y * 1.05, e.z * 0.35), Vector3(0, 0.03, -e.z * 0.33), a)
 		"eagle":
@@ -131,7 +136,9 @@ func torso(animal: AnimalData) -> Node3D:
 		"bison":
 			ellipsoid(root, Vector3(e.x * 1.05, e.y * 0.9, e.z * 0.55), Vector3(0, e.y * 0.35, -e.z * 0.18), a)
 		"gorilla":
-			ellipsoid(root, Vector3(e.x * 0.7, e.y * 0.6, e.z * 0.3), Vector3(0, -0.02, -e.z * 0.4), a)
+			# Silverback saddle and a leathery chest.
+			ellipsoid(root, Vector3(e.x * 0.8, e.y * 0.35, e.z * 0.7), Vector3(0, e.y * 0.38, e.z * 0.08), Color(0.62, 0.62, 0.64))
+			ellipsoid(root, Vector3(e.x * 0.6, e.y * 0.5, e.z * 0.2), Vector3(0, 0.0, -e.z * 0.5), a)
 		"kangaroo":
 			ellipsoid(root, Vector3(e.x * 0.6, e.y * 0.5, e.z * 0.3), Vector3(0, -e.y * 0.2, -e.z * 0.38), a)
 		"crocodile", "chameleon":
@@ -186,6 +193,7 @@ func head(animal: AnimalData) -> Node3D:
 			_ears(root, c, 0.08, 0.17, 0.18, false)
 		"cheetah":
 			_skull(root, c, 0.32, 0.34)
+			spots(root, Vector3(0.32, 0.3, 0.34), Vector3(0, 0, -0.12), 6, 0.035, 5)
 			_muzzle(root, a, Vector3(0.17, 0.12, 0.16), -0.26)
 			_ears(root, c, 0.06, 0.13, 0.14, false)
 			for side in [-1.0, 1.0]:
@@ -228,9 +236,17 @@ func head(animal: AnimalData) -> Node3D:
 				var horn := cone(root, 0.05, 0.22, Vector3(side * 0.22, 0.14, -0.1), IVORY)
 				horn.rotation_degrees = Vector3(0, 0, -side * 70.0)
 		"gorilla":
-			_skull(root, c, 0.4, 0.42)
-			ellipsoid(root, Vector3(0.28, 0.24, 0.12), Vector3(0, -0.05, -0.19), a)
-			box(root, Vector3(0.3, 0.06, 0.1), Vector3(0, 0.06, -0.17), c)
+			_skull(root, c, 0.4, 0.4)
+			# A tall crest, a heavy brow, a broad leathery face and big nostrils.
+			ellipsoid(root, Vector3(0.22, 0.26, 0.3), Vector3(0, 0.17, -0.05), c)
+			ellipsoid(root, Vector3(0.36, 0.1, 0.14), Vector3(0, 0.07, -0.25), c.darkened(0.2))
+			ellipsoid(root, Vector3(0.3, 0.26, 0.16), Vector3(0, -0.07, -0.24), a)
+			ellipsoid(root, Vector3(0.24, 0.12, 0.14), Vector3(0, -0.11, -0.3), a.darkened(0.15))
+			for side in [-1.0, 1.0]:
+				ellipsoid(root, Vector3(0.05, 0.04, 0.03), Vector3(side * 0.04, -0.06, -0.37), BLACK)
+				ellipsoid(root, Vector3(0.06, 0.08, 0.05), Vector3(side * 0.2, 0.0, -0.08), a)
+			_eyes(root, 0.08, 0.04, -0.3, 0.02)
+			return root
 		"kangaroo":
 			_skull(root, c, 0.28, 0.3)
 			var snout := ellipsoid(root, Vector3(0.14, 0.13, 0.26), Vector3(0, -0.04, -0.2), c.lightened(0.1))
@@ -361,8 +377,10 @@ func leg(animal: AnimalData, length: float, thickness: float, front: bool, side 
 	match id:
 		"elephant", "rhino":
 			t *= 1.7
-		"bison", "gorilla":
+		"bison":
 			t *= 1.35
+		"gorilla":
+			t *= 1.7 if front else 1.25
 		"eagle", "bat", "chameleon", "scorpion":
 			t *= 0.6
 	# Upper leg: a thigh tapering to the knee.
@@ -370,6 +388,8 @@ func leg(animal: AnimalData, length: float, thickness: float, front: bool, side 
 	if id == "cheetah" or id == "lion":
 		thigh_color = c.darkened(0.05)
 	ellipsoid(root, Vector3(t * 2.6, upper * 1.25, t * 2.8), Vector3(0, -upper * 0.42, 0), thigh_color)
+	if id == "cheetah":
+		spots(root, Vector3(t * 2.6, upper * 1.25, t * 2.8), Vector3(0, -upper * 0.42, 0), 5, 0.045, 11 if front else 12)
 	var knee := Node3D.new()
 	knee.name = "Knee"
 	knee.position = Vector3(0, -upper, 0)
@@ -394,9 +414,15 @@ func leg(animal: AnimalData, length: float, thickness: float, front: bool, side 
 			if front:
 				_pincer(knee, lower, c, accent(animal))
 		"gorilla":
-			cylinder(knee, t, lower, Vector3(0, -lower / 2.0, 0), c)
-			ellipsoid(knee, Vector3(t * 2.6, t * 1.6, t * 2.8), Vector3(0, -lower + t * 0.6, -t * 0.4),
-					c if not front else accent(animal))
+			if front:
+				# Thick forearms down to knuckles planted on the ground.
+				ellipsoid(knee, Vector3(t * 2.2, lower * 1.1, t * 2.3), Vector3(0, -lower * 0.48, 0), c)
+				ellipsoid(knee, Vector3(t * 2.4, t * 1.5, t * 2.0), Vector3(0, -lower + t * 0.7, -t * 0.3), accent(animal).darkened(0.2))
+				for i in 4:
+					ellipsoid(knee, Vector3.ONE * t * 0.7, Vector3((i - 1.5) * t * 0.55, -lower + t * 0.3, -t * 0.9), accent(animal).darkened(0.3))
+			else:
+				cylinder(knee, t * 0.9, lower, Vector3(0, -lower / 2.0, 0), c)
+				ellipsoid(knee, Vector3(t * 2.4, t * 1.2, t * 3.2), Vector3(0, -lower + t * 0.5, -t * 0.6), accent(animal).darkened(0.2))
 		"kangaroo":
 			cylinder(knee, t * 0.9, lower, Vector3(0, -lower / 2.0, 0), c)
 			if not front:
@@ -592,6 +618,22 @@ func wing(animal: AnimalData, span: float, side: float) -> Node3D:
 
 
 # --- Shape helpers ------------------------------------------------------------
+
+## Flat round markings scattered over the upper sides of an ellipsoid of
+## [param size] (full widths) centred at [param centre], lying on its surface.
+func spots(parent: Node3D, size: Vector3, centre: Vector3, count: int, diameter: float, seed_value: int,
+		color := BLACK) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var semi := size / 2.0
+	for i in count:
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var dir := Vector3(side * rng.randf_range(0.35, 1.0), rng.randf_range(-0.15, 0.9), rng.randf_range(-0.8, 0.8)).normalized()
+		var normal := Vector3(dir.x / semi.x, dir.y / semi.y, dir.z / semi.z).normalized()
+		var at := centre + dir * semi + normal * 0.004
+		var spot := ellipsoid(parent, Vector3(diameter, diameter, diameter * 0.12) * rng.randf_range(0.75, 1.2), at, color)
+		var up := Vector3.UP if absf(normal.y) < 0.95 else Vector3.FORWARD
+		spot.basis = Basis.looking_at(normal, up) * Basis.from_scale(spot.scale)
 
 func ellipsoid(parent: Node3D, size: Vector3, at: Vector3, color: Color, glow := false) -> MeshInstance3D:
 	var mesh := SphereMesh.new()
