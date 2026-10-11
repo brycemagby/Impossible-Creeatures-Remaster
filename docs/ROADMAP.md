@@ -86,6 +86,12 @@ Follow-ups:
 - Shared animation set (idle, walk, attack, death) that works on hybrid bodies
 - Low-poly stylised art direction that's achievable for a small team
 
+First pass ✅ (placeholder art): every animal has its own head, torso, legs and tail built from
+low-poly shapes (`scripts/units/creature_parts.gd`) on a simple rig (hips, knees, neck, tail
+segments, wing shoulders), animated in code so any hybrid trots, idles, flaps, swims and bites.
+Henchmen are little workers in team-coloured overalls. Real art drops in per part at
+`assets/creatures/<animal>/<torso|head|leg|tail|wing>.tscn` (or .glb) without code changes.
+
 ## M6 — Skirmish ✅
 Fog of war (per team, the AI included), minimap with camera jump and orders, a smarter AI (defends,
 attacks scouted targets or the likely enemy base, growing waves, rebuilds), Easy/Normal/Hard, a

@@ -211,6 +211,8 @@ func _ready() -> void:
 	_apply_team_color()
 	if stats.design != null:
 		_build_model()
+	elif self is Henchman:
+		_build_henchman_model()
 	_visual = _model if _model else body
 	if stats.can_fly:
 		# Flyers pass over rocks and buildings.
@@ -1109,9 +1111,19 @@ func _flash() -> void:
 
 
 func _lunge() -> void:
+	if _model:
+		_model.attack()
 	var tween := create_tween()
 	tween.tween_property(_visual, "position:z", -0.3 * stats.size, 0.08)
 	tween.tween_property(_visual, "position:z", 0.0, 0.15)
+
+
+func _build_henchman_model() -> void:
+	body.visible = false
+	_model = CreatureModel.new()
+	_model.scale = Vector3.ONE * stats.size
+	add_child(_model)
+	_model.build_henchman(_material)
 
 
 func _build_model() -> void:

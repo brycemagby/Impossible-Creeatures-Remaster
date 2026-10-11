@@ -123,6 +123,7 @@ func _run() -> void:
 	await _test_patrol()
 	await _test_stances()
 	await _test_sounds()
+	await _test_creature_models()
 	await _test_focus_fire()
 	await _test_combiner_screen()
 	await _test_main_menu()
@@ -2914,6 +2915,36 @@ func _test_sounds() -> void:
 	hud.pause_menu.volume_slider.value = 0.5
 	_check(is_equal_approx(Sfx.volume, 0.5), "the pause menu's slider sets the volume")
 	Sfx.volume = 1.0
+	await _unload(main)
+
+
+func _test_creature_models() -> void:
+	print("creature models")
+	var main := await _load_map()
+	var stats := CreatureCombiner.build_stats(Armies.default_designs()[0])
+	var walker := _spawn(main, stats, 0, Vector3(0, 0, 0))
+	await _physics_frames(2)
+	var model := walker.find_children("*", "CreatureModel", false, false)[0] as CreatureModel
+	var body := model.get_node_or_null("Rig/Body")
+	_check(body != null and body.has_node("Neck") and body.has_node("HipFL") and body.has_node("HipBR") and body.has_node("TailBase"),
+			"hybrid models have a rig: neck, four hips and a tail")
+	var leg := body.get_node("HipFL").get_child(0) as Node3D
+	var henchman := _first(0, "Henchman")
+	_isolate([walker, henchman])
+	walker.command_move(walker.global_position + Vector3(8, 0, 0))
+	var swung := false
+	for i in 40:
+		await _physics_frames(1)
+		swung = swung or absf(leg.rotation.x) > 0.1
+	_check(swung, "legs swing while walking")
+	var worker := henchman.find_children("*", "CreatureModel", false, false)
+	_check(worker.size() == 1 and worker[0].has_node("Rig/Body/Neck") and not henchman.body.visible,
+			"Henchmen get a worker model instead of the capsule")
+	var copy := walker.portrait_visual()
+	add_child(copy)
+	await _process_frames(2)
+	_check(copy.get_node_or_null("Rig/Body") != null, "the portrait copy keeps the rig")
+	copy.queue_free()
 	await _unload(main)
 
 
