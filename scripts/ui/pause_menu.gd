@@ -8,6 +8,7 @@ const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 const SPEEDS := [0.5, 1.0, 1.5, 2.0]
 
 var _speed_buttons: Array[Button] = []
+var volume_slider: HSlider
 
 
 func _ready() -> void:
@@ -59,6 +60,19 @@ func _ready() -> void:
 		button.pressed.connect(set_speed.bind(speed))
 		speeds.add_child(button)
 		_speed_buttons.append(button)
+
+	var volume_label := Label.new()
+	volume_label.text = "Sound volume"
+	UiTheme.style_heading(volume_label)
+	column.add_child(volume_label)
+	volume_slider = HSlider.new()
+	volume_slider.min_value = 0.0
+	volume_slider.max_value = 1.0
+	volume_slider.step = 0.05
+	volume_slider.value = Sfx.volume
+	volume_slider.focus_mode = Control.FOCUS_NONE
+	volume_slider.value_changed.connect(func(value: float) -> void: Sfx.volume = value)
+	column.add_child(volume_slider)
 	_button(column, "Quit to main menu", quit_to_menu)
 
 

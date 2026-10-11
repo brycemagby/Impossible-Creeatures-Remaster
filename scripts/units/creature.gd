@@ -918,8 +918,10 @@ func _perform_attack(target: Node3D) -> void:
 		get_tree().current_scene.add_child(projectile)
 		var muzzle := global_position + Vector3.UP * center_height() * 1.2
 		projectile.launch(muzzle, target, stats.attack_damage, self, stats.projectile_speed)
+		Sfx.play_at("shoot", muzzle, Sfx.voice_pitch(self))
 	else:
 		deal_hit(target)
+		Sfx.play_at("hit", global_position, Sfx.voice_pitch(self))
 		_lunge()
 
 
@@ -934,6 +936,7 @@ func _lose_health(amount: float) -> void:
 
 func _die() -> void:
 	_dead = true
+	Sfx.play_at("death", global_position, Sfx.voice_pitch(self))
 	remove_from_group("units")
 	remove_from_group("targets")
 	set_physics_process(false)

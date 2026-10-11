@@ -122,6 +122,7 @@ func _run() -> void:
 	await _test_hold_position()
 	await _test_patrol()
 	await _test_stances()
+	await _test_sounds()
 	await _test_focus_fire()
 	await _test_combiner_screen()
 	await _test_main_menu()
@@ -2888,6 +2889,31 @@ func _test_stances() -> void:
 	await _physics_frames(150)
 	_check(guard.attack_target == shooter and _flat(guard.global_position - post) > guard.stats.leash_range,
 			"an aggressive creature chases past its leash")
+	await _unload(main)
+
+
+func _test_sounds() -> void:
+	print("sounds")
+	for sound: String in Sfx.SOUNDS:
+		for file: String in Sfx.SOUNDS[sound]:
+			_check(ResourceLoader.exists(Sfx.DIR + file + ".wav"), "sound file %s exists" % file)
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var brute := _first(0, "Brute")
+	Sfx.last_played = ""
+	manager.select_units([brute])
+	_check(Sfx.last_played == "select", "selecting a creature makes it talk")
+	await _physics_frames(20)
+	manager.issue_move(brute.global_position + Vector3(4, 0, 0))
+	_check(Sfx.last_played == "move", "a move order gets a reply")
+	_check(Sfx.voice_pitch(_first(0, "Henchman")) > Sfx.voice_pitch(brute) or brute.stats.size <= 1.0,
+			"bigger creatures have deeper voices")
+	var hud := main.get_node("UI/HUD")
+	hud.show_error("nope")
+	_check(Sfx.last_played == "error", "errors go bwomp")
+	hud.pause_menu.volume_slider.value = 0.5
+	_check(is_equal_approx(Sfx.volume, 0.5), "the pause menu's slider sets the volume")
+	Sfx.volume = 1.0
 	await _unload(main)
 
 

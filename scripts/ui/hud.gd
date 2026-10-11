@@ -84,8 +84,9 @@ func _ready() -> void:
 	_build_layout()
 	game_rules.game_over.connect(_on_game_over)
 	selection_manager.menu_requested.connect(pause_menu.open)
-	selection_manager.message.connect(show_message)
+	selection_manager.message.connect(show_error)
 	Alerts.raised.connect(_on_alert)
+	Sfx.player_team = selection_manager.player_team
 	_connect_fog.call_deferred()
 
 
@@ -141,6 +142,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func show_message(text: String) -> void:
 	message_label.text = text
 	_message_timer = MESSAGE_TIME
+
+
+## A message for something the player can't do, with a deflated "bwomp".
+func show_error(text: String) -> void:
+	show_message(text)
+	Sfx.play("error")
 
 
 # --- Selection text -----------------------------------------------------------
@@ -474,7 +481,7 @@ func _recipe_tooltip(recipe: UnitRecipe) -> String:
 func _on_upgrade_pressed(building: Building, upgrade: UpgradeData) -> void:
 	var error := building.start_upgrade(upgrade)
 	if error != "":
-		show_message(error)
+		show_error(error)
 
 
 func _owned_upgrades(team: int) -> int:
@@ -492,14 +499,14 @@ func _warn_if_population_blocked(team: int) -> void:
 			blocked = true
 			break
 	if blocked and not _was_blocked:
-		show_message("Need more Houses (population %d / %d)" % [Population.used(team), Population.cap(team)])
+		show_error("Need more Houses (population %d / %d)" % [Population.used(team), Population.cap(team)])
 	_was_blocked = blocked
 
 
 func _on_research_pressed(building: Building) -> void:
 	var error := building.start_research()
 	if error != "":
-		show_message(error)
+		show_error(error)
 
 
 func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:
@@ -509,7 +516,7 @@ func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:
 		var error := building.enqueue(recipe)
 		if error != "":
 			if queued == 0:
-				show_message(error)
+				show_error(error)
 			break
 		queued += 1
 
@@ -517,10 +524,12 @@ func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:
 func _on_alert(team: int, text: String, _where: Vector3) -> void:
 	if team == selection_manager.player_team:
 		show_message(text + "  (Space to look)")
+		Sfx.play("alert")
 
 
 func _on_game_over(winner: int) -> void:
 	end_screen.show_results(winner, selection_manager.player_team)
+	Sfx.play("victory" if winner == Teams.alliance(selection_manager.player_team) else "defeat")
 
 
 func _cost_text(coal: int, electricity: int) -> String:

@@ -47,7 +47,8 @@ Follow-ups:
 - AoE2-style QoL ✅: population and Houses, Research Center, split melee/ranged armor, idle
   Henchman key, under-attack alerts, select-all-of-type, Shift-queued orders, command hotkeys,
   Shift + click to make 5, rally on coal. Idle-building
-  indicator ✅. Still open: unit stances
+  indicator ✅. Unit stances ✅ (aggressive, defensive, stand ground)
+- Placeholder sound ✅: goofy synthesised voices and effects (`tools/generate_sounds.py`)
 - Minimap ✅ (M6)
 
 ## M4 — The creature combiner ✅
