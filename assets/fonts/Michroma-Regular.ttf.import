@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://bw7qhcb0rdtmr"
-path="res://.godot/imported/Rajdhani-SemiBold.ttf-19948f0a2fa0c8d6ca5b03ec3ce35d07.fontdata"
+uid="uid://qsfoeqmh7s57"
+path="res://.godot/imported/Michroma-Regular.ttf-928de7d8513fc5249047ef3681175fc2.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/Rajdhani-SemiBold.ttf"
-dest_files=["res://.godot/imported/Rajdhani-SemiBold.ttf-19948f0a2fa0c8d6ca5b03ec3ce35d07.fontdata"]
+source_file="res://assets/fonts/Michroma-Regular.ttf"
+dest_files=["res://.godot/imported/Michroma-Regular.ttf-928de7d8513fc5249047ef3681175fc2.fontdata"]
 
 [params]
 

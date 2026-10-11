@@ -26,9 +26,23 @@ const DANGER := Color(0.98, 0.38, 0.3)
 ## Full-screen backdrop for menus.
 const BACKDROP := Color(0.03, 0.06, 0.07)
 
-const TITLE_FONT := preload("res://assets/fonts/Federo-Regular.ttf")
-const BODY_FONT := preload("res://assets/fonts/Rajdhani-SemiBold.ttf")
-const BOLD_FONT := preload("res://assets/fonts/Rajdhani-Bold.ttf")
+# --- Fonts --------------------------------------------------------------------
+# Free (SIL OFL) stand-ins for the intended commercial faces:
+#   titles and logos  Cinzel Bold        for Copperplate Gothic Bold
+#   headings          Michroma           for Microgramma
+#   body and buttons  Saira SemiBold     for Eurostile
+# Licensed fonts dropped into assets/fonts/licensed/ as title, heading or body
+# (.ttf or .otf) replace these automatically; that folder isn't committed.
+const LICENSED_DIR := "res://assets/fonts/licensed/"
+const CINZEL := preload("res://assets/fonts/Cinzel.ttf")
+const MICHROMA := preload("res://assets/fonts/Michroma-Regular.ttf")
+const SAIRA := preload("res://assets/fonts/Saira.ttf")
+
+var title_font: Font
+var heading_font: Font
+var body_font: Font
+## Numbers on the resource gauges.
+var bold_font: Font
 
 ## Chamfer size (corners cut at 45 degrees).
 const CUT := 7
@@ -37,18 +51,22 @@ var theme: Theme
 
 
 func _enter_tree() -> void:
+	title_font = _licensed("title", _weighted(CINZEL, 800))
+	heading_font = _licensed("heading", MICHROMA)
+	body_font = _licensed("body", _weighted(SAIRA, 600))
+	bold_font = _licensed("body", _weighted(SAIRA, 700))
 	theme = build_theme()
 	# Merged into the engine's default theme rather than set on the root
 	# window: a window's theme doesn't reach Controls under a CanvasLayer
 	# (the in-game HUD), but the default theme is everyone's fallback.
 	ThemeDB.get_default_theme().merge_with(theme)
-	ThemeDB.get_default_theme().default_font = BODY_FONT
+	ThemeDB.get_default_theme().default_font = body_font
 	ThemeDB.get_default_theme().default_font_size = 18
 
 
 func build_theme() -> Theme:
 	var t := Theme.new()
-	t.default_font = BODY_FONT
+	t.default_font = body_font
 	t.default_font_size = 18
 
 	# Panels: smoked glass in a brass frame.
@@ -188,8 +206,8 @@ static func framed(fill: Color, border: Color, width := 2, cut := CUT) -> StyleB
 
 
 ## Styles [param label] as a title: deco capitals in brass with a soft glow.
-static func style_title(label: Label, size := 48) -> void:
-	label.add_theme_font_override("font", TITLE_FONT)
+func style_title(label: Label, size := 48) -> void:
+	label.add_theme_font_override("font", title_font)
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", BRASS)
 	label.add_theme_color_override("font_shadow_color", Color(GLOW, 0.35))
@@ -200,8 +218,26 @@ static func style_title(label: Label, size := 48) -> void:
 	label.text = label.text.to_upper()
 
 
-## A section heading: small, bold and glowing.
-static func style_heading(label: Label, size := 16) -> void:
-	label.add_theme_font_override("font", BOLD_FONT)
+## A section heading: small, wide, glowing capitals.
+func style_heading(label: Label, size := 16) -> void:
+	label.add_theme_font_override("font", heading_font)
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", GLOW)
+	# Microgramma-style headings read best in capitals (display only; text is unchanged).
+	label.uppercase = true
+
+
+## A variable font at a given weight (100 thin to 900 black).
+static func _weighted(font: FontFile, weight: int) -> FontVariation:
+	var variation := FontVariation.new()
+	variation.base_font = font
+	variation.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): weight}
+	return variation
+
+
+## The licensed font for [param role] if one was dropped in, else [param fallback].
+func _licensed(role: String, fallback: Font) -> Font:
+	for extension in [".ttf", ".otf"]:
+		if ResourceLoader.exists(LICENSED_DIR + role + extension):
+			return load(LICENSED_DIR + role + extension)
+	return fallback

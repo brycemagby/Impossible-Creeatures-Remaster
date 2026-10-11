@@ -5,3 +5,7 @@
 # Exports
 /build/
 *.tmp
+
+# Commercial fonts dropped in locally (see assets/fonts/licensed/README.md)
+/assets/fonts/licensed/*
+!/assets/fonts/licensed/README.md

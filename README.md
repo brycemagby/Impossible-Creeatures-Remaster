@@ -6,9 +6,11 @@ A fan remake of Relic Entertainment's *Impossible Creatures* (2003), built in **
 > Relic Entertainment, Microsoft, or THQ Nordic. No original game assets are included; all art
 > and audio in this repository are original placeholders.
 >
-> Fonts: [Federo](https://fonts.google.com/specimen/Federo) and
-> [Rajdhani](https://fonts.google.com/specimen/Rajdhani), both under the SIL Open Font License
-> (licences in `assets/fonts/`).
+> Fonts: [Cinzel](https://fonts.google.com/specimen/Cinzel),
+> [Michroma](https://fonts.google.com/specimen/Michroma) and
+> [Saira](https://fonts.google.com/specimen/Saira), all under the SIL Open Font License (licences in
+> `assets/fonts/`). They stand in for Copperplate Gothic Bold, Microgramma and Eurostile; see
+> `assets/fonts/licensed/README.md` to use licensed copies of those instead.
 
 ![Hybrids fighting](docs/screenshot.png)
 

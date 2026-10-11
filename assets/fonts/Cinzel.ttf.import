@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://kexhuxok2k2i"
-path="res://.godot/imported/Rajdhani-Bold.ttf-ea69f988f763daf406e34905eff3a731.fontdata"
+uid="uid://divn1gn0cb4dm"
+path="res://.godot/imported/Cinzel.ttf-1e003c02bd9f5caf99829299b24c9916.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/Rajdhani-Bold.ttf"
-dest_files=["res://.godot/imported/Rajdhani-Bold.ttf-ea69f988f763daf406e34905eff3a731.fontdata"]
+source_file="res://assets/fonts/Cinzel.ttf"
+dest_files=["res://.godot/imported/Cinzel.ttf-1e003c02bd9f5caf99829299b24c9916.fontdata"]
 
 [params]
 

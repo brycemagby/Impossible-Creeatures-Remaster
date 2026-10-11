@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://bojn7jqh1pmho"
-path="res://.godot/imported/Federo-Regular.ttf-df84ac57e695fb300d19af9972ee2c3a.fontdata"
+uid="uid://dmkay50mq05vy"
+path="res://.godot/imported/Saira.ttf-36935d665899663006e89e28bf9c9c7d.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/Federo-Regular.ttf"
-dest_files=["res://.godot/imported/Federo-Regular.ttf-df84ac57e695fb300d19af9972ee2c3a.fontdata"]
+source_file="res://assets/fonts/Saira.ttf"
+dest_files=["res://.godot/imported/Saira.ttf-36935d665899663006e89e28bf9c9c7d.fontdata"]
 
 [params]
 

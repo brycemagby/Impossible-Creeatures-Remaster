@@ -636,7 +636,7 @@ func _gauge(row: HBoxContainer, icon: String, tooltip: String) -> Label:
 	row.add_child(picture)
 	var value := Label.new()
 	value.custom_minimum_size.x = 64
-	value.add_theme_font_override("font", UiTheme.BOLD_FONT)
+	value.add_theme_font_override("font", UiTheme.bold_font)
 	value.add_theme_font_size_override("font_size", 22)
 	row.add_child(value)
 	return value
