@@ -341,13 +341,16 @@ func _trunk(root: Node3D, color: Color) -> void:
 
 ## A leg hanging from the hip, [param length] long. [param front] picks the
 ## front variant where animals differ (pincers, gorilla arms, kangaroo feet).
-func leg(animal: AnimalData, length: float, thickness: float, front: bool) -> Node3D:
+func leg(animal: AnimalData, length: float, thickness: float, front: bool, side := 1.0) -> Node3D:
 	var id := id_of(animal)
 	var root := Node3D.new()
 	root.name = "Leg"
 	var c := animal.color
 	var upper := length * 0.5
 	var t := thickness
+	if id == "scorpion":
+		_scorpion_legs(root, animal, length, thickness / 0.08, front, side)
+		return root
 	if animal.swimming == AnimalData.Swimming.AQUATIC:
 		var fin := ellipsoid(root, Vector3(0.36, 0.05, 0.22) * t / 0.08, Vector3(0.12, 0, 0), c.darkened(0.1))
 		fin.rotation_degrees.z = -25.0
@@ -410,6 +413,60 @@ func leg(animal: AnimalData, length: float, thickness: float, front: bool) -> No
 			# A paw.
 			ellipsoid(knee, Vector3(t * 2.2, t * 1.2, t * 2.8), Vector3(0, -lower + t * 0.5, -t * 0.5), c.darkened(0.08))
 	return root
+
+
+## Arachnid legs splayed out to the side: each rises from the body to a high
+## knee, then reaches down and out to the ground. The back pair of hips
+## carries three legs a side; the front pair carries a pincer arm and one leg.
+## Each leg is a "Splay" pivot (its rest yaw in meta) that CreatureModel
+## sweeps forwards and back.
+func _scorpion_legs(root: Node3D, animal: AnimalData, length: float, s: float, front: bool, side: float) -> void:
+	root.set_meta("splay", true)
+	var c := animal.color
+	var joint_color := accent(animal)
+	var fans: Array[float] = [-25.0]
+	if not front:
+		fans.assign([-5.0, 15.0, 35.0])
+	for i in fans.size():
+		var pivot := Node3D.new()
+		pivot.name = "Splay%d" % i
+		pivot.position = Vector3(0, 0, (i - (fans.size() - 1) / 2.0) * 0.13 * s)
+		# Positive yaw turns a +X leg backwards; mirror for the left side.
+		var yaw := deg_to_rad(fans[i]) * side
+		pivot.rotation.y = yaw
+		pivot.set_meta("rest_yaw", yaw)
+		root.add_child(pivot)
+		var knee := Vector3(side * 0.24 * s, 0.16 * s, 0)
+		var foot := Vector3(side * 0.42 * s, -length, 0)
+		_limb(pivot, Vector3.ZERO, knee, 0.03 * s, c)
+		ellipsoid(pivot, Vector3.ONE * 0.07 * s, knee, joint_color)
+		_limb(pivot, knee, foot, 0.022 * s, c)
+	if front:
+		# The pincer arm reaches forwards, raised off the ground.
+		var arm := Node3D.new()
+		arm.name = "Knee"
+		root.add_child(arm)
+		arm.scale = Vector3.ONE * s
+		var elbow := Vector3(side * 0.2, 0.08, -0.12)
+		var wrist := Vector3(side * 0.16, 0.06, -0.36)
+		_limb(arm, Vector3.ZERO, elbow, 0.045, c)
+		ellipsoid(arm, Vector3.ONE * 0.09, elbow, joint_color)
+		_limb(arm, elbow, wrist, 0.04, c)
+		var claw := Node3D.new()
+		claw.name = "Pincer"
+		claw.position = wrist + Vector3(0, 0, -0.08)
+		arm.add_child(claw)
+		ellipsoid(claw, Vector3(0.17, 0.11, 0.24), Vector3.ZERO, c)
+		for finger_side: float in [-1.0, 1.0]:
+			var finger := cone(claw, 0.045, 0.2, Vector3(finger_side * 0.045, 0, -0.18), joint_color)
+			finger.rotation_degrees = Vector3(-90.0, 0, finger_side * 12.0)
+
+
+## A cylinder from [param from] to [param to].
+func _limb(parent: Node3D, from: Vector3, to: Vector3, radius: float, color: Color) -> MeshInstance3D:
+	var limb := cylinder(parent, radius, from.distance_to(to), (from + to) / 2.0, color)
+	limb.basis = Basis(Quaternion(Vector3.UP, (to - from).normalized()))
+	return limb
 
 
 func _talons(knee: Node3D, lower: float, color: Color) -> void:

@@ -95,7 +95,7 @@ func build(design: CreatureDesign) -> void:
 			var length: float = entry[2]
 			var thickness: float = 0.08 * entry[1]
 			var is_front: bool = entry[4]
-			var leg := _part(animal, "leg", func() -> Node3D: return _parts.leg(animal, length, thickness, is_front))
+			var leg := _part(animal, "leg", func() -> Node3D: return _parts.leg(animal, length, thickness, is_front, side))
 			if animal.swimming == AnimalData.Swimming.AQUATIC:
 				hip.position = Vector3(side * e.x * 0.45, 0.0, entry[3] * 0.6)
 				leg.scale.x = side
@@ -322,6 +322,14 @@ func _process(delta: float) -> void:
 			continue
 		if _flying:
 			leg.rotation.x = lerpf(leg.rotation.x, 0.7, delta * 4.0)
+			continue
+		if leg.get_meta("splay", false):
+			# Splayed legs sweep forwards and back in a ripple.
+			var k := 0
+			for pivot in leg.get_children():
+				if pivot.name.begins_with("Splay"):
+					pivot.rotation.y = pivot.get_meta("rest_yaw", 0.0) + sin(_phase * 2.0 + offset + k * 2.1) * 0.3 * _stride
+					k += 1
 			continue
 		leg.rotation.x = swing * STRIDE_SWING * _stride
 		var knee := leg.get_node_or_null("Knee") as Node3D
