@@ -28,6 +28,8 @@ Upgrades="*res://scripts/autoload/upgrades.gd"
 Teams="*res://scripts/autoload/teams.gd"
 Population="*res://scripts/autoload/population.gd"
 Alerts="*res://scripts/autoload/alerts.gd"
+UiTheme="*res://scripts/autoload/ui_theme.gd"
+Sfx="*res://scripts/autoload/sfx.gd"
 
 [display]
 

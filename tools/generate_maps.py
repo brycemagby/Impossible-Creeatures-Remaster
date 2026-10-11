@@ -281,27 +281,6 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 text = "No units selected"
 
-[node name="ControlsLabel" type="Label" parent="UI/HUD"]
-layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 232.0
-offset_top = -200.0
-offset_right = 976.0
-offset_bottom = -12.0
-grow_vertical = 0
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 4
-text = "Left click / drag: select   Shift: add   Double click / Ctrl + click: all of a type
-Right click: move / attack / gather (Henchmen) / rally point (building)
-Shift + right click: queue   Right drag: line up   F or Ctrl + right click: attack-move
-P: patrol   G: hold   H: stop   Esc: cancel   Delete: demolish   Period: idle Henchman   Home: Lab
-Space: last alert   Comma: idle building   Ctrl / Shift + 1-9: set / add group   1-9: recall (twice: look)
-WASD / edges / middle drag: pan   Q / E: rotate   Backspace: north   Wheel: zoom
-Z X C V B N M: command buttons (Shift: make 5)   Minimap: click to look, right click to order"
-vertical_alignment = 2
-
 [node name="Minimap" type="Control" parent="UI/HUD" node_paths=PackedStringArray("camera_rig", "selection_manager", "fog")]
 layout_mode = 1
 anchors_preset = 2

@@ -40,14 +40,15 @@ produces the strongest creatures it has unlocked.
 
 Follow-ups:
 - Enemy AI that expands to more coal ✅ (new Labs at unclaimed coal, saving up for them)
-- More buildings from the original: Workshop ✅, Soundbeam Tower ✅, Water Chamber ✅ and Aviary ✅;
-  the Lightning Rod is still to come
+- More buildings from the original: Workshop ✅, Soundbeam Tower ✅, Water Chamber ✅ and Aviary ✅
+  (no Lightning Rod: Generators were rebalanced instead)
 - Research ✅ and upgrades ✅: tiered creature upgrades at the Research Center (melee/ranged damage
   and melee/ranged armor), Henchman upgrades at the Workshop; research levels stay at the Lab
 - AoE2-style QoL ✅: population and Houses, Research Center, split melee/ranged armor, idle
   Henchman key, under-attack alerts, select-all-of-type, Shift-queued orders, command hotkeys,
   Shift + click to make 5, rally on coal. Idle-building
-  indicator ✅. Still open: unit stances
+  indicator ✅. Unit stances ✅ (aggressive, defensive, stand ground)
+- Placeholder sound ✅: goofy synthesised voices and effects (`tools/generate_sounds.py`)
 - Minimap ✅ (M6)
 
 ## M4 — The creature combiner ✅
@@ -84,6 +85,12 @@ Follow-ups:
 - Modular, rigged animal parts that can be attached to each other
 - Shared animation set (idle, walk, attack, death) that works on hybrid bodies
 - Low-poly stylised art direction that's achievable for a small team
+
+First pass ✅ (placeholder art): every animal has its own head, torso, legs and tail built from
+low-poly shapes (`scripts/units/creature_parts.gd`) on a simple rig (hips, knees, neck, tail
+segments, wing shoulders), animated in code so any hybrid trots, idles, flaps, swims and bites.
+Henchmen are little workers in team-coloured overalls. Real art drops in per part at
+`assets/creatures/<animal>/<torso|head|leg|tail|wing>.tscn` (or .glb) without code changes.
 
 ## M6 — Skirmish ✅
 Fog of war (per team, the AI included), minimap with camera jump and orders, a smarter AI (defends,

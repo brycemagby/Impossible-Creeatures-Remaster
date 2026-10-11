@@ -14,10 +14,7 @@ var fog_check: CheckBox
 
 
 func _ready() -> void:
-	var background := ColorRect.new()
-	background.color = Color(0.1, 0.12, 0.1)
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
+	add_child(DecoBackdrop.new())
 
 	var column := VBoxContainer.new()
 	column.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -29,8 +26,7 @@ func _ready() -> void:
 
 	var title := Label.new()
 	title.text = "SKIRMISH"
-	title.add_theme_font_size_override("font_size", 40)
-	title.add_theme_color_override("font_color", Color(0.85, 0.7, 0.35))
+	UiTheme.style_title(title, 44)
 	column.add_child(title)
 
 	column.add_child(_heading("Map"))
@@ -42,7 +38,7 @@ func _ready() -> void:
 	column.add_child(map_list)
 	description = Label.new()
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	description.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
+	description.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	column.add_child(description)
 
 	column.add_child(_heading("Players"))
@@ -119,5 +115,5 @@ func start_match() -> void:
 func _heading(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", 20)
+	UiTheme.style_heading(label, 18)
 	return label

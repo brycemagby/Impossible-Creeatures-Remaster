@@ -411,6 +411,21 @@ func issue_stop() -> void:
 		unit.command_stop()
 
 
+## The selected creatures other than Henchmen.
+func selected_army() -> Array[Creature]:
+	var result: Array[Creature] = []
+	for unit in _valid_selected():
+		if not unit is Henchman:
+			result.append(unit)
+	return result
+
+
+## Sets the stance of the selected army (see Creature.Stance).
+func set_stance(stance: Creature.Stance) -> void:
+	for unit in selected_army():
+		unit.stance = stance
+
+
 func issue_hold() -> void:
 	for unit in _valid_selected():
 		unit.clear_order_queue()
@@ -511,6 +526,7 @@ func place_building_at_screen(screen_position: Vector2, keep_placing := false) -
 	if site == null:
 		message.emit(build_placer.last_error)
 		return null
+	Sfx.play_at("place", site.global_position)
 	for henchman in selected_henchmen():
 		henchman.command_build(site)
 	if not keep_placing or not Economy.can_afford(player_team, build_placer.data.cost_coal, build_placer.data.cost_electricity):
@@ -740,6 +756,7 @@ func _set_rally_at_screen(screen_position: Vector2) -> void:
 
 
 func _set_selection(units: Array, building: Building) -> void:
+	var before := selected.duplicate()
 	if is_instance_valid(inspected):
 		inspected.selection_ring.visible = false
 	inspected = null
@@ -763,6 +780,8 @@ func _set_selection(units: Array, building: Building) -> void:
 			building.died.connect(_on_building_died)
 	if selected.is_empty():
 		targeting_order = &""
+	elif selected != before:
+		Sfx.voice("select", selected[0])
 	if selected_henchmen().is_empty() and build_placer.is_active():
 		build_placer.cancel()
 	_update_cursor()
@@ -830,6 +849,10 @@ func _update_cursor() -> void:
 
 
 func _spawn_marker(target: Vector3, color: Color) -> void:
+	if Creature.is_valid_target(selected_building):
+		Sfx.play("boing")
+	elif not selected.is_empty():
+		Sfx.voice("attack" if color == ATTACK_COLOR else "move", selected[0])
 	var marker := MoveMarkerScene.instantiate()
 	marker.color = color
 	get_tree().current_scene.add_child(marker)

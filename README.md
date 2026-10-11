@@ -5,6 +5,12 @@ A fan remake of Relic Entertainment's *Impossible Creatures* (2003), built in **
 > This is an unofficial, non-commercial fan project. It is not affiliated with or endorsed by
 > Relic Entertainment, Microsoft, or THQ Nordic. No original game assets are included; all art
 > and audio in this repository are original placeholders.
+>
+> Fonts: [Cinzel](https://fonts.google.com/specimen/Cinzel),
+> [Michroma](https://fonts.google.com/specimen/Michroma) and
+> [Saira](https://fonts.google.com/specimen/Saira), all under the SIL Open Font License (licences in
+> `assets/fonts/`). They stand in for Copperplate Gothic Bold, Microgramma and Eurostile; see
+> `assets/fonts/licensed/README.md` to use licensed copies of those instead.
 
 ![Hybrids fighting](docs/screenshot.png)
 
@@ -79,6 +85,12 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - Alerts when your creatures or buildings are attacked (Space looks there), idle Henchman key, and an
   "idle buildings" counter for production buildings making nothing (click it or press Comma)
 - Unit behavior: idle units engage enemies in sight, chase up to a leash range and then return to their post; units fight back when hit and call nearby allies to help
+- Stances (command panel buttons for an army selection, Z X C): aggressive (chase enemies as long as
+  they stay in sight), defensive (the leash above; the default) and stand ground (never move)
+- Goofy placeholder sound in the spirit of the original: gibberish creature voices (deeper for bigger
+  creatures), bonks, "pew"s, slide-whistle deaths, an "awooga" alert, kazoo fanfares and a sad
+  trombone. Synthesised by `tools/generate_sounds.py`; any file in `assets/sounds/` can be replaced
+  one for one. Volume is in the pause menu
 - Economy: coal (gathered from coal piles by Henchmen) and electricity (made by Electrical Generators)
 - Base building: Lab, Electrical Generator and Creature Chamber, placed with a ghost preview and
   constructed by Henchmen; the navmesh updates as buildings go up or come down
@@ -96,6 +108,10 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
   grow each time
 - Health bars, a resource counter, and a command panel with build and production buttons
 - Creature types defined as data (`CreatureStats` resources); the combiner will generate these later
+- Placeholder creature models: each animal's head, torso, legs and tail on a shared rig with
+  procedural walk, idle, flap, swim and attack animation, so any hybrid moves; Henchmen are little
+  workers in team-coloured overalls. Hand-made art can replace any part: see
+  `scripts/units/creature_model.gd` (`ART_DIR`)
 - Headless tests
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
@@ -180,9 +196,10 @@ Animals are data files in `resources/animals/`; add a `.tres` there and it shows
 | P then left click | Patrol between here and there (Shift: keep picking) |
 | G | Hold position: stay put, only attack what's in reach |
 | H | Stop |
+| Z / X / C with an army selected | Aggressive / defensive / stand-ground stance |
 | Esc | Cancel placement or order targeting, then deselect, then open the pause menu |
 | Delete | Demolish the selected building: a site is cancelled with 75% back; a finished one needs a second press |
-| F10 / Menu button | Pause menu (resume, restart, game speed, quit) |
+| F10 / Menu button | Pause menu (resume, restart, game speed, sound volume, quit) |
 | - / = | Slower / faster game (0.5×–2×) |
 | Ctrl+1–9 / Shift+1–9 / 1–9 | Assign / add to / recall a control group (press twice to look at it) |
 | WASD, arrows, screen edge, middle drag | Pan camera |
@@ -248,7 +265,7 @@ scenes/
   fx/projectile.tscn     Ranged attack projectile
 scripts/
   autoload/              Global singletons (input bindings, Economy, Armies, Research, GameSettings,
-                         MatchStats, Upgrades, Teams)
+                         MatchStats, Upgrades, Teams, UiTheme, Sfx)
   combiner/              AnimalData, CreatureDesign, CreatureCombiner rules, ArmyRoster
   ai/                    Enemy AI controller
   buildings/             Building, BuildingData, UnitRecipe, build placement

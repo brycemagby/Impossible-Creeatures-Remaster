@@ -27,6 +27,11 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(MAP_SIZE, MAP_SIZE)
 	size = custom_minimum_size
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	tooltip_text = """Click / drag: look there    Right click: send the selection there
+Camera
+  WASD / screen edges / middle drag: pan    Wheel: zoom
+  Q / E: rotate    Backspace: face north
+  Space: jump to the last alert"""
 	_terrain = TextureRect.new()
 	_terrain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_terrain.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -103,7 +108,9 @@ func _draw_overlay() -> void:
 		var color := Color.WHITE if unit.is_selected else _team_color(unit.team)
 		_overlay.draw_rect(Rect2(at - Vector2.ONE * UNIT_DOT / 2.0, Vector2.ONE * UNIT_DOT), color)
 	_draw_camera_view()
+	# The HUD draws the brass bezel around it; this is the inner pin-stripe.
 	_overlay.draw_rect(Rect2(Vector2.ZERO, size), BORDER_COLOR, false, 2.0)
+	_overlay.draw_rect(Rect2(Vector2.ZERO, size).grow(-2.0), Color(UiTheme.GLOW, 0.4), false, 1.0)
 
 
 ## Outline of the ground area the camera currently shows.

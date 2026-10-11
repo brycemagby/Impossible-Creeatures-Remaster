@@ -16,7 +16,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.6)
+	dim.color = Color(UiTheme.BACKDROP, 0.7)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 	var panel := PanelContainer.new()
@@ -34,7 +34,7 @@ func _ready() -> void:
 	padding.add_child(column)
 	title = Label.new()
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 56)
+	UiTheme.style_title(title, 60)
 	column.add_child(title)
 	time_label = Label.new()
 	time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -58,7 +58,8 @@ func show_results(winner: int, player_team: int) -> void:
 	MatchStats.stop()
 	var won := winner == Teams.alliance(player_team)
 	title.text = "VICTORY" if won else "DEFEAT"
-	title.add_theme_color_override("font_color", Color(0.95, 0.8, 0.35) if won else Color(0.9, 0.35, 0.3))
+	title.add_theme_color_override("font_color", UiTheme.BRASS if won else UiTheme.DANGER)
+	title.add_theme_color_override("font_shadow_color", Color(UiTheme.GLOW if won else UiTheme.DANGER, 0.35))
 	var seconds := int(MatchStats.elapsed)
 	time_label.text = "Match time  %d:%02d" % [seconds / 60, seconds % 60]
 
@@ -101,7 +102,7 @@ func _cell(text: String, heading := false) -> void:
 	var label := Label.new()
 	label.text = text
 	if heading:
-		label.add_theme_color_override("font_color", Color(0.85, 0.7, 0.35))
+		UiTheme.style_heading(label, 16)
 	table.add_child(label)
 
 

@@ -8,6 +8,7 @@ const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 const SPEEDS := [0.5, 1.0, 1.5, 2.0]
 
 var _speed_buttons: Array[Button] = []
+var volume_slider: HSlider
 
 
 func _ready() -> void:
@@ -16,7 +17,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
+	dim.color = Color(UiTheme.BACKDROP, 0.65)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 
@@ -37,13 +38,14 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "PAUSED"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 32)
+	UiTheme.style_title(title, 36)
 	column.add_child(title)
 	_button(column, "Resume", close)
 	_button(column, "Restart match", restart)
 
 	var speed_label := Label.new()
 	speed_label.text = "Game speed"
+	UiTheme.style_heading(speed_label)
 	column.add_child(speed_label)
 	var speeds := HBoxContainer.new()
 	column.add_child(speeds)
@@ -58,6 +60,19 @@ func _ready() -> void:
 		button.pressed.connect(set_speed.bind(speed))
 		speeds.add_child(button)
 		_speed_buttons.append(button)
+
+	var volume_label := Label.new()
+	volume_label.text = "Sound volume"
+	UiTheme.style_heading(volume_label)
+	column.add_child(volume_label)
+	volume_slider = HSlider.new()
+	volume_slider.min_value = 0.0
+	volume_slider.max_value = 1.0
+	volume_slider.step = 0.05
+	volume_slider.value = Sfx.volume
+	volume_slider.focus_mode = Control.FOCUS_NONE
+	volume_slider.value_changed.connect(func(value: float) -> void: Sfx.volume = value)
+	column.add_child(volume_slider)
 	_button(column, "Quit to main menu", quit_to_menu)
 
 

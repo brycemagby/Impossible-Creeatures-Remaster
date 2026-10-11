@@ -30,6 +30,13 @@ func _ready() -> void:
 
 
 func _run() -> void:
+	# TEST_ONLY=_test_name runs just that test, for quick iteration.
+	var only := OS.get_environment("TEST_ONLY")
+	if only != "":
+		await call(only)
+		print("\n%d checks, %d failed" % [_checks, _failures])
+		get_tree().quit(1 if _failures > 0 else 0)
+		return
 	_test_formation_offsets()
 	await _test_selection_and_movement()
 	await _test_armor()
@@ -105,6 +112,8 @@ func _run() -> void:
 	await _test_idle_buildings()
 	await _test_cancel_queued_unit()
 	await _test_last_enemies_revealed()
+	await _test_unit_portrait()
+	await _test_control_tooltips()
 	await _test_queued_orders()
 	await _test_command_hotkeys()
 	await _test_rally_on_coal()
@@ -112,6 +121,9 @@ func _run() -> void:
 	await _test_kiting()
 	await _test_hold_position()
 	await _test_patrol()
+	await _test_stances()
+	await _test_sounds()
+	await _test_creature_models()
 	await _test_focus_fire()
 	await _test_combiner_screen()
 	await _test_main_menu()
@@ -1136,7 +1148,7 @@ func _test_research() -> void:
 	var locked_buttons := buttons.filter(func(b: Button) -> bool: return b.text.contains("needs research"))
 	_check(not locked_buttons.is_empty() and locked_buttons.all(func(b: Button) -> bool: return b.disabled),
 			"locked creatures show as disabled in the HUD")
-	_check(hud.resource_label.text.contains("Research  L1"), "the HUD shows the research level")
+	_check(hud.research_value.text == "L1", "the HUD shows the research level")
 	await _unload(main)
 
 
@@ -1711,7 +1723,7 @@ func _test_pause_and_speed() -> void:
 	_check(is_equal_approx(Engine.time_scale, 0.5), "- slows it down")
 	menu.set_speed(2.0)
 	await _process_frames(2)
-	_check(hud.resource_label.text.contains("Speed  2"), "the HUD shows a non-normal speed")
+	_check(hud.speed_label.visible and hud.speed_label.text.contains("Speed  2"), "the HUD shows a non-normal speed")
 	menu.set_speed(1.0)
 	await _unload(main)
 	_check(not get_tree().paused and is_equal_approx(Engine.time_scale, 1.0), "leaving a match unpauses and resets speed")
@@ -2494,6 +2506,44 @@ func _test_last_enemies_revealed() -> void:
 	await _unload(main)
 
 
+func _test_control_tooltips() -> void:
+	print("control tooltips")
+	var main := await _load_map()
+	var hud := main.get_node("UI/HUD")
+	_check(hud.get_node_or_null("ControlsLabel") == null, "there is no on-screen controls list")
+	_check("Right click" in hud.selection_label.tooltip_text, "the selection readout explains orders on hover")
+	var minimap: Minimap = main.get_node("UI/HUD/Minimap")
+	_check("Wheel: zoom" in minimap.tooltip_text, "the minimap explains the camera on hover")
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	manager.select_building(_building(0, "Lab"))
+	await _process_frames(2)
+	_check("rally point" in hud.command_panel.tooltip_text, "a building's command panel explains rally points")
+	var make := hud.command_grid.get_child(0) as Button
+	_check("make 5" in make.tooltip_text, "production buttons explain Shift to make 5")
+	await _unload(main)
+
+
+func _test_unit_portrait() -> void:
+	print("unit portrait")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var portrait: UnitPortrait = main.get_node("UI/HUD").portrait
+	await _process_frames(2)
+	_check(portrait.subject == null, "the portrait is empty with nothing selected")
+	var brute := _first(0, "Brute")
+	manager.select_units([brute])
+	await _process_frames(2)
+	_check(portrait.subject == brute, "selecting a creature shows it in the portrait")
+	var lab := _building(0, "Lab")
+	manager.select_building(lab)
+	await _process_frames(2)
+	_check(portrait.subject == lab, "selecting a building shows the building")
+	manager.select_units([])
+	await _process_frames(2)
+	_check(portrait.subject == null, "deselecting empties it again")
+	await _unload(main)
+
+
 func _test_m3_touch_ups() -> void:
 	print("M3 touch-ups")
 	var main := await _load_map()
@@ -2674,7 +2724,7 @@ func _test_population() -> void:
 	var hud := main.get_node("UI/HUD")
 	await _process_frames(2)
 	_check(hud.message_label.visible and hud.message_label.text.begins_with("Need more Houses"), "the HUD says to build more Houses")
-	_check(hud.resource_label.text.contains("Pop  10 / 10"), "the top bar shows population")
+	_check(hud.population_value.text == "10 / 10", "the top bar shows population")
 	var house := _add_building("res://resources/buildings/house.tres", 0, Vector3(-24, 0, 20))
 	await _physics_frames(3)
 	_check(not waiting.population_blocked and waiting.production_reserved, "a new House lets production continue")
@@ -2789,6 +2839,112 @@ func _test_hold_position() -> void:
 	var health := brute.health
 	await _wait_until(func() -> bool: return brute.health < health, 3.0)
 	_check(brute.health < health and guard.order == Creature.Order.HOLD, "it attacks enemies that come within reach")
+	await _unload(main)
+
+
+func _test_stances() -> void:
+	print("stances")
+	var main := await _load_map()
+	var guard := _first(0, "Runner")
+	var shooter := _first(1, "Skirmisher")
+	_isolate([guard, shooter])
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var hud := main.get_node("UI/HUD")
+	manager.select_units([guard])
+	await _process_frames(2)
+	_check(hud.command_title.text == "Stance" and hud.command_grid.get_child_count() == 3, "an army selection shows the stance buttons")
+	_check(guard.stance == Creature.Stance.DEFENSIVE, "creatures start defensive")
+	var post := Vector3(0, 0, 0)
+	# Stand ground: shot at from out of reach, it stays put.
+	_place(guard, post)
+	_place(shooter, Vector3(0, 0, -6))
+	_key(KEY_C)
+	_check(guard.stance == Creature.Stance.STAND_GROUND, "the third stance button (C) sets stand ground")
+	shooter.command_hold()
+	shooter.command_attack(guard)
+	await _physics_frames(120)
+	_check(guard.health < guard.stats.max_health and _flat(guard.global_position - post) < 0.3,
+			"a creature standing its ground doesn't chase an attacker out of reach")
+	# Defensive: chases, but walks back to its post past the leash.
+	guard.health = guard.stats.max_health
+	manager.set_stance(Creature.Stance.DEFENSIVE)
+	_place(guard, post)
+	guard.command_stop()
+	shooter.command_move(Vector3(0, 0, -6))
+	await _physics_frames(10)
+	shooter.command_attack(guard)
+	await _wait_until(func() -> bool: return guard.attack_target == shooter, 3.0)
+	_check(guard.attack_target == shooter, "a defensive creature fights back")
+	shooter.command_move(Vector3(0, 0, -40))
+	await _wait_until(func() -> bool: return guard.attack_target == null, 8.0)
+	await _wait_until(func() -> bool: return _flat(guard.global_position - post) < 1.5, 8.0)
+	_check(_flat(guard.global_position - post) < 1.5, "it gives up past its leash and walks back")
+	# Aggressive: keeps chasing past the leash.
+	manager.set_stance(Creature.Stance.AGGRESSIVE)
+	_place(guard, post)
+	guard.command_stop()
+	_place(shooter, Vector3(0, 0, -6))
+	shooter.command_attack(guard)
+	await _wait_until(func() -> bool: return guard.attack_target == shooter, 3.0)
+	shooter.command_move(Vector3(0, 0, -30))
+	await _physics_frames(150)
+	_check(guard.attack_target == shooter and _flat(guard.global_position - post) > guard.stats.leash_range,
+			"an aggressive creature chases past its leash")
+	await _unload(main)
+
+
+func _test_sounds() -> void:
+	print("sounds")
+	for sound: String in Sfx.SOUNDS:
+		for file: String in Sfx.SOUNDS[sound]:
+			_check(ResourceLoader.exists(Sfx.DIR + file + ".wav"), "sound file %s exists" % file)
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var brute := _first(0, "Brute")
+	Sfx.last_played = ""
+	manager.select_units([brute])
+	_check(Sfx.last_played == "select", "selecting a creature makes it talk")
+	await _physics_frames(20)
+	manager.issue_move(brute.global_position + Vector3(4, 0, 0))
+	_check(Sfx.last_played == "move", "a move order gets a reply")
+	_check(Sfx.voice_pitch(_first(0, "Henchman")) > Sfx.voice_pitch(brute) or brute.stats.size <= 1.0,
+			"bigger creatures have deeper voices")
+	var hud := main.get_node("UI/HUD")
+	hud.show_error("nope")
+	_check(Sfx.last_played == "error", "errors go bwomp")
+	hud.pause_menu.volume_slider.value = 0.5
+	_check(is_equal_approx(Sfx.volume, 0.5), "the pause menu's slider sets the volume")
+	Sfx.volume = 1.0
+	await _unload(main)
+
+
+func _test_creature_models() -> void:
+	print("creature models")
+	var main := await _load_map()
+	var stats := CreatureCombiner.build_stats(Armies.default_designs()[0])
+	var walker := _spawn(main, stats, 0, Vector3(0, 0, 0))
+	await _physics_frames(2)
+	var model := walker.find_children("*", "CreatureModel", false, false)[0] as CreatureModel
+	var body := model.get_node_or_null("Rig/Body")
+	_check(body != null and body.has_node("Neck") and body.has_node("HipFL") and body.has_node("HipBR") and body.has_node("TailBase"),
+			"hybrid models have a rig: neck, four hips and a tail")
+	var leg := body.get_node("HipFL").get_child(0) as Node3D
+	var henchman := _first(0, "Henchman")
+	_isolate([walker, henchman])
+	walker.command_move(walker.global_position + Vector3(8, 0, 0))
+	var swung := false
+	for i in 40:
+		await _physics_frames(1)
+		swung = swung or absf(leg.rotation.x) > 0.1
+	_check(swung, "legs swing while walking")
+	var worker := henchman.find_children("*", "CreatureModel", false, false)
+	_check(worker.size() == 1 and worker[0].has_node("Rig/Body/Neck") and not henchman.body.visible,
+			"Henchmen get a worker model instead of the capsule")
+	var copy := walker.portrait_visual()
+	add_child(copy)
+	await _process_frames(2)
+	_check(copy.get_node_or_null("Rig/Body") != null, "the portrait copy keeps the rig")
+	copy.queue_free()
 	await _unload(main)
 
 

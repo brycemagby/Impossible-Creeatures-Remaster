@@ -84,6 +84,8 @@ func _physics_process(delta: float) -> void:
 		upgrade_time += delta
 		if upgrade_time >= upgrading.duration:
 			Upgrades.grant(team, upgrading)
+			if team == Sfx.player_team:
+				Sfx.play("research_done")
 			upgrading = null
 			upgrade_time = 0.0
 			production_changed.emit(self)
@@ -96,6 +98,8 @@ func _physics_process(delta: float) -> void:
 		research_time += delta
 		if research_time >= Research.duration(researching):
 			Research.set_level(team, researching)
+			if team == Sfx.player_team:
+				Sfx.play("research_done")
 			researching = 0
 			research_time = 0.0
 			production_changed.emit(self)
@@ -111,6 +115,8 @@ func _physics_process(delta: float) -> void:
 				production_time = 0.0
 				production_reserved = false
 				_spawn(queue.pop_front())
+				if team == Sfx.player_team:
+					Sfx.play_at("unit_ready", global_position)
 				production_changed.emit(self)
 
 
@@ -410,6 +416,14 @@ func take_damage(amount: float, source: Node3D = null, _ranged := false) -> void
 				unit.respond_to_attack(source)
 
 
+## A copy of this building's model for the HUD portrait, at the origin.
+func portrait_visual() -> Node3D:
+	var copy := Node3D.new()
+	copy.add_child(body.duplicate())
+	copy.add_child(team_band.duplicate())
+	return copy
+
+
 func is_alive() -> bool:
 	return not _dead
 
@@ -468,6 +482,8 @@ func _finish_construction(notify: bool) -> void:
 	_update_construction_visual()
 	if notify:
 		MatchStats.add(team, "buildings_built")
+		if team == Sfx.player_team:
+			Sfx.play("building_done")
 		completed.emit(self)
 
 
@@ -513,6 +529,7 @@ func _die(destroyed := true) -> void:
 		cancel_last()
 	cancel_research()
 	cancel_upgrade()
+	Sfx.play_at("death", global_position, 0.55)
 	if destroyed:
 		MatchStats.record_building_lost(team, _last_attacker_team)
 		get_tree().call_group("building_watchers", "building_destroyed", self)

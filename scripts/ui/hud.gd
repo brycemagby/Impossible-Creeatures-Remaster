@@ -8,6 +8,23 @@ const HOTKEYS: Array[Key] = [KEY_Z, KEY_X, KEY_C, KEY_V, KEY_B, KEY_N, KEY_M,
 		KEY_T, KEY_Y, KEY_U, KEY_I, KEY_O, KEY_J, KEY_K, KEY_L]
 ## How many units Shift + click queues at once.
 const BATCH_SIZE := 5
+## Command panel buttons for an army selection: stance -> [label, tooltip].
+const STANCES := {
+	Creature.Stance.AGGRESSIVE: ["Aggressive", "Chase any enemy you see for as long as it stays in sight."],
+	Creature.Stance.DEFENSIVE: ["Defensive", "Chase enemies a short way, then come back (the default)."],
+	Creature.Stance.STAND_GROUND: ["Stand ground", "Never move; only attack enemies within reach."],
+}
+## Hover help for the selection readout: how to select and order units.
+const SELECTION_HELP := """Select
+  Left click / drag: select    Shift: add    Esc: deselect
+  Double click / Ctrl + click: all of that type on screen
+Order
+  Right click: move / attack / gather coal (Henchmen)
+  Shift + right click: queue    Right drag: line up
+  F or Ctrl + right click: attack-move
+  P: patrol    G: hold    H: stop
+Groups
+  Ctrl + 1-9: set    Shift + 1-9: add    1-9: recall (twice: look)"""
 
 @export var selection_manager: SelectionManager
 @export var game_rules: GameRules
@@ -20,8 +37,28 @@ var _message_timer := 0.0
 ## True while a Shift + hotkey press is being handled.
 var _hotkey_shift := false
 
+## Height of the console along the bottom of the screen.
+const CONSOLE_HEIGHT := 232.0
+const ICONS := {
+	"coal": preload("res://assets/ui/coal.svg"),
+	"electricity": preload("res://assets/ui/electricity.svg"),
+	"population": preload("res://assets/ui/population.svg"),
+	"research": preload("res://assets/ui/research.svg"),
+}
+
 @onready var selection_label: Label = $SelectionLabel
-var resource_label: Label
+## The resource gauges along the top right.
+var resource_bar: PanelContainer
+var coal_value: Label
+var electricity_value: Label
+var population_value: Label
+var research_value: Label
+## "Speed 2x", only when the game isn't at normal speed.
+var speed_label: Label
+## Brass-framed console along the bottom, behind the minimap, selection and commands.
+var console: Panel
+## The selected creature or building, turning in a brass porthole.
+var portrait: UnitPortrait
 var command_panel: PanelContainer
 var command_title: Label
 var command_grid: GridContainer
@@ -47,8 +84,9 @@ func _ready() -> void:
 	_build_layout()
 	game_rules.game_over.connect(_on_game_over)
 	selection_manager.menu_requested.connect(pause_menu.open)
-	selection_manager.message.connect(show_message)
+	selection_manager.message.connect(show_error)
 	Alerts.raised.connect(_on_alert)
+	Sfx.player_team = selection_manager.player_team
 	_connect_fog.call_deferred()
 
 
@@ -68,12 +106,16 @@ func _on_team_exposed(team: int) -> void:
 
 func _process(delta: float) -> void:
 	var team := selection_manager.player_team
-	resource_label.text = "Coal  %d      Electricity  %d      Pop  %d / %d      Research  L%d" % [
-			Economy.coal(team), Economy.electricity(team), Population.used(team), Population.cap(team), Research.level(team)]
+	coal_value.text = "%d" % Economy.coal(team)
+	electricity_value.text = "%d" % Economy.electricity(team)
+	population_value.text = "%d / %d" % [Population.used(team), Population.cap(team)]
+	population_value.add_theme_color_override("font_color", UiTheme.WARNING if Population.used(team) >= Population.cap(team) else UiTheme.TEXT)
+	research_value.text = "L%d" % Research.level(team)
 	_warn_if_population_blocked(team)
-	if not is_equal_approx(Engine.time_scale, 1.0):
-		resource_label.text += "      Speed  %sx" % Engine.time_scale
+	speed_label.visible = not is_equal_approx(Engine.time_scale, 1.0)
+	speed_label.text = "Speed  %sx" % Engine.time_scale
 	selection_label.text = _describe_selection()
+	portrait.show_subject(_portrait_subject())
 	groups_label.text = _describe_groups()
 	_refresh_idle_button()
 	_refresh_type_bar()
@@ -100,6 +142,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func show_message(text: String) -> void:
 	message_label.text = text
 	_message_timer = MESSAGE_TIME
+
+
+## A message for something the player can't do, with a deflated "bwomp".
+func show_error(text: String) -> void:
+	show_message(text)
+	Sfx.play("error")
 
 
 # --- Selection text -----------------------------------------------------------
@@ -148,6 +196,19 @@ func _describe_selection() -> String:
 	return "\n".join(lines)
 
 
+## What the portrait shows: the selected or inspected building or creature,
+## else the first selected unit.
+func _portrait_subject() -> Node3D:
+	if Creature.is_valid_target(selection_manager.selected_building):
+		return selection_manager.selected_building
+	if Creature.is_valid_target(selection_manager.inspected):
+		return selection_manager.inspected
+	for unit in selection_manager.selected:
+		if Creature.is_valid_target(unit):
+			return unit
+	return null
+
+
 func _refresh_type_bar() -> void:
 	var counts := {}
 	for unit in selection_manager.selected:
@@ -156,7 +217,7 @@ func _refresh_type_bar() -> void:
 	var context := str(counts) if counts.size() > 1 else ""
 	# Just under the text, whatever size the label's box is.
 	var text_height := selection_label.get_line_count() * selection_label.get_line_height()
-	type_bar.position = Vector2(16, selection_label.position.y + text_height + 8)
+	type_bar.position = Vector2(selection_label.position.x, selection_label.position.y + text_height + 8)
 	if context == _type_context:
 		return
 	_type_context = context
@@ -248,6 +309,8 @@ func _refresh_command_panel() -> void:
 				_owned_upgrades(building.team)]
 	elif not selection_manager.selected_henchmen().is_empty():
 		context = "henchmen:%d" % Research.level(selection_manager.player_team)
+	elif not selection_manager.selected_army().is_empty():
+		context = "army:%d" % _shared_stance()
 	if context != _context:
 		_context = context
 		_rebuild_command_panel(building)
@@ -294,8 +357,18 @@ func _rebuild_command_panel(building: Building) -> void:
 	_cost_buttons.clear()
 	command_status.text = ""
 	command_panel.visible = _context != "none"
+	command_panel.tooltip_text = "Right click the ground: set a rally point.  Delete: demolish." if _context.begins_with("building") else ""
 
-	if _context.begins_with("henchmen"):
+	if _context.begins_with("army"):
+		command_title.text = "Stance"
+		var current := _shared_stance()
+		for stance: int in STANCES:
+			var button := _add_button(STANCES[stance][0])
+			button.tooltip_text = STANCES[stance][1]
+			button.toggle_mode = true
+			button.button_pressed = stance == current
+			button.pressed.connect(selection_manager.set_stance.bind(stance))
+	elif _context.begins_with("henchmen"):
 		command_title.text = "Build"
 		var has_water := not get_tree().get_nodes_in_group("deep_water").is_empty()
 		for data in selection_manager.buildable:
@@ -306,6 +379,7 @@ func _rebuild_command_panel(building: Building) -> void:
 			var button := _add_button("%s\n%s" % [data.display_name, "needs research L%d" % data.required_research if locked
 					else _cost_text(data.cost_coal, data.cost_electricity)])
 			button.pressed.connect(selection_manager.begin_placement.bind(data))
+			button.tooltip_text = "Click, then left click the ground to place it.  Right click or Esc: cancel."
 			_cost_buttons.append([button, data.cost_coal, data.cost_electricity, data.required_research])
 	elif _context.begins_with("building"):
 		command_title.text = building.data.display_name
@@ -317,7 +391,7 @@ func _rebuild_command_panel(building: Building) -> void:
 				var button := _add_button("%s\n%s" % [label, "needs research L%d" % recipe.stats.level if locked
 						else _cost_text(recipe.cost_coal, recipe.cost_electricity)])
 				button.pressed.connect(_on_produce_pressed.bind(building, recipe))
-				button.tooltip_text = _recipe_tooltip(recipe)
+				button.tooltip_text = _recipe_tooltip(recipe) + "\n\nShift + click or Shift + hotkey: make %d" % BATCH_SIZE
 				var needed: int = recipe.stats.level if recipe.stats.design else 0
 				_cost_buttons.append([button, recipe.cost_coal, recipe.cost_electricity, needed])
 			if not options.is_empty():
@@ -352,6 +426,16 @@ func _rebuild_command_panel(building: Building) -> void:
 					research.pressed.connect(_on_research_pressed.bind(building))
 					_cost_buttons.append([research, Research.coal_cost(next), Research.electricity_cost(next), 0])
 		command_status.text = _building_status(building)
+
+
+## The stance every selected creature shares, or -1 when they differ.
+func _shared_stance() -> int:
+	var result := -1
+	for unit in selection_manager.selected_army():
+		if result != -1 and unit.stance != result:
+			return -1
+		result = unit.stance
+	return result
 
 
 func _building_status(building: Building) -> String:
@@ -397,7 +481,7 @@ func _recipe_tooltip(recipe: UnitRecipe) -> String:
 func _on_upgrade_pressed(building: Building, upgrade: UpgradeData) -> void:
 	var error := building.start_upgrade(upgrade)
 	if error != "":
-		show_message(error)
+		show_error(error)
 
 
 func _owned_upgrades(team: int) -> int:
@@ -415,14 +499,14 @@ func _warn_if_population_blocked(team: int) -> void:
 			blocked = true
 			break
 	if blocked and not _was_blocked:
-		show_message("Need more Houses (population %d / %d)" % [Population.used(team), Population.cap(team)])
+		show_error("Need more Houses (population %d / %d)" % [Population.used(team), Population.cap(team)])
 	_was_blocked = blocked
 
 
 func _on_research_pressed(building: Building) -> void:
 	var error := building.start_research()
 	if error != "":
-		show_message(error)
+		show_error(error)
 
 
 func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:
@@ -432,7 +516,7 @@ func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:
 		var error := building.enqueue(recipe)
 		if error != "":
 			if queued == 0:
-				show_message(error)
+				show_error(error)
 			break
 		queued += 1
 
@@ -440,10 +524,12 @@ func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:
 func _on_alert(team: int, text: String, _where: Vector3) -> void:
 	if team == selection_manager.player_team:
 		show_message(text + "  (Space to look)")
+		Sfx.play("alert")
 
 
 func _on_game_over(winner: int) -> void:
 	end_screen.show_results(winner, selection_manager.player_team)
+	Sfx.play("victory" if winner == Teams.alliance(selection_manager.player_team) else "defeat")
 
 
 func _cost_text(coal: int, electricity: int) -> String:
@@ -465,15 +551,11 @@ func _add_button(text: String) -> Button:
 # --- Layout -------------------------------------------------------------------
 
 func _build_layout() -> void:
-	resource_label = _make_label(20)
-	resource_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	resource_label.offset_top = 10
-	resource_label.offset_right = -16
-	resource_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	resource_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_build_console()
+	_build_resource_bar()
 
 	type_bar = HFlowContainer.new()
-	type_bar.custom_minimum_size.x = 420
+	type_bar.custom_minimum_size.x = 440
 	type_bar.visible = false
 	add_child(type_bar)
 
@@ -497,21 +579,23 @@ func _build_layout() -> void:
 	menu_button.focus_mode = Control.FOCUS_NONE
 	menu_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	menu_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	menu_button.offset_top = 44
+	menu_button.offset_top = 64
 	menu_button.offset_right = -16
+	menu_button.tooltip_text = "Pause, restart, game speed or quit.  F10, or Esc with nothing selected."
 	add_child(menu_button)
 
 	command_panel = PanelContainer.new()
 	command_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	command_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	command_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	command_panel.offset_right = -16
-	command_panel.offset_bottom = -16
+	command_panel.offset_right = -12
+	command_panel.offset_bottom = -12
 	command_panel.visible = false
 	add_child(command_panel)
 	var column := VBoxContainer.new()
 	command_panel.add_child(column)
 	command_title = Label.new()
+	UiTheme.style_heading(command_title, 17)
 	column.add_child(command_title)
 	command_grid = GridContainer.new()
 	command_grid.columns = 4
@@ -535,11 +619,92 @@ func _build_layout() -> void:
 	idle_button.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	idle_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	idle_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	idle_button.offset_top = 80
+	idle_button.offset_top = 104
 	idle_button.offset_right = -16
 	idle_button.visible = false
 	idle_button.pressed.connect(func() -> void: selection_manager.select_idle_building())
 	add_child(idle_button)
+
+
+## The bottom console: a full-width brass-rimmed glass strip, in the spirit of
+## the original's control panel. The minimap sits at its left, the selection
+## in the middle and the command panel on the right.
+func _build_console() -> void:
+	console = Panel.new()
+	console.add_theme_stylebox_override("panel", UiTheme.console_style())
+	console.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	console.offset_top = -CONSOLE_HEIGHT
+	# Clicks and drags still reach the world underneath, as before the console.
+	console.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(console)
+	move_child(console, 0)
+	# The portrait porthole, then the selection readout, between minimap and commands.
+	portrait = UnitPortrait.new()
+	portrait.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	portrait.offset_left = 236
+	portrait.offset_top = -CONSOLE_HEIGHT + 34
+	portrait.offset_right = 236 + UnitPortrait.SIZE
+	portrait.offset_bottom = -CONSOLE_HEIGHT + 34 + UnitPortrait.SIZE
+	add_child(portrait)
+	move_child(portrait, 1)
+	# A riveted bezel behind the minimap.
+	var bezel := Panel.new()
+	bezel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	bezel.offset_left = 4
+	bezel.offset_top = -228
+	bezel.offset_right = 228
+	bezel.offset_bottom = -4
+	bezel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bezel)
+	move_child(bezel, 1)
+	selection_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	selection_label.offset_left = 428
+	selection_label.offset_right = 428 + 440
+	selection_label.offset_top = -CONSOLE_HEIGHT + 30
+	selection_label.offset_bottom = -8
+	selection_label.add_theme_font_size_override("font_size", 18)
+	selection_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	selection_label.tooltip_text = SELECTION_HELP
+
+
+func _build_resource_bar() -> void:
+	resource_bar = PanelContainer.new()
+	resource_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	resource_bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	resource_bar.offset_top = 10
+	resource_bar.offset_right = -16
+	resource_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(resource_bar)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	resource_bar.add_child(row)
+	coal_value = _gauge(row, "coal", "Coal, gathered by Henchmen.  Period: go to an idle Henchman.")
+	electricity_value = _gauge(row, "electricity", "Electricity")
+	population_value = _gauge(row, "population", "Population")
+	research_value = _gauge(row, "research", "Research level, raised at the Lab.  Home: go to your Lab.")
+	speed_label = Label.new()
+	speed_label.add_theme_color_override("font_color", UiTheme.WARNING)
+	speed_label.add_theme_font_size_override("font_size", 20)
+	speed_label.visible = false
+	row.add_child(speed_label)
+
+
+## An icon and a number; returns the number's label.
+func _gauge(row: HBoxContainer, icon: String, tooltip: String) -> Label:
+	var picture := TextureRect.new()
+	picture.texture = ICONS[icon]
+	picture.custom_minimum_size = Vector2(28, 28)
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.tooltip_text = tooltip
+	picture.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_child(picture)
+	var value := Label.new()
+	value.custom_minimum_size.x = 64
+	value.add_theme_font_override("font", UiTheme.bold_font)
+	value.add_theme_font_size_override("font_size", 22)
+	row.add_child(value)
+	return value
 
 
 func _make_label(font_size: int) -> Label:
