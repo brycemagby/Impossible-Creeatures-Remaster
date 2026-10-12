@@ -112,7 +112,12 @@ Still open:
 Related polish:
 - UI overhaul ✅: retro-futurist theme (bevelled brass, art-deco fonts, valve glow, riveted console
   and unit portrait); the controls list moved into tooltips on the controls they describe
-- Placeholder sound ✅ (see M3); final sound and music still to come
+- Placeholder sound ✅ (see M3); final sound and music still to come. Creature voices softened
+  (murmured rather than buzzy, quieter, with their own volume slider) after they grated
+- UX and accessibility pass ✅: an Options screen that saves (volumes, fullscreen, interface size,
+  camera, key rebinding, colour-blind palette, health bar mode), a UI that scales with the window,
+  keyboard/gamepad focus on every menu, confirmations for Restart and Quit, minimap alert pings,
+  red crosses where orders fail, a How to Play page, and tooltips that follow the bindings
 
 ## M6 — Skirmish ✅
 Fog of war (per team, the AI included), minimap with camera jump and orders, a smarter AI (defends,

@@ -26,6 +26,8 @@ const SOUNDS := {
 	"victory": ["victory"],
 	"defeat": ["defeat"],
 }
+## Creature voice lines, played on the Voices bus (their own volume slider).
+const VOICE_SOUNDS := ["select", "move", "attack", "unit_ready"]
 ## Minimum seconds between two plays of the same sound.
 const COOLDOWN := {"hit": 0.07, "shoot": 0.07, "death": 0.12, "click": 0.03, "select": 0.15,
 		"move": 0.15, "attack": 0.15, "alert": 3.0}
@@ -35,13 +37,12 @@ const VOLUME_DB := -6.0
 
 ## The team whose events (buildings done, research, alerts) are announced.
 var player_team := 0
-## Master volume, 0 (muted) to 1; changed from the pause menu.
-var volume := 1.0:
+## Master volume, 0 (muted) to 1 (kept in Settings, which saves it).
+var volume: float:
+	get:
+		return Settings.master_volume
 	set(value):
-		volume = clampf(value, 0.0, 1.0)
-		var bus := AudioServer.get_bus_index("Master")
-		AudioServer.set_bus_volume_db(bus, linear_to_db(volume))
-		AudioServer.set_bus_mute(bus, volume <= 0.0)
+		Settings.set_value("master_volume", clampf(value, 0.0, 1.0))
 ## Name of the most recent sound played, for tests.
 var last_played := ""
 
@@ -81,6 +82,7 @@ func play(sound: String, pitch := 1.0) -> void:
 		return
 	var player := _players_2d[_next_2d]
 	_next_2d = (_next_2d + 1) % POOL_2D
+	player.bus = _bus(sound)
 	player.stream = stream
 	player.pitch_scale = pitch * randf_range(0.96, 1.04)
 	player.play()
@@ -93,6 +95,7 @@ func play_at(sound: String, where: Vector3, pitch := 1.0) -> void:
 		return
 	var player := _players_3d[_next_3d]
 	_next_3d = (_next_3d + 1) % POOL_3D
+	player.bus = _bus(sound)
 	player.stream = stream
 	player.global_position = where
 	player.pitch_scale = pitch * randf_range(0.92, 1.08)
@@ -120,6 +123,10 @@ func _pick(sound: String) -> AudioStream:
 	_last_time[sound] = now
 	last_played = sound
 	return _streams[files.pick_random()]
+
+
+func _bus(sound: String) -> StringName:
+	return &"Voices" if sound in VOICE_SOUNDS else &"Effects"
 
 
 func _on_node_added(node: Node) -> void:

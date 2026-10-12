@@ -14,15 +14,16 @@ const STANCES := {
 	Creature.Stance.DEFENSIVE: ["Defensive", "Chase enemies a short way, then come back (the default)."],
 	Creature.Stance.STAND_GROUND: ["Stand ground", "Never move; only attack enemies within reach."],
 }
-## Hover help for the selection readout: how to select and order units.
+## Hover help for the selection readout: how to select and order units
+## (with the player's current keys filled in).
 const SELECTION_HELP := """Select
-  Left click / drag: select    Shift: add    Esc: deselect
+  Left click / drag: select    Shift: add    {deselect}: deselect
   Double click / Ctrl + click: all of that type on screen
 Order
   Right click: move / attack / gather coal (Henchmen)
   Shift + right click: queue    Right drag: line up
-  F or Ctrl + right click: attack-move
-  P: patrol    G: hold    H: stop
+  {attack_move} or Ctrl + right click: attack-move
+  {patrol}: patrol    {hold}: hold    {stop}: stop
 Groups
   Ctrl + 1-9: set    Shift + 1-9: add    1-9: recall (twice: look)"""
 
@@ -76,6 +77,8 @@ var idle_button: Button
 var queue_bar: HFlowContainer
 var _queue_context := ""
 var pause_menu: PauseMenu
+## Opens the pause menu.
+var menu_button: Button
 var end_screen: EndScreen
 
 
@@ -88,6 +91,17 @@ func _ready() -> void:
 	Alerts.raised.connect(_on_alert)
 	Sfx.player_team = selection_manager.player_team
 	_connect_fog.call_deferred()
+
+
+## Fills the hover help with the current key bindings.
+func _refresh_help() -> void:
+	var keys := {}
+	for action in ["deselect", "attack_move", "patrol", "hold", "stop"]:
+		keys[action] = Settings.key_names(action)
+	selection_label.tooltip_text = SELECTION_HELP.format(keys)
+	menu_button.tooltip_text = "Pause, restart, game speed, options or quit.  %s, or %s with nothing selected." % [
+				Settings.key_names("pause_menu"), Settings.key_names("deselect")]
+	idle_button.tooltip_text = "Production buildings making nothing. Click or press %s to go to the next one." % Settings.key_names("idle_building")
 
 
 func _connect_fog() -> void:
@@ -523,7 +537,7 @@ func _on_produce_pressed(building: Building, recipe: UnitRecipe) -> void:
 
 func _on_alert(team: int, text: String, _where: Vector3) -> void:
 	if team == selection_manager.player_team:
-		show_message(text + "  (Space to look)")
+		show_message("%s  (%s to look)" % [text, Settings.key_names("jump_to_alert", true)])
 		Sfx.play("alert")
 
 
@@ -574,14 +588,13 @@ func _build_layout() -> void:
 	message_label.visible = false
 
 
-	var menu_button := Button.new()
+	menu_button = Button.new()
 	menu_button.text = "Menu"
 	menu_button.focus_mode = Control.FOCUS_NONE
 	menu_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	menu_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	menu_button.offset_top = 64
 	menu_button.offset_right = -16
-	menu_button.tooltip_text = "Pause, restart, game speed or quit.  F10, or Esc with nothing selected."
 	add_child(menu_button)
 
 	command_panel = PanelContainer.new()
@@ -615,7 +628,6 @@ func _build_layout() -> void:
 
 	idle_button = Button.new()
 	idle_button.focus_mode = Control.FOCUS_NONE
-	idle_button.tooltip_text = "Production buildings making nothing. Click or press Comma to go to the next one."
 	idle_button.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	idle_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	idle_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -624,6 +636,8 @@ func _build_layout() -> void:
 	idle_button.visible = false
 	idle_button.pressed.connect(func() -> void: selection_manager.select_idle_building())
 	add_child(idle_button)
+	_refresh_help()
+	Settings.changed.connect(_refresh_help)
 
 
 ## The bottom console: a full-width brass-rimmed glass strip, in the spirit of
@@ -664,7 +678,6 @@ func _build_console() -> void:
 	selection_label.offset_bottom = -8
 	selection_label.add_theme_font_size_override("font_size", 18)
 	selection_label.mouse_filter = Control.MOUSE_FILTER_PASS
-	selection_label.tooltip_text = SELECTION_HELP
 
 
 func _build_resource_bar() -> void:

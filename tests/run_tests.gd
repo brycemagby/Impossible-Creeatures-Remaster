@@ -26,6 +26,9 @@ func _ready() -> void:
 	# Never touch the player's real saved army.
 	Armies.save_path = TEST_ARMY_PATH
 	Armies.set_designs(0, Armies.default_designs())
+	# Nor their saved options: start every run from the defaults.
+	Settings.persist = false
+	Settings.reset_to_defaults()
 	_run.call_deferred()
 
 
@@ -130,6 +133,8 @@ func _run() -> void:
 	await _test_focus_fire()
 	await _test_combiner_screen()
 	await _test_main_menu()
+	await _test_options_and_accessibility()
+	await _test_alert_pings_and_failed_orders()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_ARMY_PATH))
 	print("\n%d checks, %d failed" % [_checks, _failures])
 	get_tree().quit(1 if _failures > 0 else 0)
@@ -3150,6 +3155,103 @@ func _test_main_menu() -> void:
 	_check("Play Skirmish" in labels and "Creature Combiner" in labels, "the main menu offers skirmish and the combiner")
 	menu.queue_free()
 	await _process_frames(1)
+
+
+func _test_options_and_accessibility() -> void:
+	print("options and accessibility")
+	_check(not Settings.persist, "tests never save the player's options")
+	Settings.set_value("master_volume", 0.5)
+	_check(is_equal_approx(db_to_linear(AudioServer.get_bus_volume_db(0)), 0.5) and is_equal_approx(Sfx.volume, 0.5),
+			"master volume sets the master bus")
+	Settings.set_value("voice_volume", 0.0)
+	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index("Voices")), "voices can be turned off on their own")
+	Settings.set_value("ui_scale", 1.3)
+	_check(is_equal_approx(get_tree().root.content_scale_factor, 1.3), "interface size scales the UI")
+	Settings.reset_to_defaults()
+	_check(is_equal_approx(get_tree().root.content_scale_factor, 1.0) and is_equal_approx(Settings.master_volume, 1.0),
+			"reset puts everything back")
+
+	var options := OptionsMenu.new()
+	get_tree().root.add_child(options)
+	options.open()
+	await _process_frames(2)
+	_check(options.visible and options.tabs.get_tab_count() == 4, "options has sound, display, controls and accessibility tabs")
+	var stop_key: Key = (InputMap.action_get_events("stop")[0] as InputEventKey).physical_keycode
+	var hold_keys := Settings.key_names("hold")
+	options.rebind("hold", stop_key)
+	_check(Settings.action_for_key(stop_key) == "hold", "a key can be rebound")
+	_check(Settings.key_names("stop") == hold_keys, "the action that had the key takes the old one, so nothing is left unbound")
+	_check(options.key_buttons["hold"].text == Settings.key_names("hold"), "the key list shows the new binding")
+	var guide := HowToPlay.new()
+	get_tree().root.add_child(guide)
+	_check(guide.guide().contains("Hold: [b]%s[/b]" % Settings.key_names("hold")), "How to Play shows the current keys")
+	guide.queue_free()
+	Settings.reset_to_defaults()
+	_check(Settings.action_for_key(stop_key) == "stop", "reset restores the default keys")
+	_key(KEY_ESCAPE)
+	_check(not options.visible, "Esc closes the options")
+	options.queue_free()
+
+	var confirmed := []
+	var box := ConfirmBox.ask(get_tree().root, "Sure?", "Yes", func() -> void: confirmed.append(true))
+	_key(KEY_ESCAPE)
+	await _process_frames(1)
+	_check(confirmed.is_empty() and not is_instance_valid(box), "Esc backs out of a confirmation")
+	box = ConfirmBox.ask(get_tree().root, "Sure?", "Yes", func() -> void: confirmed.append(true))
+	box.yes_button.pressed.emit()
+	_check(confirmed.size() == 1, "confirming runs the action")
+	await _process_frames(1)
+
+	var main := await _load_map()
+	var hud := main.get_node("UI/HUD")
+	var menu: PauseMenu = hud.pause_menu
+	menu.open()
+	var restart: Button = menu.find_children("*", "Button", true, false).filter(func(b: Button) -> bool: return b.text == "Restart match")[0]
+	restart.pressed.emit()
+	await _process_frames(1)
+	var asks := menu.find_children("*", "ConfirmBox", true, false)
+	_check(asks.size() == 1 and main.is_inside_tree(), "restart asks first instead of throwing the match away")
+	(asks[0] as ConfirmBox).no_button.pressed.emit()
+	menu.close()
+
+	var enemy := _first(1, "Brute")
+	var red := Teams.color(1)
+	Settings.set_value("colorblind", true)
+	_check(Teams.color(1) != red and Teams.color(1) == Teams.CB_ENEMY_COLORS[0], "colour-blind mode swaps red enemies for orange")
+	_check(Teams.color(0) == Teams.BLUE, "the player stays blue")
+	Settings.set_value("colorblind", false)
+	_check(Teams.color(1) == red, "and it can be turned off again")
+	var bars: HealthBars = main.get_node("UI/HealthBars")
+	_check(not bars.shows(enemy), "an unhurt, unselected creature has no health bar by default")
+	Settings.set_value("health_bars", Settings.BARS_ALWAYS)
+	_check(bars.shows(enemy), "health bars can be set to always show")
+	Settings.reset_to_defaults()
+	await _unload(main)
+
+
+func _test_alert_pings_and_failed_orders() -> void:
+	print("alert pings and failed orders")
+	var main := await _load_map()
+	var manager: SelectionManager = main.get_node("SelectionManager")
+	var minimap := main.get_node("UI/HUD/Minimap")
+	_first(0, "Runner").take_damage(1.0, _first(1, "Brute"))
+	_check(minimap.pings.size() == 1, "an alert flashes on the minimap")
+	_check(main.get_node("UI/HUD").message_label.text.contains("(%s to look)" % Settings.key_names("jump_to_alert", true)),
+			"the alert names the look key")
+	Alerts.report(1, Vector3(20, 0, 20), "Enemy hit")
+	_check(minimap.pings.size() == 1, "the enemy's alerts don't ping")
+	var henchmen := _team_units(0).filter(func(u: Creature) -> bool: return u is Henchman)
+	manager.select_units(henchmen)
+	manager.begin_placement(load("res://resources/buildings/generator.tres"))
+	var lab := _building(0, "Lab")
+	main.get_node("RTSCamera").focus_on(lab.global_position)
+	await get_tree().process_frame
+	var markers_before := main.get_children().filter(func(n: Node) -> bool: return "failed" in n and n.failed).size()
+	manager.place_building_at_screen(manager.camera.unproject_position(lab.global_position))
+	var markers := main.get_children().filter(func(n: Node) -> bool: return "failed" in n and n.failed)
+	_check(markers.size() == markers_before + 1, "a building that doesn't fit leaves a red cross where it was tried")
+	manager.cancel_placement()
+	await _unload(main)
 
 
 # --- Helpers ------------------------------------------------------------------

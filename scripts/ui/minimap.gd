@@ -11,6 +11,9 @@ const VIEW_COLOR := Color(1, 1, 1, 0.85)
 const COAL_COLOR := Color(0.05, 0.05, 0.05)
 const UNIT_DOT := 3.0
 const GHOST_COLOR := Color(0.6, 0.6, 0.6, 0.6)
+## "Under attack" pings: how long they flash and the colour of the rings.
+const PING_TIME := 4.0
+const PING_COLOR := Color(1.0, 0.85, 0.25)
 
 @export var camera_rig: RTSCamera
 @export var selection_manager: SelectionManager
@@ -21,17 +24,17 @@ const GHOST_COLOR := Color(0.6, 0.6, 0.6, 0.6)
 var _terrain: TextureRect
 var _overlay: Control
 var _dragging := false
+## Alert pings: [world position, seconds left].
+var pings: Array = []
 
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(MAP_SIZE, MAP_SIZE)
 	size = custom_minimum_size
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	tooltip_text = """Click / drag: look there    Right click: send the selection there
-Camera
-  WASD / screen edges / middle drag: pan    Wheel: zoom
-  Q / E: rotate    Backspace: face north
-  Space: jump to the last alert"""
+	_refresh_help()
+	Settings.changed.connect(_refresh_help)
+	Alerts.raised.connect(_on_alert)
 	_terrain = TextureRect.new()
 	_terrain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_terrain.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -49,7 +52,10 @@ Camera
 	add_child(_overlay)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	for ping: Array in pings:
+		ping[1] -= delta
+	pings = pings.filter(func(ping: Array) -> bool: return ping[1] > 0.0)
 	if fog and _terrain.texture != fog.texture:
 		_terrain.texture = fog.texture
 	if fog:
@@ -108,9 +114,41 @@ func _draw_overlay() -> void:
 		var color := Color.WHITE if unit.is_selected else _team_color(unit.team)
 		_overlay.draw_rect(Rect2(at - Vector2.ONE * UNIT_DOT / 2.0, Vector2.ONE * UNIT_DOT), color)
 	_draw_camera_view()
+	_draw_pings()
 	# The HUD draws the brass bezel around it; this is the inner pin-stripe.
 	_overlay.draw_rect(Rect2(Vector2.ZERO, size), BORDER_COLOR, false, 2.0)
 	_overlay.draw_rect(Rect2(Vector2.ZERO, size).grow(-2.0), Color(UiTheme.GLOW, 0.4), false, 1.0)
+
+
+## Shrinking rings over each recent alert, so it can be found at a glance
+## (and without hearing the klaxon).
+func _draw_pings() -> void:
+	for ping: Array in pings:
+		var at := world_to_map(ping[0])
+		var age: float = PING_TIME - ping[1]
+		for k in 2:
+			var t := fmod(age * 1.2 + k * 0.5, 1.0)
+			var radius := lerpf(22.0, 4.0, t)
+			_overlay.draw_arc(at, radius + 1.0, 0.0, TAU, 24, BORDER_COLOR, 3.5)
+			_overlay.draw_arc(at, radius, 0.0, TAU, 24, Color(PING_COLOR, 1.0 - t * 0.5), 2.0)
+		_overlay.draw_circle(at, 3.0, PING_COLOR)
+
+
+func _on_alert(team: int, _text: String, where: Vector3) -> void:
+	if selection_manager != null and team == selection_manager.player_team:
+		pings.append([where, PING_TIME])
+
+
+func _refresh_help() -> void:
+	tooltip_text = """Click / drag: look there    Right click: send the selection there
+Camera
+  %s / screen edges / middle drag: pan    Wheel: zoom
+  %s / %s: rotate    %s: face north
+  %s: jump to the last alert""" % [
+			"".join([Settings.key_names("camera_forward", true), Settings.key_names("camera_left", true),
+				Settings.key_names("camera_back", true), Settings.key_names("camera_right", true)]),
+			Settings.key_names("camera_rotate_left"), Settings.key_names("camera_rotate_right"),
+			Settings.key_names("camera_reset"), Settings.key_names("jump_to_alert")]
 
 
 ## Outline of the ground area the camera currently shows.

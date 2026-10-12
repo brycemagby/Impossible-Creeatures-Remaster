@@ -83,6 +83,15 @@ func _ready() -> void:
 	select_map(GameSettings.map_index)
 	difficulty_option.select(GameSettings.difficulty)
 	fog_check.button_pressed = GameSettings.fog_enabled
+	# Keyboard and gamepad users start on Start; Tab or the arrows reach the rest.
+	start.grab_focus.call_deferred()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Esc / gamepad B goes back to the main menu.
+	if event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		get_tree().change_scene_to_file(MENU_SCENE)
 
 
 func select_map(index: int) -> void:
