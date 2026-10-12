@@ -106,8 +106,9 @@ Follow-ups:
 
 ## Later
 - Single-player campaign (an original story in the spirit of the 1930s pulp-adventure setting)
-- Multiplayer: online 1v1 ✅ first pass. Host-authoritative over ENet: the host runs the match and
-  streams it, the joining player's orders go to the host (see README, "Playing online"). Next:
-  more players (2v2, or humans plus AI), a rematch button, a relay or NAT punch-through so nobody
-  has to forward a port, and a ping display
+- Multiplayer: online 1v1 ✅ first pass. Host-authoritative: the host runs the match and streams
+  it, the joining player's orders go to the host (see README, "Playing online"). Room codes through
+  a relay on Cloudflare's free plan ✅, so nobody forwards a port; direct IP play stays on desktop.
+  Next: more players (2v2, or humans plus AI), a rematch button, and a ping display
+- Browser version ✅ (Compatibility renderer, published to Cloudflare Pages; see docs/WEB.md)
 - Modding support: data-driven animals and maps

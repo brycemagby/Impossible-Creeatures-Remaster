@@ -3062,6 +3062,27 @@ func _test_online_encoding() -> void:
 	_check(not Net.forward(unit, &"command_stop"), "offline, commands run locally instead of being sent")
 	unit.free()
 
+	if OS.get_environment("IC_RELAY_URL") == "":
+		_check(Net.relay_url() == ProjectSettings.get_setting(Net.RELAY_URL_SETTING), "the relay address comes from the project settings")
+	var relay := RelayPeer.new()
+	var joined: Array[int] = []
+	relay.peer_connected.connect(func(peer: int) -> void: joined.append(peer))
+	relay._control('{"type":"welcome","id":4242,"code":"ABCD","peers":[1]}')
+	_check(relay.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED and relay.get_unique_id() == 4242
+			and joined == [1] and relay.room_code == "ABCD", "joining through the relay connects to the host with our own id")
+	var host_relay := RelayPeer.new()
+	host_relay._hosting = true
+	var codes: Array[String] = []
+	host_relay.room_opened.connect(func(code: String) -> void: codes.append(code))
+	host_relay._control('{"type":"welcome","id":1,"code":"WXYZ","peers":[]}')
+	host_relay._control('{"type":"peer_joined","id":77}')
+	_check(host_relay._is_server() and host_relay.get_unique_id() == 1 and codes == ["WXYZ"],
+			"hosting through the relay hands out a room code")
+	var left: Array[int] = []
+	host_relay.peer_disconnected.connect(func(peer: int) -> void: left.append(peer))
+	host_relay._control('{"type":"peer_left","id":77}')
+	_check(left == [77], "the host hears when a player leaves the room")
+
 	var designs := Armies.default_designs()
 	var decoded := Armies.decode_designs(Armies.encode_designs(designs))
 	var same := decoded.size() == designs.size()

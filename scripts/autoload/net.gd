@@ -9,8 +9,12 @@ extends Node
 ## bit-identical results on every machine, which Godot's physics, navigation
 ## and avoidance don't promise, so the host decides everything instead.
 ##
-## Lobby flow: the host listens on a UDP port; a joining player connects and
-## says hello with their name and army roster; the host assigns them a team
+## Two ways to connect: through the relay server (RelayPeer, a WebSocket;
+## the host gets a room code to share, nobody opens ports, and it works in a
+## browser) or directly by IP address (ENet over UDP, desktop only).
+##
+## Lobby flow: the host opens a room or listens on a UDP port; a joining
+## player connects and says hello with their name and army roster; the host assigns them a team
 ## and shares the lobby (players, map, fog). When the host starts, everyone
 ## gets the same match setup, including every player's roster, and loads the
 ## map. Everything here is a no-op offline, so skirmish is unchanged.
@@ -31,6 +35,9 @@ const PROTOCOL_VERSION := 1
 ## Players in an online match, the host included.
 const MAX_PLAYERS := 2
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
+## Where the relay lives unless overridden (see relay_url()).
+const RELAY_URL_SETTING := "network/relay/url"
+const DEFAULT_RELAY_URL := "ws://localhost:8787"
 
 var role := Role.OFFLINE
 ## The team this machine plays (the host is 0, the joining player 1).
@@ -45,6 +52,8 @@ var _rosters := {}
 ## Set during an online match.
 var sync: NetSync = null
 var in_match := false
+## The relay room's code while hosting or joined through the relay.
+var room_code := ""
 
 
 func _ready() -> void:
@@ -90,6 +99,54 @@ func peer_of_team(team: int) -> int:
 
 # --- Hosting and joining ------------------------------------------------------
 
+## Can this build connect directly by IP address? (Browsers can't use UDP.)
+static func direct_supported() -> bool:
+	return not OS.has_feature("web")
+
+
+## The relay server's address: the IC_RELAY_URL environment variable, then on
+## the web a ?relay= in the page address, then the project setting.
+static func relay_url() -> String:
+	var url := OS.get_environment("IC_RELAY_URL")
+	if url == "" and OS.has_feature("web"):
+		var param: Variant = JavaScriptBridge.eval(
+				"new URLSearchParams(window.location.search).get('relay') || ''", true)
+		url = str(param) if param != null else ""
+	if url == "":
+		url = str(ProjectSettings.get_setting(RELAY_URL_SETTING, DEFAULT_RELAY_URL))
+	return url
+
+
+## Opens a room on the relay. The code to share arrives as lobby_changed
+## (see room_code), or connection_failed if the relay can't be reached.
+func host_room() -> Error:
+	leave()
+	var peer := RelayPeer.new()
+	var error := peer.host(relay_url())
+	if error != OK:
+		return error
+	peer.room_opened.connect(func(code: String) -> void:
+		room_code = code
+		lobby_changed.emit())
+	peer.refused.connect(_on_relay_refused, CONNECT_DEFERRED)
+	_become_host(peer)
+	return OK
+
+
+## Joins the relay room [param code]. The result arrives later as
+## lobby_changed (joined) or connection_failed.
+func join_room(code: String) -> Error:
+	leave()
+	var peer := RelayPeer.new()
+	var error := peer.join(relay_url(), code)
+	if error != OK:
+		return error
+	peer.refused.connect(_on_relay_refused, CONNECT_DEFERRED)
+	room_code = code.strip_edges().to_upper()
+	_become_client(peer)
+	return OK
+
+
 ## Starts listening for a player on [param port]. Returns OK or the error.
 func host(port := DEFAULT_PORT) -> Error:
 	leave()
@@ -97,12 +154,7 @@ func host(port := DEFAULT_PORT) -> Error:
 	var error := peer.create_server(port, MAX_PLAYERS - 1)
 	if error != OK:
 		return error
-	multiplayer.multiplayer_peer = peer
-	role = Role.HOST
-	local_team = 0
-	players = {1: {"name": player_name, "team": 0}}
-	_rosters = {0: Armies.encode_designs(Armies.designs(0))}
-	lobby_changed.emit()
+	_become_host(peer)
 	return OK
 
 
@@ -114,10 +166,28 @@ func join(address: String, port := DEFAULT_PORT) -> Error:
 	var error := peer.create_client(address, port)
 	if error != OK:
 		return error
+	_become_client(peer)
+	return OK
+
+
+func _become_host(peer: MultiplayerPeer) -> void:
+	multiplayer.multiplayer_peer = peer
+	role = Role.HOST
+	local_team = 0
+	players = {1: {"name": player_name, "team": 0}}
+	_rosters = {0: Armies.encode_designs(Armies.designs(0))}
+	lobby_changed.emit()
+
+
+func _become_client(peer: MultiplayerPeer) -> void:
 	multiplayer.multiplayer_peer = peer
 	role = Role.CLIENT
 	players.clear()
-	return OK
+
+
+## True while hosting through the relay but before it has handed out a code.
+func is_opening_room() -> bool:
+	return is_host() and multiplayer.multiplayer_peer is RelayPeer and room_code == ""
 
 
 ## Closes the connection and puts everything back to single player.
@@ -131,6 +201,7 @@ func leave() -> void:
 	_rosters.clear()
 	in_match = false
 	local_team = 0
+	room_code = ""
 	_end_sync()
 	if was_online:
 		Teams.player_team = 0
@@ -282,8 +353,20 @@ func _on_connected_to_server() -> void:
 
 
 func _on_connection_failed() -> void:
+	# The relay says why itself (see _on_relay_refused).
+	if multiplayer.multiplayer_peer is RelayPeer:
+		return
 	leave()
 	connection_failed.emit("Couldn't reach the host")
+
+
+## The relay closed our connection. Outside a match that's a failed host or
+## join; in a match the usual disconnect handling covers it.
+func _on_relay_refused(reason: String) -> void:
+	if in_match:
+		return
+	leave()
+	connection_failed.emit(reason)
 
 
 func _on_peer_disconnected(peer: int) -> void:

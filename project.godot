@@ -43,3 +43,11 @@ window/size/viewport_height=900
 3d_physics/layer_2="units"
 3d_physics/layer_3="buildings"
 3d_physics/layer_4="resources"
+
+[network]
+
+relay/url="ws://localhost:8787"
+
+[rendering]
+
+renderer/rendering_method.web="gl_compatibility"

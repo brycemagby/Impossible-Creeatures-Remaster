@@ -1,0 +1,16 @@
+{
+  "name": "impossible-creatures-relay",
+  "private": true,
+  "type": "module",
+  "description": "Passes game messages between players for online matches (Cloudflare Worker + Durable Objects).",
+  "scripts": {
+    "dev": "wrangler dev",
+    "local": "node src/node_server.js",
+    "test": "node --test test/*.test.js",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0",
+    "ws": "^8.18.0"
+  }
+}

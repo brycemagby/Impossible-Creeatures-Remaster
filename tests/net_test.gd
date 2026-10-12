@@ -5,7 +5,9 @@ extends Node
 ## Run with tests/run_net_test.sh (it starts both). By hand:
 ##   godot --headless --path . res://tests/net_test.tscn -- host 7790
 ##   godot --headless --path . res://tests/net_test.tscn -- client 7790
-## Each exits with the number of failed checks. Both sides sit on the Play
+## With IC_RELAY_URL set (RELAY=1 in run_net_test.sh) they connect through
+## the relay server instead: the host writes its room code to a file and the
+## client joins with it. Each exits with the number of failed checks. Both sides sit on the Play
 ## Online screen until the match starts, so it gets exercised too. With
 ## NET_TEST_SHOTS=<dir> (and a real display) each side saves screenshots.
 ##
@@ -69,6 +71,12 @@ class Driver:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png("%s/%s-%s.png" % [dir, role, label])
 
+	func relayed() -> bool:
+		return OS.get_environment("IC_RELAY_URL") != ""
+
+	func code_file() -> String:
+		return "user://net_test_code_%d.txt" % port
+
 	func wait(seconds: float) -> void:
 		await get_tree().create_timer(seconds, true, false, true).timeout
 
@@ -85,7 +93,12 @@ class Driver:
 
 	func _run_host() -> void:
 		Net.player_name = "Host"
-		check(Net.host(port) == OK, "hosts on port %d" % port)
+		if relayed():
+			check(Net.host_room() == OK, "opens a room on the relay")
+			check(await wait_until(func() -> bool: return Net.room_code != "", 15.0), "gets a room code")
+			FileAccess.open(code_file(), FileAccess.WRITE).store_string(Net.room_code)
+		else:
+			check(Net.host(port) == OK, "hosts on port %d" % port)
 		check(await wait_until(func() -> bool: return Net.players.size() == 2, 30.0), "the other player joins the lobby")
 		check(Net.players.get(Net.players.keys().filter(func(p: int) -> bool: return p != 1)[0], {}).get("team") == 1,
 				"the joining player gets team 1")
@@ -159,7 +172,15 @@ class Driver:
 	func _run_client() -> void:
 		Net.player_name = "Guest"
 		await wait(0.5)
-		check(Net.join("127.0.0.1", port) == OK, "connects to the host")
+		if relayed():
+			var started := int(Time.get_unix_time_from_system()) - 1
+			var fresh := func() -> bool:
+				return FileAccess.file_exists(code_file()) and FileAccess.get_modified_time(code_file()) >= started
+			check(await wait_until(fresh, 15.0), "gets the room code")
+			var code := FileAccess.get_file_as_string(code_file())
+			check(Net.join_room(code) == OK, "joins room %s on the relay" % code)
+		else:
+			check(Net.join("127.0.0.1", port) == OK, "connects to the host")
 		check(await wait_until(func() -> bool: return Net.players.size() == 2, 30.0), "joins the lobby")
 		check(Net.local_team == 1, "plays team 1")
 		await wait(0.5)

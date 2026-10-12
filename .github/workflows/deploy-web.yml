@@ -1,0 +1,108 @@
+# Publishes the browser version and the relay to Cloudflare (free plan).
+# Runs on every push to main, or by hand from the Actions tab. Needs two
+# repository secrets, CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; see
+# docs/WEB.md for setting them up. Without them it does nothing.
+name: Deploy web version
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.3
+  PAGES_PROJECT: impossible-creatures
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for Cloudflare secrets
+        id: secrets
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$ACCOUNT" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Cloudflare secrets aren't set, so nothing was deployed. See docs/WEB.md."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.ready
+
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.ready
+        with:
+          node-version: 22
+
+      - name: Deploy the relay
+        if: steps.secrets.outputs.ready
+        id: relay
+        working-directory: relay
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm ci
+          npm test
+          npx wrangler deploy | tee deploy.log
+          url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' deploy.log | head -n1)
+          if [ -z "$url" ]; then
+            echo "::error::Couldn't find the relay's address in wrangler's output. Is the workers.dev subdomain set up? See docs/WEB.md."
+            exit 1
+          fi
+          echo "url=${url/https:/wss:}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Godot
+        if: steps.secrets.outputs.ready
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web
+
+      - name: Install Godot and the web export template
+        if: steps.secrets.outputs.ready
+        run: |
+          mkdir -p ~/godot
+          cd ~/godot
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          if [ ! -x godot ]; then
+            curl -sSLo godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+            unzip -q godot.zip && mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot && rm godot.zip
+          fi
+          if [ ! -f web_nothreads_release.zip ]; then
+            curl -sSLo templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+            unzip -q -j templates.tpz templates/web_nothreads_release.zip templates/version.txt && rm templates.tpz
+          fi
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dest"
+          cp web_nothreads_release.zip version.txt "$dest/"
+
+      - name: Export the game
+        if: steps.secrets.outputs.ready
+        env:
+          RELAY_URL: ${{ steps.relay.outputs.url }}
+        run: |
+          sed -i "s|^relay/url=.*|relay/url=\"$RELAY_URL\"|" project.godot
+          grep -q "relay/url=\"$RELAY_URL\"" project.godot
+          mkdir -p build/web
+          ~/godot/godot --headless --import --path . || true
+          ~/godot/godot --headless --path . --export-release "Web" build/web/index.html
+          test -f build/web/index.pck
+          tools/pack_web.sh build/web
+
+      - name: Publish the website
+        if: steps.secrets.outputs.ready
+        working-directory: relay
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler pages project create "$PAGES_PROJECT" --production-branch=main 2>/dev/null || true
+          npx wrangler pages deploy ../build/web --project-name="$PAGES_PROJECT" --branch=main --commit-dirty=true

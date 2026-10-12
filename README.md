@@ -126,18 +126,27 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.
 3. Press **F5**. From the main menu, open the **Creature Combiner** to design your army, then
    **Play Skirmish** to pick a map and difficulty.
 
+To play in a browser, see [docs/WEB.md](docs/WEB.md): it covers exporting the web version, running
+it and the relay on your own computer, and publishing both to Cloudflare for free.
+
 ## Playing online
 
 1. Both players design their armies in the **Creature Combiner** (optional; the presets work too).
-2. The host opens **Play Online**, types a name and clicks **Host**. The screen shows the address
-   other players on the same network can join with.
-3. The other player opens **Play Online**, types the host's IP address and clicks **Join**.
+2. The host opens **Play Online**, types a name and clicks **Host**. The screen shows a four-letter
+   room code; send it to the other player.
+3. The other player opens **Play Online**, types the code and clicks **Join**.
 4. The host picks the map and fog, then clicks **Start**. The host starts at the map's first base
    and the joining player at the other. Each player sees their own units in blue.
 
-Over the internet, the host needs to forward **UDP port 7777** (or whichever port they picked) on
-their router to their computer, and give the other player their public IP address. A virtual LAN
-such as Tailscale or ZeroTier avoids the port forwarding: join with the host's address on it.
+Room codes go through a small relay server (`relay/`, running on Cloudflare's free plan) that
+passes the game's messages between the two players, so nobody has to open ports on their router.
+It works the same in the browser version and the desktop game, and a browser player can play a
+desktop player. When hosting in a browser, keep the game's tab in front during the match: the match
+runs on the host's computer, and browsers slow down background tabs.
+
+The desktop game can also skip the relay: tick **Connect directly by IP address instead**, then
+host on a UDP port (7777 by default) or join with the host's IP address. Over the internet the host
+must forward that port on their router; a virtual LAN such as Tailscale or ZeroTier avoids that.
 
 How it works: the host's game is the real one. It runs every unit, fight and coal delivery exactly
 as in a skirmish, and streams it to the other player: unit positions 20 times a second, everything
@@ -255,7 +264,10 @@ seen moving, and the joining player's move, production and building orders carri
 
 ```sh
 tests/run_net_test.sh
+RELAY=1 tests/run_net_test.sh   # the same match through a local copy of the relay (needs Node)
 ```
+
+The relay has its own protocol tests (`cd relay && npm install && npm test`).
 
 ## Maps
 
@@ -301,7 +313,8 @@ scenes/
 scripts/
   autoload/              Global singletons (input bindings, Economy, Armies, Research, GameSettings,
                          MatchStats, Upgrades, Teams, UiTheme, Sfx, Net for online play)
-  net/                   NetSync: an online match's sync between host and joining player
+  net/                   NetSync: an online match's sync between host and joining player;
+                         RelayPeer: connecting through the relay with a room code
   combiner/              AnimalData, CreatureDesign, CreatureCombiner rules, ArmyRoster
   ai/                    Enemy AI controller
   buildings/             Building, BuildingData, UnitRecipe, build placement
@@ -313,6 +326,9 @@ scripts/
   ui/                    HUD, minimap, health bars, drag-select box, menus, combiner screen
 shaders/                 Fog-of-war ground and minimap shaders
 tools/generate_maps.py   Builds the map scenes from layout lists
+tools/pack_web.sh        Gzips the web export's engine for hosting
+relay/                   The relay server for online play (Cloudflare Worker; also runs on Node)
+.github/workflows/       Publishes the browser version and relay to Cloudflare (docs/WEB.md)
 resources/animals/       The animals the combiner draws parts from
 resources/creatures/     Henchman stats
 resources/buildings/     Building definitions (cost, size, production)

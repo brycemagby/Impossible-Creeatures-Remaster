@@ -31,7 +31,8 @@ func _ready() -> void:
 	_add_button(column, "Play Skirmish", func() -> void: get_tree().change_scene_to_file(SETUP_SCENE))
 	_add_button(column, "Play Online", func() -> void: get_tree().change_scene_to_file(ONLINE_SCENE))
 	_add_button(column, "Creature Combiner", func() -> void: get_tree().change_scene_to_file(COMBINER_SCENE))
-	_add_button(column, "Quit", func() -> void: get_tree().quit())
+	if not OS.has_feature("web"):  # A browser tab can't close itself.
+		_add_button(column, "Quit", func() -> void: get_tree().quit())
 
 
 func _add_button(parent: Control, text: String, action: Callable) -> void:
