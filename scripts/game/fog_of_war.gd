@@ -174,6 +174,11 @@ func explored_fraction(team: int) -> float:
 	return float(count) / explored.size()
 
 
+## Hands the fog to every ground-level surface again (after new ones appear).
+func refresh_surfaces() -> void:
+	_refresh_shader()
+
+
 func _refresh_shader() -> void:
 	if _material == null or texture == null:
 		return
@@ -181,7 +186,7 @@ func _refresh_shader() -> void:
 	_material.set_shader_parameter("map_rect", Vector4(bounds.position.x, bounds.position.y, bounds.size.x, bounds.size.y))
 	_material.set_shader_parameter("fog_enabled", enabled and not reveal_all)
 	# Other ground-level surfaces (water) darken with the same fog.
-	for surface: MeshInstance3D in get_tree().get_nodes_in_group("fog_surfaces"):
+	for surface: GeometryInstance3D in get_tree().get_nodes_in_group("fog_surfaces"):
 		var material := surface.material_override as ShaderMaterial
 		if material:
 			material.set_shader_parameter("fog", texture)
@@ -245,17 +250,16 @@ func building_destroyed(building: Building) -> void:
 		return
 	if is_visible(player_team, building.global_position):
 		return
-	var mesh := BoxMesh.new()
-	mesh.size = building.data.size
 	var material := StandardMaterial3D.new()
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.albedo_color = GHOST_COLOR
-	var ghost := MeshInstance3D.new()
-	ghost.mesh = mesh
-	ghost.material_override = material
-	ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var ghost := BuildingModel.new()
+	ghost.build(building.data, GHOST_COLOR)
+	ghost.use_material(material)
 	add_child(ghost)
-	ghost.global_position = building.global_position + Vector3.UP * building.data.size.y / 2.0
+	# A memory of the building: nothing turns.
+	ghost.set_process(false)
+	ghost.global_position = building.global_position
 	ghosts.append({"position": building.global_position, "size": building.data.size, "node": ghost})
 
 

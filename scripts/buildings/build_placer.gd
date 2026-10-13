@@ -22,7 +22,7 @@ var team := 0
 ## Why the last place() call failed.
 var last_error := ""
 
-var _ghost: MeshInstance3D
+var _ghost: BuildingModel
 var _ghost_material: StandardMaterial3D
 
 
@@ -34,15 +34,12 @@ func start(building_data: BuildingData, placing_team: int) -> void:
 	cancel()
 	data = building_data
 	team = placing_team
-	var mesh := BoxMesh.new()
-	mesh.size = data.size
 	_ghost_material = StandardMaterial3D.new()
 	_ghost_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_ghost_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_ghost = MeshInstance3D.new()
-	_ghost.mesh = mesh
-	_ghost.material_override = _ghost_material
-	_ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_ghost = BuildingModel.new()
+	_ghost.build(data, Teams.color(team))
+	_ghost.use_material(_ghost_material)
 	_ghost.visible = false
 	add_child(_ghost)
 
@@ -62,7 +59,7 @@ func update_ghost(world_point: Variant) -> void:
 	if world_point == null:
 		return
 	var spot := snap(world_point)
-	_ghost.global_position = spot + Vector3.UP * data.size.y / 2.0
+	_ghost.global_position = spot
 	_ghost_material.albedo_color = VALID_COLOR if can_place_at(spot) else INVALID_COLOR
 
 

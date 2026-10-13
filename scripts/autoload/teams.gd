@@ -14,12 +14,24 @@ const GREEN := Color(0.4, 0.85, 0.35)
 const ALLY_COLORS: Array[Color] = [GREEN, Color(0.3, 0.85, 0.85)]
 const ENEMY_COLORS: Array[Color] = [RED, YELLOW, Color(0.85, 0.45, 0.9), Color(0.95, 0.55, 0.2)]
 
+## Colour-blind palette (Settings.colorblind): friends in blues, enemies in
+## warm colours, chosen to stay apart with red-green and blue-yellow colour
+## blindness.
+const CB_ALLY_COLORS: Array[Color] = [Color(0.45, 0.85, 0.95), Color(0.1, 0.65, 0.55)]
+const CB_ENEMY_COLORS: Array[Color] = [Color(0.95, 0.58, 0.1), Color(0.95, 0.9, 0.3), Color(0.82, 0.45, 0.78), Color(0.92, 0.92, 0.92)]
+
 ## Teams in the current match.
 var active: Array[int] = [0, 1]
 ## The local player's team (always 0 for now).
 var player_team := 0
 var _alliance := {}
 var _colors := {}
+var _colorblind := false
+
+
+func _ready() -> void:
+	_colorblind = Settings.colorblind
+	Settings.changed.connect(_on_settings_changed)
 
 
 ## [param alliances] maps team -> alliance id; teams left out are on their own.
@@ -47,11 +59,22 @@ func _assign_colors() -> void:
 		if team == player_team:
 			_colors[team] = BLUE
 		elif are_allies(team, player_team):
-			_colors[team] = ALLY_COLORS[allies % ALLY_COLORS.size()]
+			var ally_colors := CB_ALLY_COLORS if Settings.colorblind else ALLY_COLORS
+			_colors[team] = ally_colors[allies % ally_colors.size()]
 			allies += 1
 		else:
-			_colors[team] = ENEMY_COLORS[enemies % ENEMY_COLORS.size()]
+			var enemy_colors := CB_ENEMY_COLORS if Settings.colorblind else ENEMY_COLORS
+			_colors[team] = enemy_colors[enemies % enemy_colors.size()]
 			enemies += 1
+
+
+func _on_settings_changed() -> void:
+	if Settings.colorblind == _colorblind:
+		return
+	_colorblind = Settings.colorblind
+	_assign_colors()
+	changed.emit()
+	get_tree().call_group("targets", "refresh_team_color")
 
 
 func alliance(team: int) -> int:

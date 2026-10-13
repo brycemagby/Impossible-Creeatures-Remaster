@@ -8,7 +8,9 @@ const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 var title: Label
 var time_label: Label
 var table: GridContainer
-var play_again_button: Button
+
+
+var _play_again: Button
 
 
 func _ready() -> void:
@@ -46,11 +48,11 @@ func _ready() -> void:
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_child(buttons)
-	play_again_button = _button(buttons, "Play again", func() -> void:
+	_play_again = _button(buttons, "Play again", func() -> void:
 		get_tree().paused = false
 		get_tree().reload_current_scene())
 	# Online, a rematch means hosting again from the lobby.
-	play_again_button.visible = not Net.is_online()
+	_play_again.visible = not Net.is_online()
 	_button(buttons, "Main menu", func() -> void:
 		get_tree().paused = false
 		Net.leave()
@@ -86,6 +88,7 @@ func show_results(winner: int, player_team: int) -> void:
 		_cell(str(Research.level(team)))
 	visible = true
 	get_tree().paused = true
+	_play_again.grab_focus.call_deferred()
 
 
 ## Online: the connection to the other player is gone.
@@ -131,7 +134,6 @@ func _button(parent: Control, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(160, 44)
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(action)
 	parent.add_child(button)
 	return button

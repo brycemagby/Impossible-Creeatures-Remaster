@@ -47,6 +47,10 @@ const REPATH_DISTANCE := 0.75
 const ALLY_ALERT_RADIUS := 10.0
 ## While attack-moving, automatic targets further than sight_range * this are dropped.
 const LOSE_SIGHT_FACTOR := 1.5
+## Death: a flyer's fall, lying there after the pratfall, fading away.
+const DEATH_FALL_TIME := 0.45
+const DEATH_LIE_TIME := 1.6
+const DEATH_FADE_TIME := 0.7
 ## How high flying creatures hover.
 const HOVER_HEIGHT := 2.5
 const CLIMB_RATE := 4.0
@@ -1012,9 +1016,23 @@ func _die() -> void:
 	died.emit(self)
 
 	var tween := create_tween()
-	tween.tween_property(self, "rotation:z", PI / 2.0 * (1.0 if randf() > 0.5 else -1.0), 0.35)
-	tween.tween_interval(0.8)
-	tween.tween_property(self, "position:y", -1.5, 1.0 + position.y * 0.3)
+	if _model == null:
+		tween.tween_property(self, "rotation:z", PI / 2.0 * (1.0 if randf() > 0.5 else -1.0), 0.35)
+		tween.tween_interval(0.8)
+		tween.tween_property(self, "position:y", -1.5, 1.0 + position.y * 0.3)
+		tween.tween_callback(queue_free)
+		return
+	# Flyers drop out of the sky in a spin before the pratfall.
+	if stats.can_fly and position.y > HOVER_HEIGHT * 0.5:
+		tween.tween_property(self, "position:y", 0.0, DEATH_FALL_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.parallel().tween_property(_model, "rotation:y", _model.rotation.y + TAU, DEATH_FALL_TIME)
+	tween.tween_callback(_model.die)
+	tween.tween_interval(DEATH_LIE_TIME)
+	tween.tween_callback(_model.fade.bind(DEATH_FADE_TIME))
+	if _disc_material:
+		_disc_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		tween.tween_property(_disc_material, "albedo_color:a", 0.0, 0.2)
+	tween.tween_interval(DEATH_FADE_TIME)
 	tween.tween_callback(queue_free)
 
 

@@ -39,10 +39,10 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var pan := Input.get_vector("camera_left", "camera_right", "camera_forward", "camera_back")
-	if edge_scroll_enabled and not _drag_panning:
+	if edge_scroll_enabled and Settings.edge_scroll and not _drag_panning:
 		pan += _edge_scroll_vector()
 	if pan != Vector2.ZERO:
-		pan_by(pan.limit_length(1.0) * pan_speed * _zoom_factor() * delta)
+		pan_by(pan.limit_length(1.0) * pan_speed * Settings.pan_speed * _zoom_factor() * delta)
 
 	var turn := Input.get_axis("camera_rotate_right", "camera_rotate_left")
 	rotation.y += turn * rotate_speed * delta
