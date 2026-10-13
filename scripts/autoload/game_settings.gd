@@ -21,7 +21,13 @@ var map_index := 0
 var difficulty := Difficulty.NORMAL
 var fog_enabled := true
 ## Engine.time_scale during matches (changed from the pause menu or - / =).
-var game_speed := 1.0
+## Remembered between sessions (kept in Settings).
+var game_speed: float:
+	get:
+		return Settings.game_speed
+	set(value):
+		if not is_equal_approx(Settings.game_speed, value):
+			Settings.set_value("game_speed", value)
 ## Players in the match, you included (2 up to the map's maximum).
 var player_count := 2
 var mode := Mode.FREE_FOR_ALL

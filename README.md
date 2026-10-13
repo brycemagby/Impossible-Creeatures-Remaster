@@ -64,7 +64,14 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
   2 m further up the shore, research L3). The AI builds one
   too on water maps and patrols the water nearest you with its water-only creatures.
 - **Minimap**: terrain under the fog, coal, buildings, creatures and your camera's view; click to look,
-  right click to send the selection there
+  right click to send the selection there. Alerts flash on it
+- **Options** (main menu or pause menu, saved between sessions): master, effects and creature voice
+  volume; fullscreen and interface size (the UI also scales with the window); edge scrolling and
+  camera speed; key rebinding; a colour-blind team palette and always-on health bars. Enemy health
+  bars carry a small pointer so they read without colour
+- Menus work with keyboard or gamepad, Restart and Quit ask first, a How to Play page lists the
+  current keys, and orders that can't be carried out (a building that doesn't fit) leave a red cross
+  where they were tried
 
 - **Creature combiner**: pick two of 17 animals (Bat, Bison, Chameleon, Cheetah, Crocodile, Eagle,
   Electric Eel, Elephant, Gorilla, Kangaroo, Lion, Porcupine, Rhino, Scorpion, Shark, Skunk, Wolf), choose which one each body part comes from, see
@@ -87,10 +94,10 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - Unit behavior: idle units engage enemies in sight, chase up to a leash range and then return to their post; units fight back when hit and call nearby allies to help
 - Stances (command panel buttons for an army selection, Z X C): aggressive (chase enemies as long as
   they stay in sight), defensive (the leash above; the default) and stand ground (never move)
-- Goofy placeholder sound in the spirit of the original: gibberish creature voices (deeper for bigger
-  creatures), bonks, "pew"s, slide-whistle deaths, an "awooga" alert, kazoo fanfares and a sad
+- Goofy placeholder sound in the spirit of the original: soft, murmured gibberish creature voices
+  (deeper for bigger creatures), bonks, "pew"s, slide-whistle deaths, an "awooga" alert, kazoo fanfares and a sad
   trombone. Synthesised by `tools/generate_sounds.py`; any file in `assets/sounds/` can be replaced
-  one for one. Volume is in the pause menu
+  one for one. Volumes are in Options
 - Economy: coal (gathered from coal piles by Henchmen) and electricity (made by Electrical Generators)
 - Base building: Lab, Electrical Generator and Creature Chamber, placed with a ghost preview and
   constructed by Henchmen; the navmesh updates as buildings go up or come down
@@ -111,7 +118,11 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
 - Placeholder creature models: each animal's head, torso, legs and tail on a shared rig with
   procedural walk, idle, flap, swim and attack animation, so any hybrid moves; Henchmen are little
   workers in team-coloured overalls. Hand-made art can replace any part: see
-  `scripts/units/creature_model.gd` (`ART_DIR`)
+  `scripts/units/creature_model.gd` (`ART_DIR`). Creatures die in a cartoon pratfall and fade away
+- Placeholder buildings, each with its own retro-futurist model (turning gears and dishes, pulsing
+  coils, chimney smoke, scaffolding while built); real art drops in at `assets/buildings/<id>.tscn`
+- Placeholder terrain: patchy ground, scattered grass, pebbles and flowers, rock outcrops, coal heaps
+  and rippling water; real art drops in at `assets/terrain/` (see `scripts/world/terrain_props.gd`)
 - Headless tests
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for what comes next.

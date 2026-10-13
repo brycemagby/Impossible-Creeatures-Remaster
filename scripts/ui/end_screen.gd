@@ -10,6 +10,9 @@ var time_label: Label
 var table: GridContainer
 
 
+var _play_again: Button
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -45,7 +48,7 @@ func _ready() -> void:
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_child(buttons)
-	_button(buttons, "Play again", func() -> void:
+	_play_again = _button(buttons, "Play again", func() -> void:
 		get_tree().paused = false
 		get_tree().reload_current_scene())
 	_button(buttons, "Main menu", func() -> void:
@@ -82,6 +85,7 @@ func show_results(winner: int, player_team: int) -> void:
 		_cell(str(Research.level(team)))
 	visible = true
 	get_tree().paused = true
+	_play_again.grab_focus.call_deferred()
 
 
 ## The value shown for [param key] and [param team] (for tests).
@@ -106,10 +110,10 @@ func _cell(text: String, heading := false) -> void:
 	table.add_child(label)
 
 
-func _button(parent: Control, text: String, action: Callable) -> void:
+func _button(parent: Control, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(160, 44)
-	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(action)
 	parent.add_child(button)
+	return button

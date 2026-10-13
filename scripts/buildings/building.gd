@@ -3,7 +3,8 @@ extends StaticBody3D
 ## A team-owned structure: constructed by Henchmen, produces units, can be
 ## attacked and destroyed.
 ##
-## Uses placeholder box art sized and coloured from its [BuildingData].
+## Drawn by a [BuildingModel] (placeholder art per building, swappable for
+## real art); collision is a box the size of its [BuildingData] footprint.
 
 signal completed(building: Building)
 signal production_changed(building: Building)
@@ -45,7 +46,6 @@ var rally_pile: CoalPile = null
 var is_selected := false
 
 var _dead := false
-var _body_material: StandardMaterial3D
 var _last_attacker_team := -1
 var _heal_timer := 0.0
 var _attack_timer := 0.0
@@ -54,8 +54,7 @@ var upgrading: UpgradeData = null
 var upgrade_time := 0.0
 
 @onready var collision: CollisionShape3D = $CollisionShape3D
-@onready var body: MeshInstance3D = $Body
-@onready var team_band: MeshInstance3D = $TeamBand
+@onready var model: BuildingModel = $Model
 @onready var selection_ring: MeshInstance3D = $SelectionRing
 @onready var rally_flag: Node3D = $RallyFlag
 
@@ -418,9 +417,8 @@ func take_damage(amount: float, source: Node3D = null, _ranged := false) -> void
 
 ## A copy of this building's model for the HUD portrait, at the origin.
 func portrait_visual() -> Node3D:
-	var copy := Node3D.new()
-	copy.add_child(body.duplicate())
-	copy.add_child(team_band.duplicate())
+	var copy := model.duplicate() as BuildingModel
+	copy.scale = Vector3.ONE
 	return copy
 
 
@@ -465,7 +463,7 @@ func bar_height() -> float:
 
 ## Re-applies the team colour (after the match decides who's allied with whom).
 func refresh_team_color() -> void:
-	(team_band.material_override as StandardMaterial3D).albedo_color = Teams.color(team)
+	model.set_team_color(Teams.color(team))
 
 
 func set_selected(value: bool) -> void:
@@ -546,22 +544,7 @@ func _build_visuals() -> void:
 	collision.shape = shape
 	collision.position.y = data.size.y / 2.0
 
-	var box := BoxMesh.new()
-	box.size = data.size
-	body.mesh = box
-	body.position.y = data.size.y / 2.0
-	_body_material = StandardMaterial3D.new()
-	_body_material.albedo_color = data.color
-	_body_material.roughness = 0.85
-	body.material_override = _body_material
-
-	var band := BoxMesh.new()
-	band.size = Vector3(data.size.x + 0.1, 0.35, data.size.z + 0.1)
-	team_band.mesh = band
-	team_band.position.y = data.size.y - 0.3
-	var band_material := StandardMaterial3D.new()
-	band_material.albedo_color = Teams.color(team)
-	team_band.material_override = band_material
+	model.build(data, Teams.color(team))
 
 	var ring_scale := radius() * 1.25 / 0.8
 	selection_ring.scale = Vector3(ring_scale, 1.0, ring_scale)
@@ -570,10 +553,8 @@ func _build_visuals() -> void:
 func _update_construction_visual() -> void:
 	# Sites rise out of the ground as they are built.
 	var height_scale := lerpf(0.15, 1.0, build_progress)
-	body.scale = Vector3(1.0, height_scale, 1.0)
-	body.position.y = data.size.y * height_scale / 2.0
-	team_band.visible = is_complete
-	_body_material.albedo_color = data.color if is_complete else data.color.lerp(Color(0.55, 0.45, 0.25), 0.6)
+	model.scale = Vector3(1.0, height_scale, 1.0)
+	model.set_unfinished(not is_complete)
 
 
 func _update_rally_flag() -> void:
@@ -585,7 +566,4 @@ func _update_rally_flag() -> void:
 
 
 func _flash() -> void:
-	var tween := create_tween()
-	var base := _body_material.albedo_color
-	_body_material.albedo_color = Color.WHITE
-	tween.tween_property(_body_material, "albedo_color", base, 0.12)
+	model.flash()

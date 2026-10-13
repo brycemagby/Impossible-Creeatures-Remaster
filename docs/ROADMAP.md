@@ -91,11 +91,38 @@ low-poly shapes (`scripts/units/creature_parts.gd`) on a simple rig (hips, knees
 segments, wing shoulders), animated in code so any hybrid trots, idles, flaps, swims and bites.
 Henchmen are little workers in team-coloured overalls. Real art drops in per part at
 `assets/creatures/<animal>/<torso|head|leg|tail|wing>.tscn` (or .glb) without code changes.
+Touch-ups ✅: splayed scorpion legs (on hybrids too), flat cheetah spots, a two-legged eagle, a
+knuckle-walking gorilla, and a kangaroo hop that hybrids with kangaroo legs inherit.
+
+Still open:
+- Death animation: first pass ✅: a cartoon pratfall timed to the slide whistle (a startled hop,
+  keeling over with a bounce and a puff of dust, a last twitch, then fading away); flyers drop out
+  of the sky in a spin first
+- Building visuals: first pass ✅ (placeholder art): each building has its own retro-futurist model
+  (`scripts/buildings/building_model.gd`) with turning gears, dishes and paddle wheels, pulsing coils,
+  chimney smoke and scaffolding while it's built. Real art drops in at
+  `assets/buildings/<id>.tscn` (or .glb); meshes named `Team…` take the owner's colour
+- Terrain visuals: first pass ✅: patchy painted ground with bare earth, scattered grass, pebbles
+  and flowers (swaying, darkened by fog), faceted rock outcrops with moss, coal heaps of glossy
+  lumps, and rippling water with foam along the shore. Real art drops in at
+  `assets/terrain/<rock|coal_pile|grass|pebble|flower>.tscn` (or .glb), or as a tiled texture on the
+  ground shader (`use_texture`)
+- Final art from human artists, replacing the placeholders part by part
+
+Related polish:
+- UI overhaul ✅: retro-futurist theme (bevelled brass, art-deco fonts, valve glow, riveted console
+  and unit portrait); the controls list moved into tooltips on the controls they describe
+- Placeholder sound ✅ (see M3); final sound and music still to come. Creature voices softened
+  (murmured rather than buzzy, quieter, with their own volume slider) after they grated
+- UX and accessibility pass ✅: an Options screen that saves (volumes, fullscreen, interface size,
+  camera, key rebinding, colour-blind palette, health bar mode), a UI that scales with the window,
+  keyboard/gamepad focus on every menu, confirmations for Restart and Quit, minimap alert pings,
+  red crosses where orders fail, a How to Play page, and tooltips that follow the bindings
 
 ## M6 — Skirmish ✅
 Fog of war (per team, the AI included), minimap with camera jump and orders, a smarter AI (defends,
-attacks scouted targets or the likely enemy base, growing waves, rebuilds), Easy/Normal/Hard, a
-second map (Canyon), and a skirmish setup screen.
+attacks scouted targets or the likely enemy base, growing waves, rebuilds), Easy/Normal/Hard, four
+maps (Island Clearing, Canyon, Crossroads, Lakeside), and a skirmish setup screen.
 
 Follow-ups:
 - Hide coal piles and rocks under unexplored fog; "last seen" ghosts for destroyed enemy buildings ✅
@@ -103,6 +130,10 @@ Follow-ups:
   (Labs now heal nearby creatures, which is where wounded AI creatures retreat to)
 - More maps, 2v2 / free-for-all with more AI players ✅ (Crossroads, up to 4 players, alliances)
 - Pause menu, game speed setting, end-of-match statistics ✅
+
+## Known issues
+- Flaky test: "a walker gets through a tight block of idle allies" (`_test_m1_extras`) fails now
+  and then in a full run but passes on its own and on a rerun
 
 ## Later
 - Single-player campaign (an original story in the spirit of the 1930s pulp-adventure setting)

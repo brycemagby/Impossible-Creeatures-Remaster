@@ -1,15 +1,20 @@
-// Ground that darkens with fog of war: black where unexplored, dim where
-// explored but out of sight, full colour where currently visible.
+// The map's ground: the map's base colour broken up into lighter and darker
+// patches of grass, bare earth and speckles, darkened by fog of war.
+//
+// Real art: set ground_texture (tiled every texture_scale metres) and it
+// replaces the painted pattern; the fog still applies.
 shader_type spatial;
 
+#include "res://shaders/fog.gdshaderinc"
+
 uniform vec4 albedo : source_color = vec4(0.3, 0.42, 0.2, 1.0);
-// R channel: 0 = unexplored, ~0.5 = explored, 1 = visible.
-uniform sampler2D fog : filter_linear, repeat_disable;
-// Map area covered by the fog texture: (x, z, width, depth).
-uniform vec4 map_rect = vec4(-50.0, -50.0, 100.0, 100.0);
-uniform bool fog_enabled = true;
-uniform float unexplored_light = 0.08;
-uniform float explored_light = 0.45;
+// Colour of the bare-earth patches.
+uniform vec4 earth : source_color = vec4(0.42, 0.34, 0.22, 1.0);
+// 0 = flat colour (as before), 1 = full painted pattern.
+uniform float detail = 1.0;
+uniform sampler2D ground_texture : source_color, filter_linear_mipmap, repeat_enable;
+uniform bool use_texture = false;
+uniform float texture_scale = 8.0;
 
 varying vec3 world_position;
 
@@ -18,22 +23,23 @@ void vertex() {
 }
 
 void fragment() {
-	float light = 1.0;
-	if (fog_enabled) {
-		vec2 uv = (world_position.xz - map_rect.xy) / map_rect.zw;
-		// Soften the 1 m grid with a small blur so fog edges look round.
-		vec2 texel = 1.5 / vec2(textureSize(fog, 0));
-		float state = 0.0;
-		for (int x = -1; x <= 1; x++) {
-			for (int y = -1; y <= 1; y++) {
-				state += texture(fog, uv + vec2(float(x), float(y)) * texel).r;
-			}
-		}
-		state /= 9.0;
-		light = state < 0.5
-				? mix(unexplored_light, explored_light, state * 2.0)
-				: mix(explored_light, 1.0, (state - 0.5) * 2.0);
+	vec2 p = world_position.xz;
+	vec3 colour = albedo.rgb;
+	if (use_texture) {
+		colour = texture(ground_texture, p / texture_scale).rgb;
+	} else if (detail > 0.0) {
+		// Broad light and dark patches, a warmer/cooler tint, bare earth in
+		// the low spots, and fine speckle.
+		float broad = fbm(p * 0.06);
+		float mid = fbm(p * 0.22 + 31.0);
+		float fine = value_noise(p * 1.7);
+		vec3 painted = colour * mix(0.72, 1.22, broad);
+		painted = mix(painted, painted * vec3(1.08, 1.04, 0.86), smoothstep(0.35, 0.7, mid));
+		float bare = smoothstep(0.56, 0.68, fbm(p * 0.09 + 77.0) * 0.6 + mid * 0.4);
+		painted = mix(painted, earth.rgb * mix(0.9, 1.1, fine), bare * 0.75);
+		painted *= mix(0.96, 1.04, fine);
+		colour = mix(colour, painted, detail);
 	}
-	ALBEDO = albedo.rgb * light;
+	ALBEDO = colour * fog_light(p);
 	ROUGHNESS = 1.0;
 }
