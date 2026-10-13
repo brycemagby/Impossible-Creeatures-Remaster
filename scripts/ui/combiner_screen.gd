@@ -35,6 +35,8 @@ func _ready() -> void:
 	for saved in Armies.designs(0):
 		army.append(saved.duplicate_design())
 	_build_layout()
+	# Keyboard and gamepad users start in the first animal list.
+	list_a.grab_focus.call_deferred()
 	if army.is_empty():
 		var picks: Array[int] = [0, 0, 1, 1, 0, CreatureDesign.NONE]
 		design = CreatureDesign.create(animals[0], animals[1], picks)
@@ -274,7 +276,6 @@ func _build_layout() -> void:
 			button.button_group = group
 			button.custom_minimum_size.x = 130
 			button.text = "None" if pick == CreatureDesign.NONE else ""
-			button.focus_mode = Control.FOCUS_NONE
 			button.pressed.connect(set_pick.bind(slot, pick))
 			parts.add_child(button)
 			buttons.append(button)
@@ -405,3 +406,10 @@ func _button(parent: Control, text: String, action: Callable) -> Button:
 	button.pressed.connect(action)
 	parent.add_child(button)
 	return button
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Esc / gamepad B goes back to the main menu.
+	if event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		get_tree().change_scene_to_file(MENU_SCENE)

@@ -85,7 +85,8 @@ func build_theme() -> Theme:
 	var hover := textured("button_hover", 12)
 	var pressed := textured("button_pressed", 12)
 	var disabled := textured("button_disabled", 12)
-	var focus := StyleBoxEmpty.new()
+	# A valve-glow outline shows which control the keyboard or gamepad is on.
+	var focus := focus_ring()
 	for style in [normal, hover, pressed, disabled]:
 		style.content_margin_left = 12
 		style.content_margin_right = 12
@@ -176,7 +177,9 @@ func build_theme() -> Theme:
 	list.content_margin_top = 12
 	list.content_margin_bottom = 12
 	t.set_stylebox("panel", "ItemList", list)
-	t.set_stylebox("focus", "ItemList", StyleBoxEmpty.new())
+	t.set_stylebox("focus", "ItemList", focus_ring())
+	for type in ["HSlider", "TabBar", "TabContainer", "SpinBox"]:
+		t.set_stylebox("focus", type, focus_ring())
 	var row_selected := framed(Color(0.12, 0.32, 0.34, 0.95), GLOW, 1, 4)
 	t.set_stylebox("selected", "ItemList", row_selected)
 	t.set_stylebox("selected_focus", "ItemList", row_selected)
@@ -219,6 +222,20 @@ static func console_style() -> StyleBoxTexture:
 
 
 ## A chamfered box: [param fill] inside a [param border]-coloured frame.
+## The keyboard / gamepad focus outline drawn over a focused control.
+static func focus_ring() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.draw_center = false
+	style.border_color = GLOW
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(3)
+	style.expand_margin_left = 3
+	style.expand_margin_right = 3
+	style.expand_margin_top = 3
+	style.expand_margin_bottom = 3
+	return style
+
+
 static func framed(fill: Color, border: Color, width := 2, cut := CUT) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill

@@ -15,6 +15,8 @@ import numpy as np
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "assets", "sounds")
 RATE = 22050
+# Peak level of the creature voice lines (interface sounds use 0.4 to 0.8).
+VOICE_VOLUME = 0.45
 
 # Vowel formants (Hz) for the gibberish voices.
 VOWELS = {
@@ -49,6 +51,40 @@ def envelope(n, attack=0.01, release=0.08):
 
 def phase(freq):
     return 2 * np.pi * np.cumsum(freq) / RATE
+
+
+def lowpass(samples, cutoff):
+    """One-pole low-pass filter: rounds off harsh high harmonics."""
+    alpha = 1 - math.exp(-2 * math.pi * cutoff / RATE)
+    out = np.empty_like(samples)
+    level = 0.0
+    for i, x in enumerate(samples):
+        level += alpha * (x - level)
+        out[i] = level
+    return out
+
+
+def soft_voice(duration, pitch, vowels, growl=0.0):
+    """A creature voice, gentler than voice(): fewer and quieter upper
+    harmonics, no buzz, a slow growl, rounded with a low-pass filter and soft
+    edges, so it stays cute when heard over and over."""
+    n = int(RATE * duration)
+    f0 = curve(pitch, n)
+    t = t_axis(duration)
+    f0 = f0 * (1 + 0.01 * np.sin(2 * np.pi * 5 * t))
+    formants = [curve([(x, VOWELS[v][k]) for x, v in vowels], n) for k in range(3)]
+    out = np.zeros(n)
+    ph = phase(f0)
+    for h in range(1, 16):
+        fh = f0 * h
+        weight = sum(np.exp(-((fh - f) / (110 + 0.15 * f)) ** 2) * g
+                     for f, g in zip(formants, (1.0, 0.35, 0.08)))
+        weight = weight + 0.3 / (h * h)
+        out += weight * np.sin(h * ph)
+    if growl:
+        out *= 1 - growl * (0.5 + 0.5 * np.sin(2 * np.pi * 18 * t))
+    out = lowpass(lowpass(out, 1800), 2400)
+    return out * envelope(n, 0.035, 0.09)
 
 
 def voice(duration, pitch, vowels, buzz=0.0, vibrato=0.0, growl=0.0):
@@ -135,18 +171,21 @@ def save(name, samples, volume=0.8):
 # --- The sounds ---------------------------------------------------------------
 
 def creature_voices():
-    # Selection: questioning gibberish ("hwee?", "bwah?", "oo-ee?").
-    save("select_1", voice(0.28, [(0, 260), (0.6, 300), (1, 420)], [(0, "w"), (0.35, "e"), (1, "i")]))
-    save("select_2", voice(0.32, [(0, 220), (0.5, 210), (1, 330)], [(0, "w"), (0.3, "a"), (1, "a")]))
-    save("select_3", concat(voice(0.14, [(0, 300), (1, 280)], [(0, "o"), (1, "u")]),
-                            voice(0.18, [(0, 320), (1, 460)], [(0, "e"), (1, "i")]), gap=0.03))
-    # Move orders: cheerful "hup!" and "okey!".
-    save("move_1", voice(0.18, [(0, 340), (0.3, 380), (1, 260)], [(0, "u"), (0.4, "u"), (1, "o")]))
-    save("move_2", concat(voice(0.12, [(0, 300), (1, 310)], [(0, "o"), (1, "o")]),
-                          voice(0.16, [(0, 380), (1, 300)], [(0, "e"), (1, "i")]), gap=0.02))
-    # Attack orders: growly "rarr!" and "hyah!".
-    save("attack_1", voice(0.34, [(0, 170), (0.3, 210), (1, 120)], [(0, "w"), (0.25, "a"), (1, "o")], growl=0.7))
-    save("attack_2", voice(0.26, [(0, 240), (0.4, 300), (1, 180)], [(0, "i"), (0.3, "a"), (1, "a")], growl=0.4))
+    # Soft, mellow gibberish: these play on every click, so they must not
+    # grate. VOICE_VOLUME keeps them below the interface sounds.
+    v = VOICE_VOLUME
+    # Selection: questioning murmurs ("hmm?", "bwah?", "oo-ee?").
+    save("select_1", soft_voice(0.3, [(0, 230), (0.6, 255), (1, 330)], [(0, "w"), (0.35, "o"), (1, "e")]), v)
+    save("select_2", soft_voice(0.32, [(0, 200), (0.5, 195), (1, 270)], [(0, "w"), (0.3, "a"), (1, "o")]), v)
+    save("select_3", concat(soft_voice(0.15, [(0, 260), (1, 245)], [(0, "o"), (1, "u")]),
+                            soft_voice(0.19, [(0, 270), (1, 350)], [(0, "u"), (1, "e")]), gap=0.03), v)
+    # Move orders: a cheerful "hup" and "okay".
+    save("move_1", soft_voice(0.2, [(0, 290), (0.3, 310), (1, 230)], [(0, "u"), (0.4, "u"), (1, "o")]), v)
+    save("move_2", concat(soft_voice(0.13, [(0, 260), (1, 265)], [(0, "o"), (1, "o")]),
+                          soft_voice(0.17, [(0, 300), (1, 255)], [(0, "e"), (1, "o")]), gap=0.02), v)
+    # Attack orders: a low rumbly "rrah" and "hyah".
+    save("attack_1", soft_voice(0.34, [(0, 150), (0.3, 175), (1, 115)], [(0, "w"), (0.25, "a"), (1, "o")], growl=0.35), v)
+    save("attack_2", soft_voice(0.27, [(0, 200), (0.4, 235), (1, 160)], [(0, "o"), (0.3, "a"), (1, "a")], growl=0.2), v)
 
 
 def combat():
@@ -178,7 +217,7 @@ def base():
     # Unit ready: pop and a rising chirp.
     n = int(RATE * 0.08)
     pop = tone(0.08, [(0, 300), (1, 900)]) * decay(n, 40)
-    chirp = voice(0.22, [(0, 380), (1, 620)], [(0, "o"), (1, "i")])
+    chirp = soft_voice(0.22, [(0, 330), (1, 470)], [(0, "o"), (1, "e")])
     save("unit_ready", concat(pop, chirp, gap=0.01), 0.7)
     # Research done: a kazoo arpeggio.
     notes = [262, 330, 392, 523]

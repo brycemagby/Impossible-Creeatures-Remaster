@@ -1,9 +1,14 @@
 extends Control
-## Title screen: start a skirmish, play online or open the creature combiner.
+## Title screen: start a skirmish, play online, open the creature combiner,
+## read how to play, change options or quit. Works with mouse, keyboard or
+## gamepad.
 
 const SETUP_SCENE := "res://scenes/ui/skirmish_setup.tscn"
 const COMBINER_SCENE := "res://scenes/ui/combiner.tscn"
 const ONLINE_SCENE := "res://scenes/ui/multiplayer_lobby.tscn"
+
+var options: OptionsMenu
+var how_to_play: HowToPlay
 
 
 func _ready() -> void:
@@ -28,13 +33,23 @@ func _ready() -> void:
 	column.add_child(subtitle)
 	column.add_child(Control.new())
 
-	_add_button(column, "Play Skirmish", func() -> void: get_tree().change_scene_to_file(SETUP_SCENE))
+	var play := _add_button(column, "Play Skirmish", func() -> void: get_tree().change_scene_to_file(SETUP_SCENE))
 	_add_button(column, "Play Online", func() -> void: get_tree().change_scene_to_file(ONLINE_SCENE))
 	_add_button(column, "Creature Combiner", func() -> void: get_tree().change_scene_to_file(COMBINER_SCENE))
-	_add_button(column, "Quit", func() -> void: get_tree().quit())
+	_add_button(column, "How to Play", func() -> void: how_to_play.open())
+	_add_button(column, "Options", func() -> void: options.open())
+	_add_button(column, "Quit", func() -> void: ConfirmBox.ask(self, "Quit the game?", "Quit", get_tree().quit))
+	how_to_play = HowToPlay.new()
+	add_child(how_to_play)
+	options = OptionsMenu.new()
+	add_child(options)
+	# Keyboard and gamepad users start on the first button.
+	play.grab_focus.call_deferred()
+	how_to_play.closed.connect(play.grab_focus)
+	options.closed.connect(play.grab_focus)
 
 
-func _add_button(parent: Control, text: String, action: Callable) -> void:
+func _add_button(parent: Control, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(320, 52)
@@ -42,3 +57,4 @@ func _add_button(parent: Control, text: String, action: Callable) -> void:
 	button.add_theme_font_size_override("font_size", 24)
 	button.pressed.connect(action)
 	parent.add_child(button)
+	return button

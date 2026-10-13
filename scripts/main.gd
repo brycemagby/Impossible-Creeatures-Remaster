@@ -36,6 +36,7 @@ func _ready() -> void:
 	Upgrades.reset(teams)
 	Alerts.reset()
 	_apply_settings()
+	_add_terrain_decor()
 	navigation_region.bake_finished.connect(_on_bake_finished)
 	# Bake from the ground, rock, building and coal colliders.
 	navigation_region.bake_navigation_mesh(false)
@@ -47,6 +48,18 @@ func _ready() -> void:
 	if spawn_starting_army and not Net.is_client():
 		for team in teams:
 			spawn_army(team, get_node("ArmySpawn%d" % team))
+
+
+## Grass, pebbles and flowers over the map, in the ground's colour.
+func _add_terrain_decor() -> void:
+	var decor := TerrainDecor.new()
+	decor.name = "TerrainDecor"
+	var fog := get_node_or_null("FogOfWar") as FogOfWar
+	if fog != null:
+		decor.area = fog.bounds
+		if fog.ground != null and fog.ground.mesh.surface_get_material(0) is ShaderMaterial:
+			decor.grass_color = (fog.ground.mesh.surface_get_material(0) as ShaderMaterial).get_shader_parameter("albedo")
+	add_child(decor)
 
 
 ## The chosen number of players, limited to the bases this map has.

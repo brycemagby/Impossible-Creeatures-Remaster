@@ -1,15 +1,18 @@
 class_name PauseMenu
 extends Control
 ## Pause menu (F10, Esc with nothing selected, or the HUD's Menu button):
-## resume, restart, change game speed, or quit to the main menu.
-## The - and = keys change game speed during play. Online, the game keeps
-## running behind the menu and the speed stays at 1x for both players.
+## resume, restart, change game speed and volume, open Options, or quit to
+## the main menu (restart and quit ask first). The - and = keys change game
+## speed during play. Works with mouse, keyboard or gamepad. Online, the game
+## keeps running behind the menu and the speed stays at 1x for both players.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 const SPEEDS := [0.5, 1.0, 1.5, 2.0]
 
 var _speed_buttons: Array[Button] = []
 var volume_slider: HSlider
+var options: OptionsMenu
+var _resume_button: Button
 
 
 func _ready() -> void:
@@ -41,8 +44,9 @@ func _ready() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	UiTheme.style_title(title, 36)
 	column.add_child(title)
-	_button(column, "Resume", close)
-	var restart_button := _button(column, "Restart match", restart)
+	_resume_button = _button(column, "Resume", close)
+	var restart_button := _button(column, "Restart match", func() -> void:
+		ConfirmBox.ask(self, "Restart the match? This one will be lost.", "Restart", restart))
 	restart_button.visible = not Net.is_online()
 
 	var speed_label := Label.new()
@@ -59,7 +63,6 @@ func _ready() -> void:
 		button.text = "%sx" % speed
 		button.toggle_mode = true
 		button.button_group = group
-		button.focus_mode = Control.FOCUS_NONE
 		button.custom_minimum_size = Vector2(72, 36)
 		button.pressed.connect(set_speed.bind(speed))
 		speeds.add_child(button)
@@ -74,13 +77,21 @@ func _ready() -> void:
 	volume_slider.max_value = 1.0
 	volume_slider.step = 0.05
 	volume_slider.value = Sfx.volume
-	volume_slider.focus_mode = Control.FOCUS_NONE
 	volume_slider.value_changed.connect(func(value: float) -> void: Sfx.volume = value)
 	column.add_child(volume_slider)
-	_button(column, "Quit to main menu", quit_to_menu)
+	_button(column, "Options", func() -> void: options.open())
+	_button(column, "Quit to main menu", func() -> void:
+		ConfirmBox.ask(self, "Quit to the main menu? This match will be lost.", "Quit", quit_to_menu))
+	options = OptionsMenu.new()
+	add_child(options)
+	options.closed.connect(func() -> void:
+		volume_slider.set_value_no_signal(Sfx.volume)
+		_resume_button.grab_focus())
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if options != null and options.visible:
+		return
 	if event.is_action_pressed("pause_menu") or (visible and event.is_action_pressed("deselect")):
 		toggle()
 		get_viewport().set_input_as_handled()
@@ -96,6 +107,8 @@ func open() -> void:
 	visible = true
 	get_tree().paused = not Net.is_online()
 	_refresh_speed_buttons()
+	volume_slider.set_value_no_signal(Sfx.volume)
+	_resume_button.grab_focus.call_deferred()
 
 
 func close() -> void:
@@ -147,7 +160,6 @@ func _refresh_speed_buttons() -> void:
 func _button(parent: Control, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(0, 40)
 	button.pressed.connect(action)
 	parent.add_child(button)

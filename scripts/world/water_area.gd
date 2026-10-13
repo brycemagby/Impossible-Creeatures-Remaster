@@ -21,7 +21,9 @@ const NAV_HEIGHT := 0.5
 const SHORE_GAP := 0.5
 ## How far apart land and water mesh edges may be and still join; covers the gap.
 const EDGE_CONNECTION_MARGIN := 0.8
-const FogShader := preload("res://shaders/fog_ground.gdshader")
+const WaterShader := preload("res://shaders/water.gdshader")
+## Width of the foamy band along the shore.
+const SHORE_BAND := 1.2
 
 ## Convex outline, in order, on the ground plane (x, z).
 @export var polygon := PackedVector2Array()
@@ -154,13 +156,35 @@ func _build_surface() -> void:
 	var tool := SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 	tool.set_normal(Vector3.UP)
-	# A fan over the convex outline, wound to face up.
-	for i in range(1, polygon.size() - 1):
-		for point in [polygon[0], polygon[i], polygon[i + 1]]:
+	# A band along the shore (vertex colour 0 at the edge, 1 inside, for the
+	# foam), then a fan over the inner outline, wound to face up.
+	var centre := Vector2.ZERO
+	for point in polygon:
+		centre += point
+	centre /= polygon.size()
+	var inner := PackedVector2Array()
+	for point in polygon:
+		var inward := centre - point
+		inner.append(point + inward.normalized() * minf(SHORE_BAND, inward.length() * 0.5))
+	var edge := Color(0, 0, 0)
+	var inside := Color(1, 1, 1)
+	for i in polygon.size():
+		var j := (i + 1) % polygon.size()
+		# No foam where this water meets more water (a river meeting a ford).
+		var shore := inside if _edge_touches_water(polygon[i], polygon[j]) else edge
+		for corner in [[polygon[i], shore], [polygon[j], shore], [inner[j], inside],
+				[polygon[i], shore], [inner[j], inside], [inner[i], inside]]:
+			tool.set_color(corner[1])
+			var point: Vector2 = corner[0]
+			tool.add_vertex(Vector3(point.x, 0.0, point.y))
+	tool.set_color(inside)
+	for i in range(1, inner.size() - 1):
+		for point in [inner[0], inner[i], inner[i + 1]]:
 			tool.add_vertex(Vector3(point.x, 0.0, point.y))
 	var material := ShaderMaterial.new()
-	material.shader = FogShader
+	material.shader = WaterShader
 	material.set_shader_parameter("albedo", SHALLOW_COLOR if shallow else DEEP_COLOR)
+	material.set_shader_parameter("shore_width", 0.6 if shallow else 1.0)
 	_surface = MeshInstance3D.new()
 	_surface.mesh = tool.commit()
 	_surface.material_override = material
@@ -169,6 +193,20 @@ func _build_surface() -> void:
 	_surface.position.y = SURFACE_HEIGHT + (0.005 if shallow else 0.0)
 	_surface.add_to_group("fog_surfaces")
 	add_child(_surface)
+
+
+## Whether the edge from [param a] to [param b] (local) borders another water area.
+func _edge_touches_water(a: Vector2, b: Vector2) -> bool:
+	var middle := (a + b) / 2.0
+	var across := (b - a).orthogonal().normalized() * 0.3
+	var outside := middle + across
+	if Geometry2D.is_point_in_polygon(outside, polygon):
+		outside = middle - across
+	var world := Vector3(outside.x + _origin().x, 0.0, outside.y + _origin().y)
+	for sibling in get_parent().get_children() if get_parent() else []:
+		if sibling != self and sibling is WaterArea and (sibling as WaterArea).contains(world):
+			return true
+	return false
 
 
 ## An obstacle that cuts this area out of the baked land navigation mesh.

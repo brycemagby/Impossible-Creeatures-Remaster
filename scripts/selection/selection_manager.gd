@@ -533,6 +533,7 @@ func place_building_at_screen(screen_position: Vector2, keep_placing := false) -
 	var site := build_placer.place(point)
 	if site == null:
 		message.emit(build_placer.last_error)
+		spawn_failed_marker(build_placer.snap(point))
 		return null
 	Sfx.play_at("place", site.global_position)
 	for henchman in selected_henchmen():
@@ -870,6 +871,14 @@ func _raycast(screen_position: Vector2, mask: int) -> Dictionary:
 func _update_cursor() -> void:
 	var targeting := targeting_order != &"" or build_placer.is_active()
 	Input.set_default_cursor_shape(Input.CURSOR_CROSS if targeting else Input.CURSOR_ARROW)
+
+
+## A red cross that shakes its head at [param target]: an order failed there.
+func spawn_failed_marker(target: Vector3) -> void:
+	var marker := MoveMarkerScene.instantiate()
+	marker.failed = true
+	get_tree().current_scene.add_child(marker)
+	marker.global_position = target + Vector3.UP * 0.05
 
 
 func _spawn_marker(target: Vector3, color: Color) -> void:
