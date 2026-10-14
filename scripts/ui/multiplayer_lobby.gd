@@ -1,16 +1,22 @@
 class_name MultiplayerLobby
 extends Control
-## Play online: host a game or join one by address, then (host) pick the map
-## and fog and start once the other player is in. See Net.
+## Play online: host a game (and get a room code to share) or join one with a
+## code, then (host) pick the map and fog and start once the other player is
+## in. Desktop builds can also connect directly by IP address. See Net.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 
 var name_edit: LineEdit
 var connect_box: VBoxContainer
+var join_code: LineEdit
+var direct_toggle: CheckButton
+var direct_box: VBoxContainer
 var host_port: SpinBox
 var join_address: LineEdit
 var join_port: SpinBox
 var lobby_box: VBoxContainer
+var code_row: HBoxContainer
+var code_label: Label
 var players_label: Label
 var map_option: OptionButton
 var map_description: Label
@@ -46,35 +52,68 @@ func _ready() -> void:
 	name_edit.text_changed.connect(func(text: String) -> void: Net.player_name = Net._clean_name(text))
 	column.add_child(name_edit)
 
-	# Not connected yet: host or join.
+	# Not connected yet: host or join, through the relay with a room code.
 	connect_box = VBoxContainer.new()
 	connect_box.add_theme_constant_override("separation", 10)
 	column.add_child(connect_box)
 	connect_box.add_child(_heading("Host a game"))
 	var host_row := HBoxContainer.new()
 	connect_box.add_child(host_row)
-	host_row.add_child(_dim_label("Port"))
-	host_port = _port_box()
-	host_row.add_child(host_port)
-	var host_button := _button("Host", host_game)
-	host_row.add_child(host_button)
+	var host_note := _dim_label("You get a code to send to the other player.")
+	host_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	host_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	host_row.add_child(host_note)
+	host_row.add_child(_button("Host", host_game))
 
 	connect_box.add_child(_heading("Join a game"))
 	var join_row := HBoxContainer.new()
 	connect_box.add_child(join_row)
+	join_code = LineEdit.new()
+	join_code.placeholder_text = "Code from the host"
+	join_code.max_length = 4
+	join_code.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	join_code.text_submitted.connect(func(_text: String) -> void: join_game())
+	join_row.add_child(join_code)
+	join_row.add_child(_button("Join", join_game))
+
+	# Direct connection by IP (desktop only; browsers can't do UDP).
+	direct_toggle = CheckButton.new()
+	direct_toggle.text = "Connect directly by IP address instead"
+	direct_toggle.visible = Net.direct_supported()
+	direct_toggle.toggled.connect(func(_on: bool) -> void: refresh())
+	connect_box.add_child(direct_toggle)
+	direct_box = VBoxContainer.new()
+	direct_box.add_theme_constant_override("separation", 10)
+	connect_box.add_child(direct_box)
+	var direct_host_row := HBoxContainer.new()
+	direct_box.add_child(direct_host_row)
+	direct_host_row.add_child(_dim_label("Host on port"))
+	host_port = _port_box()
+	direct_host_row.add_child(host_port)
+	direct_host_row.add_child(_button("Host", host_direct))
+	var direct_join_row := HBoxContainer.new()
+	direct_box.add_child(direct_join_row)
 	join_address = LineEdit.new()
 	join_address.placeholder_text = "Host's IP address"
 	join_address.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	join_address.text_submitted.connect(func(_text: String) -> void: join_game())
-	join_row.add_child(join_address)
+	join_address.text_submitted.connect(func(_text: String) -> void: join_direct())
+	direct_join_row.add_child(join_address)
 	join_port = _port_box()
-	join_row.add_child(join_port)
-	join_row.add_child(_button("Join", join_game))
+	direct_join_row.add_child(join_port)
+	direct_join_row.add_child(_button("Join", join_direct))
 
 	# Connected: who's here, and the host's match settings.
 	lobby_box = VBoxContainer.new()
 	lobby_box.add_theme_constant_override("separation", 10)
 	column.add_child(lobby_box)
+	code_row = HBoxContainer.new()
+	lobby_box.add_child(code_row)
+	code_label = Label.new()
+	UiTheme.style_title(code_label, 32)
+	code_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	code_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	code_row.add_child(code_label)
+	code_row.add_child(_button("Copy code", func() -> void: DisplayServer.clipboard_set(Net.room_code)))
 	lobby_box.add_child(_heading("Players"))
 	players_label = Label.new()
 	lobby_box.add_child(players_label)
@@ -119,6 +158,22 @@ func _ready() -> void:
 
 
 func host_game() -> void:
+	var error := Net.host_room()
+	status_label.text = "" if error == OK else "Couldn't reach the relay server"
+	refresh()
+
+
+func join_game() -> void:
+	var code := join_code.text.strip_edges().to_upper()
+	if code.length() != 4:
+		status_label.text = "Type the 4-letter code from the host first"
+		return
+	var error := Net.join_room(code)
+	status_label.text = "Joining %s..." % code if error == OK else "Couldn't reach the relay server"
+	refresh()
+
+
+func host_direct() -> void:
 	var error := Net.host(int(host_port.value))
 	if error != OK:
 		status_label.text = "Couldn't host on port %d (is another game using it?)" % int(host_port.value)
@@ -127,7 +182,7 @@ func host_game() -> void:
 	refresh()
 
 
-func join_game() -> void:
+func join_direct() -> void:
 	var address := join_address.text.strip_edges()
 	if address == "":
 		status_label.text = "Type the host's IP address first"
@@ -149,7 +204,10 @@ func go_back() -> void:
 func refresh() -> void:
 	var joined := Net.is_host() or (Net.is_client() and not Net.players.is_empty())
 	connect_box.visible = not Net.is_online()
+	direct_box.visible = direct_toggle.visible and direct_toggle.button_pressed
 	lobby_box.visible = joined
+	code_row.visible = Net.room_code != "" and Net.is_host()
+	code_label.text = "Code: %s" % Net.room_code
 	name_edit.editable = not Net.is_online()
 	back_button.text = "Leave" if Net.is_online() else "Back"
 	start_button.visible = Net.is_host()
@@ -169,14 +227,24 @@ func refresh() -> void:
 	if Net.is_host() and Net.players.size() < Net.MAX_PLAYERS:
 		lines.append("Waiting for someone to join...")
 	players_label.text = "\n".join(lines)
-	if Net.is_host():
+	if Net.is_opening_room():
+		address_hint.text = "Opening a room..."
+	elif Net.is_host() and Net.room_code != "":
+		address_hint.text = "Send the code to the other player. They pick Play Online, type it in and press Join."
+		if OS.has_feature("web"):
+			address_hint.text += (" Keep this tab in front during the match: the match runs on your computer, "
+					+ "and browsers slow down tabs in the background.")
+	elif Net.is_host():
 		var addresses := Net.local_addresses()
 		address_hint.text = ("On your network, others join with %s (port %d). Over the internet they need your "
 				+ "public IP address, and UDP port %d forwarded to this computer on your router.") % [
 				" or ".join(addresses) if not addresses.is_empty() else "this computer's address",
 				int(host_port.value), int(host_port.value)]
 	elif not Net.is_online():
-		address_hint.text = "Ask the host for their IP address. Both players need the same version of the game."
+		address_hint.text = "Both players need the same version of the game."
+		if direct_box.visible:
+			address_hint.text = "Direct games need the host's IP address, and over the internet a forwarded UDP port. " \
+					+ address_hint.text
 	else:
 		address_hint.text = "The host picks the map and starts the match." if joined else ""
 	if joined and Net.is_client():
@@ -184,6 +252,8 @@ func refresh() -> void:
 
 
 func _default_name() -> String:
+	if OS.has_feature("web"):
+		return "Player"
 	var user := OS.get_environment("USERNAME")
 	if user == "":
 		user = OS.get_environment("USER")

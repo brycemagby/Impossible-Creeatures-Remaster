@@ -38,7 +38,8 @@ func _ready() -> void:
 	_add_button(column, "Creature Combiner", func() -> void: get_tree().change_scene_to_file(COMBINER_SCENE))
 	_add_button(column, "How to Play", func() -> void: how_to_play.open())
 	_add_button(column, "Options", func() -> void: options.open())
-	_add_button(column, "Quit", func() -> void: ConfirmBox.ask(self, "Quit the game?", "Quit", get_tree().quit))
+	if not OS.has_feature("web"):  # A browser tab can't close itself.
+		_add_button(column, "Quit", func() -> void: ConfirmBox.ask(self, "Quit the game?", "Quit", get_tree().quit))
 	how_to_play = HowToPlay.new()
 	add_child(how_to_play)
 	options = OptionsMenu.new()

@@ -1,0 +1,15 @@
+# The relay for online matches. Deploy with `npx wrangler deploy` from this
+# folder (or let the GitHub workflow do it); see docs/WEB.md.
+name = "impossible-creatures-relay"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RoomObject"
+
+# Durable Objects on the free plan must use the SQLite storage backend. The
+# room keeps nothing in storage; this only satisfies the free plan.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RoomObject"]
