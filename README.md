@@ -42,7 +42,7 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
   until you look again. The AI plays by the same rules.
 - **Population** (AoE2-style): every creature and Henchman takes one slot. A Lab houses 10 and each
   **House** 5, up to 100. At the cap, production waits and the HUD says to build more Houses.
-- **Labs heal** friendly creatures within 10 m (4 health per second)
+- **Labs heal** friendly creatures within 10 m (8 health per second)
 - **Soundbeam Tower** (research level 2): a defensive tower that zaps enemy creatures within 10 m,
   flyers included
 - **Research Center** (AoE2 Blacksmith-style): tiered creature upgrades — Bite & Claw (melee damage),
