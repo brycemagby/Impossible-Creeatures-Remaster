@@ -4,6 +4,13 @@ The game runs in a browser as well as on the desktop. Web builds use Godot's Com
 (WebGL 2), set in `project.godot` (`renderer/rendering_method.web`), and are exported without
 thread support, so any static web host can serve them without special headers.
 
+Without threads, Godot 4.3 draws nothing in 3D once more than
+`limits/spatial_indexer/threaded_cull_minimum_instances` objects (1000 by default) are in the
+scene's view checks: it hands the check to worker threads that a threadless build doesn't have.
+Each furry creature is dozens of small meshes, so a big fight crossed that line and the screen
+showed only the sky's brown underside. `project.godot` raises the limit for web builds so the
+check always runs on the main thread.
+
 Online play needs a **relay server**, because browsers can't accept incoming connections. Both
 players connect to the relay with a WebSocket and it passes the game's messages between them. The
 relay is in `relay/`: a Cloudflare Worker with one Durable Object per room. The protocol is

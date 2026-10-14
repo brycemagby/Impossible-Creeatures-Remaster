@@ -54,3 +54,4 @@ relay/url="ws://localhost:8787"
 [rendering]
 
 renderer/rendering_method.web="gl_compatibility"
+limits/spatial_indexer/threaded_cull_minimum_instances.web=1000000
