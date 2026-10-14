@@ -97,9 +97,12 @@ func key_names(action: String, first_only := false) -> String:
 		if event is InputEventKey:
 			var key := event as InputEventKey
 			var code := key.physical_keycode if key.physical_keycode != KEY_NONE else key.keycode
-			# Name the key as printed on this keyboard layout where the platform can tell.
-			if key.physical_keycode != KEY_NONE and DisplayServer.get_name() != "headless":
-				code = DisplayServer.keyboard_get_keycode_from_physical(code)
+			# Name the key as printed on this keyboard layout where the platform can
+			# tell (not headless, and not the web, which logs an error and says nothing).
+			if key.physical_keycode != KEY_NONE and DisplayServer.get_name() != "headless" and not OS.has_feature("web"):
+				var local := DisplayServer.keyboard_get_keycode_from_physical(code)
+				if local != KEY_NONE:
+					code = local
 			names.append(OS.get_keycode_string(code))
 	if first_only and not names.is_empty():
 		return names[0]
