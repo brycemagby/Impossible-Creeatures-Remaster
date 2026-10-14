@@ -268,6 +268,13 @@ starting armies and the combiner screen. Combat tests use the hand-tuned units i
 so they don't depend on combiner balance. They exit non-zero on failure, including when the test
 script itself doesn't compile.
 
+For balance checks, `tests/soak.tscn` plays one AI-vs-AI match and prints a `SOAK` line with the
+match length, deaths and how long creatures survive once hit:
+
+```sh
+SOAK_MAP=1 SOAK_MINUTES=25 godot --headless --path . --fixed-fps 30 res://tests/soak.tscn
+```
+
 The online test starts two headless copies of the game, one hosting and one joining over localhost,
 and plays the start of a match: the lobby, both armies appearing on both machines, the host's units
 seen moving, and the joining player's move, production and building orders carried out by the host
