@@ -35,6 +35,13 @@ func add(team: int, coal_amount := 0.0, electricity_amount := 0.0) -> void:
 	changed.emit(team)
 
 
+## Online: the host says what [param team] has.
+func set_stock(team: int, coal_amount: float, electricity_amount: float) -> void:
+	_coal[team] = coal_amount
+	_electricity[team] = electricity_amount
+	changed.emit(team)
+
+
 func set_income_multiplier(team: int, multiplier: float) -> void:
 	_income[team] = multiplier
 

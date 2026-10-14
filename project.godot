@@ -31,6 +31,7 @@ Population="*res://scripts/autoload/population.gd"
 Alerts="*res://scripts/autoload/alerts.gd"
 UiTheme="*res://scripts/autoload/ui_theme.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
+Net="*res://scripts/autoload/net.gd"
 
 [display]
 

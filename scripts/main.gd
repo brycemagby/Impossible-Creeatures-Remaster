@@ -5,7 +5,8 @@ extends Node3D
 ## being placed or destroyed.
 ##
 ## Maps hold bases for up to 4 teams: ArmySpawnN markers, and each team's
-## Lab, Generator and Henchmen. You are always team 0.
+## Lab, Generator and Henchmen. You are team 0, except when you joined an
+## online game (see Net): then the host runs the match and this map is a view.
 
 const CreatureScene := preload("res://scenes/units/creature.tscn")
 const ARMY_SPACING := 2.4
@@ -39,7 +40,12 @@ func _ready() -> void:
 	navigation_region.bake_finished.connect(_on_bake_finished)
 	# Bake from the ground, rock, building and coal colliders.
 	navigation_region.bake_navigation_mesh(false)
-	if spawn_starting_army:
+	if Net.sync:
+		# Numbers every map-placed unit and building the same on both machines.
+		Net.sync.begin_match(self)
+		_focus_camera_on_base(Net.local_team)
+	# Online, the host spawns everything and the other player is told.
+	if spawn_starting_army and not Net.is_client():
 		for team in teams:
 			spawn_army(team, get_node("ArmySpawn%d" % team))
 
@@ -83,8 +89,16 @@ func _apply_settings() -> void:
 	if fog:
 		fog.enabled = GameSettings.fog_enabled
 	# The scene's EnemyAI plays team 1; every further opponent gets its own.
+	# Online, people play their teams and only the host runs any AI.
+	var humans: Array[int] = [0]
+	if Net.is_online():
+		humans = Net.human_teams()
+	var scene_ai := get_node_or_null("EnemyAI")
+	if scene_ai != null and (Net.is_client() or 1 in humans):
+		remove_child(scene_ai)
+		scene_ai.queue_free()
 	for team in Teams.active:
-		if team == 0:
+		if team in humans or Net.is_client():
 			continue
 		var ai := get_node_or_null("EnemyAI") as AIController if team == 1 else null
 		if ai == null:
@@ -94,6 +108,30 @@ func _apply_settings() -> void:
 			add_child(ai)
 		ai.apply_difficulty(GameSettings.difficulty)
 	Engine.time_scale = GameSettings.game_speed
+
+
+## Starts the camera on [param team]'s base the way the map frames team 0's:
+## the same offset and angle, turned to face the middle of the map from there.
+func _focus_camera_on_base(team: int) -> void:
+	var home := _base_marker(0)
+	var marker := _base_marker(team)
+	var rig := get_node_or_null("RTSCamera") as Node3D
+	if team == 0 or home == null or marker == null or rig == null:
+		return
+	var turn := _yaw_to_center(marker.global_position) - _yaw_to_center(home.global_position)
+	var offset := (rig.global_position - home.global_position).rotated(Vector3.UP, turn)
+	rig.global_position = marker.global_position + offset
+	rig.rotation.y += turn
+
+
+func _base_marker(team: int) -> Node3D:
+	var marker := get_node_or_null("StartLocation%d" % team) as Node3D
+	return marker if marker != null else get_node_or_null("ArmySpawn%d" % team) as Node3D
+
+
+## Camera yaw that looks from [param point] towards the middle of the map.
+static func _yaw_to_center(point: Vector3) -> float:
+	return atan2(point.x, point.z)
 
 
 func _exit_tree() -> void:
@@ -146,6 +184,9 @@ static func pick_starting_army(recipes: Array[UnitRecipe], budget: int) -> Array
 
 ## Rebakes the navmesh in the background, coalescing overlapping requests.
 func request_rebake() -> void:
+	# Online, only the host's units find their way around.
+	if Net.is_client():
+		return
 	if _baking:
 		_rebake_pending = true
 		return

@@ -91,15 +91,21 @@ func is_on_shore(spot: Vector3) -> bool:
 	return WaterArea.distance_to_deep_water(get_tree(), spot) <= half + CLEARANCE + SHORE_DISTANCE
 
 
+## Why a building can't go at [param spot] (already snapped), or "" if it can.
+func check(spot: Vector3) -> String:
+	if Research.level(team) < data.required_research:
+		return "Requires research level %d" % data.required_research
+	if not can_place_at(spot):
+		return "Must be built on a shore" if data.needs_shore and not is_on_shore(spot) else "Can't build there"
+	return Economy.shortfall(team, data.cost_coal, data.cost_electricity)
+
+
 ## Pays for and creates a construction site at [param world_point]. Returns
 ## the new building, or null (see [member last_error]).
 func place(world_point: Vector3) -> Building:
 	var spot := snap(world_point)
-	if Research.level(team) < data.required_research:
-		last_error = "Requires research level %d" % data.required_research
-		return null
-	if not can_place_at(spot):
-		last_error = "Must be built on a shore" if data.needs_shore and not is_on_shore(spot) else "Can't build there"
+	last_error = check(spot)
+	if last_error != "":
 		return null
 	if not Economy.spend(team, data.cost_coal, data.cost_electricity):
 		last_error = Economy.shortfall(team, data.cost_coal, data.cost_electricity)

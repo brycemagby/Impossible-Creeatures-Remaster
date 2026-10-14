@@ -15,7 +15,8 @@ var _timer := 0.0
 
 
 func _physics_process(delta: float) -> void:
-	if winner >= 0:
+	# Online, the host decides when the match is over.
+	if winner >= 0 or Net.is_client():
 		return
 	_timer += delta
 	if _timer < CHECK_INTERVAL:
@@ -34,6 +35,15 @@ func check_now() -> void:
 	if alive.size() == 1:
 		winner = alive.keys()[0]
 		game_over.emit(winner)
+
+
+## Ends the match with [param alliance] as the winner (online: the host's
+## verdict, or the last player left after the other disconnects).
+func declare_winner(alliance: int) -> void:
+	if winner >= 0:
+		return
+	winner = alliance
+	game_over.emit(winner)
 
 
 ## Teams knocked out so far (no creatures or buildings left).

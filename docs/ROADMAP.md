@@ -137,5 +137,8 @@ Follow-ups:
 
 ## Later
 - Single-player campaign (an original story in the spirit of the 1930s pulp-adventure setting)
-- Multiplayer (Godot high-level multiplayer, deterministic lockstep or server-authoritative)
+- Multiplayer: online 1v1 ✅ first pass. Host-authoritative over ENet: the host runs the match and
+  streams it, the joining player's orders go to the host (see README, "Playing online"). Next:
+  more players (2v2, or humans plus AI), a rematch button, a relay or NAT punch-through so nobody
+  has to forward a port, and a ping display
 - Modding support: data-driven animals and maps

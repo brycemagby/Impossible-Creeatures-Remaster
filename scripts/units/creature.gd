@@ -212,6 +212,9 @@ func _ready() -> void:
 	else:
 		agent.navigation_layers = WaterArea.LAND_LAYER
 	agent.velocity_computed.connect(_on_velocity_computed)
+	if Net.is_client():
+		# A puppet of the host's creature: it never steers itself.
+		agent.avoidance_enabled = false
 	_apply_team_color()
 	if stats.design != null:
 		_build_model()
@@ -222,9 +225,14 @@ func _ready() -> void:
 		# Flyers pass over rocks and buildings.
 		collision_mask = 0
 	set_selected(false)
+	if Net.sync:
+		Net.sync.entity_ready(self)
 
 
 func _physics_process(delta: float) -> void:
+	if Net.is_client():
+		_puppet_process()
+		return
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	_charge_cooldown = maxf(_charge_cooldown - delta, 0.0)
 	_leap_cooldown = maxf(_leap_cooldown - delta, 0.0)
@@ -273,6 +281,10 @@ func _physics_process(delta: float) -> void:
 
 ## Runs [param command] now if idle, otherwise after the orders already queued.
 func queue_order(command: Callable) -> void:
+	if Net.is_client():
+		if Net.sync:
+			Net.sync.send_command(self, command.get_method(), command.get_bound_arguments(), true)
+		return
 	if is_idle() and _order_queue.is_empty():
 		command.call()
 	else:
@@ -280,6 +292,8 @@ func queue_order(command: Callable) -> void:
 
 
 func clear_order_queue() -> void:
+	if Net.forward(self, &"clear_order_queue"):
+		return
 	_order_queue.clear()
 
 
@@ -295,6 +309,8 @@ func is_idle() -> bool:
 ## [param group_speed] caps the walking speed so a group keeps pace with its
 ## slowest member.
 func command_move(point: Vector3, group_speed := INF) -> void:
+	if Net.forward(self, &"command_move", [point, group_speed]):
+		return
 	_clear_target()
 	order = Order.MOVE
 	_order_point = point
@@ -303,6 +319,8 @@ func command_move(point: Vector3, group_speed := INF) -> void:
 
 
 func command_attack(target: Node3D) -> void:
+	if Net.forward(self, &"command_attack", [target]):
+		return
 	if not is_valid_target(target) or not Teams.are_enemies(team, target.team) or not can_attack(target):
 		return
 	order = Order.ATTACK
@@ -312,6 +330,8 @@ func command_attack(target: Node3D) -> void:
 
 
 func command_attack_move(point: Vector3, group_speed := INF) -> void:
+	if Net.forward(self, &"command_attack_move", [point, group_speed]):
+		return
 	_clear_target()
 	order = Order.ATTACK_MOVE
 	_order_point = point
@@ -320,6 +340,8 @@ func command_attack_move(point: Vector3, group_speed := INF) -> void:
 
 
 func command_stop() -> void:
+	if Net.forward(self, &"command_stop"):
+		return
 	_clear_target()
 	order = Order.IDLE
 	_group_speed = INF
@@ -329,6 +351,8 @@ func command_stop() -> void:
 
 ## Stay here and only attack enemies within reach (no chasing, no kiting).
 func command_hold() -> void:
+	if Net.forward(self, &"command_hold"):
+		return
 	_clear_target()
 	order = Order.HOLD
 	_group_speed = INF
@@ -338,12 +362,20 @@ func command_hold() -> void:
 
 ## Walk back and forth between here and [param point], fighting on the way.
 func command_patrol(point: Vector3, group_speed := INF) -> void:
+	if Net.forward(self, &"command_patrol", [point, group_speed]):
+		return
 	_clear_target()
 	order = Order.PATROL
 	_patrol_from = global_position
 	_order_point = point
 	_group_speed = group_speed
 	_navigate(point)
+
+
+func set_stance(value: Stance) -> void:
+	if Net.forward(self, &"set_stance", [value]):
+		return
+	stance = value
 
 
 # --- Combat -------------------------------------------------------------------
@@ -447,6 +479,8 @@ func hear_screech(source: Creature) -> bool:
 
 ## An expanding, fading ring (sonic) or cloud (stink) of [param radius].
 func _show_puff(color: Color, radius_m: float, duration: float, as_ring := false) -> void:
+	if Net.sync:
+		Net.sync.entity_event(self, &"puff", [color, radius_m, duration, as_ring])
 	var mesh: Mesh
 	if as_ring:
 		var torus := TorusMesh.new()
@@ -899,6 +933,13 @@ func _start_leap(target: Node3D, gap: float) -> void:
 	_leap_cooldown = LEAP_COOLDOWN
 	_halt()
 	rotation.y = atan2(-direction.x, -direction.z)
+	show_leap()
+
+
+## The jump itself, as the body sees it (also played by online puppets).
+func show_leap() -> void:
+	if Net.sync:
+		Net.sync.entity_event(self, &"leap")
 	var hop := create_tween()
 	hop.tween_property(_visual, "position:y", _visual.position.y + LEAP_HEIGHT * stats.size, LEAP_DURATION / 2.0) \
 			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
@@ -919,16 +960,33 @@ func is_leaping() -> bool:
 
 
 func _perform_attack(target: Node3D) -> void:
+	if Net.sync:
+		Net.sync.entity_event(self, &"attack", [target])
 	if stats.is_ranged():
-		var projectile := ProjectileScene.instantiate()
-		get_tree().current_scene.add_child(projectile)
-		var muzzle := global_position + Vector3.UP * center_height() * 1.2
-		projectile.launch(muzzle, target, stats.attack_damage, self, stats.projectile_speed)
-		Sfx.play_at("shoot", muzzle, Sfx.voice_pitch(self))
+		_launch_projectile(target, false)
 	else:
 		deal_hit(target)
 		Sfx.play_at("hit", global_position, Sfx.voice_pitch(self))
 		_lunge()
+
+
+## Online puppets: the host says this creature just attacked [param target].
+func show_attack(target: Node3D) -> void:
+	if stats.is_ranged():
+		_launch_projectile(target, true)
+	else:
+		Sfx.play_at("hit", global_position, Sfx.voice_pitch(self))
+		_lunge()
+
+
+## [param visual_only]: just for show, the hit is the host's business.
+func _launch_projectile(target: Node3D, visual_only: bool) -> void:
+	var projectile := ProjectileScene.instantiate()
+	projectile.visual_only = visual_only
+	get_tree().current_scene.add_child(projectile)
+	var muzzle := global_position + Vector3.UP * center_height() * 1.2
+	projectile.launch(muzzle, target, stats.attack_damage, self, stats.projectile_speed)
+	Sfx.play_at("shoot", muzzle, Sfx.voice_pitch(self))
 
 
 func _lose_health(amount: float) -> void:
@@ -941,6 +999,8 @@ func _lose_health(amount: float) -> void:
 
 
 func _die() -> void:
+	if Net.sync:
+		Net.sync.entity_died(self)
 	_dead = true
 	Sfx.play_at("death", global_position, Sfx.voice_pitch(self))
 	remove_from_group("units")
@@ -976,12 +1036,70 @@ func _die() -> void:
 	tween.tween_callback(queue_free)
 
 
+## Online puppets: the host says this creature died.
+func die_from_network() -> void:
+	_die()
+
+
 func _allies_within(max_distance: float) -> Array[Creature]:
 	var allies: Array[Creature] = []
 	for unit: Creature in get_tree().get_nodes_in_group("units"):
 		if unit != self and Teams.are_allies(unit.team, team) and _flat_distance(unit.global_position) <= max_distance:
 			allies.append(unit)
 	return allies
+
+
+# --- Online -------------------------------------------------------------------
+
+## Network flags (see net_state).
+const NET_MOVING := 1
+const NET_CAMOUFLAGED := 2
+const NET_CHARGING := 4
+const NET_STUNNED := 8
+const NET_POISONED := 16
+
+
+## What the joining player's puppet needs besides position (sent when it changes).
+func net_state() -> Array:
+	var flags := (NET_MOVING if is_moving else 0) | (NET_CAMOUFLAGED if _camouflaged else 0) \
+			| (NET_CHARGING if is_charging else 0) | (NET_STUNNED if _stunned > 0.0 else 0) \
+			| (NET_POISONED if _poison_time > 0.0 else 0)
+	var carried: int = get(&"carried_coal") if self is Henchman else 0
+	return [snappedf(health, 0.1), order | (stance << 4), Net.sync.id_of(attack_target) if is_valid_target(attack_target) else 0,
+			flags, carried]
+
+
+func apply_net_state(state: Array) -> void:
+	if _dead:
+		return
+	var new_health: float = state[0]
+	if new_health < health - 0.05:
+		_flash()
+	if not is_equal_approx(new_health, health):
+		health = new_health
+		health_changed.emit(health, stats.max_health)
+	order = state[1] & 15
+	stance = state[1] >> 4
+	attack_target = Net.sync.node_of(state[2]) as Node3D if state[2] != 0 else null
+	var flags: int = state[3]
+	is_moving = flags & NET_MOVING != 0
+	is_charging = flags & NET_CHARGING != 0
+	_stunned = 1.0 if flags & NET_STUNNED else 0.0
+	_poison_time = 1.0 if flags & NET_POISONED else 0.0
+	var camouflaged := flags & NET_CAMOUFLAGED != 0
+	if camouflaged != _camouflaged:
+		_camouflaged = camouflaged
+		if _model:
+			_model.set_ghostly(camouflaged)
+	if self is Henchman:
+		set(&"carried_coal", state[4])
+
+
+## Per frame on the joining player's machine: NetSync moves the puppet, this
+## keeps up the bits worked out from where it is.
+func _puppet_process() -> void:
+	if stats.can_swim:
+		_update_swimming()
 
 
 # --- Movement -----------------------------------------------------------------

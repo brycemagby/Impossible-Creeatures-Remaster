@@ -1,9 +1,11 @@
 extends Control
-## Title screen: start a skirmish, open the creature combiner, read how to
-## play, change options or quit. Works with mouse, keyboard or gamepad.
+## Title screen: start a skirmish, play online, open the creature combiner,
+## read how to play, change options or quit. Works with mouse, keyboard or
+## gamepad.
 
 const SETUP_SCENE := "res://scenes/ui/skirmish_setup.tscn"
 const COMBINER_SCENE := "res://scenes/ui/combiner.tscn"
+const ONLINE_SCENE := "res://scenes/ui/multiplayer_lobby.tscn"
 
 var options: OptionsMenu
 var how_to_play: HowToPlay
@@ -32,6 +34,7 @@ func _ready() -> void:
 	column.add_child(Control.new())
 
 	var play := _add_button(column, "Play Skirmish", func() -> void: get_tree().change_scene_to_file(SETUP_SCENE))
+	_add_button(column, "Play Online", func() -> void: get_tree().change_scene_to_file(ONLINE_SCENE))
 	_add_button(column, "Creature Combiner", func() -> void: get_tree().change_scene_to_file(COMBINER_SCENE))
 	_add_button(column, "How to Play", func() -> void: how_to_play.open())
 	_add_button(column, "Options", func() -> void: options.open())

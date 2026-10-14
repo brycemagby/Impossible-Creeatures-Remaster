@@ -135,6 +135,7 @@ func _run() -> void:
 	await _test_main_menu()
 	await _test_options_and_accessibility()
 	await _test_alert_pings_and_failed_orders()
+	_test_online_encoding()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_ARMY_PATH))
 	print("\n%d checks, %d failed" % [_checks, _failures])
 	get_tree().quit(1 if _failures > 0 else 0)
@@ -3153,8 +3154,60 @@ func _test_main_menu() -> void:
 	await _process_frames(2)
 	var labels := menu.find_children("*", "Button", true, false).map(func(b: Button) -> String: return b.text)
 	_check("Play Skirmish" in labels and "Creature Combiner" in labels, "the main menu offers skirmish and the combiner")
+	_check("Play Online" in labels, "the main menu offers online play")
 	menu.queue_free()
 	await _process_frames(1)
+
+
+## The pieces of online play that don't need a second copy of the game
+## (tests/run_net_test.sh plays a real match between two).
+func _test_online_encoding() -> void:
+	print("online encoding")
+	_check(not Net.is_online() and Net.sync == null, "the game starts offline")
+	var unit := Creature.new()
+	_check(not Net.forward(unit, &"command_stop"), "offline, commands run locally instead of being sent")
+	unit.free()
+
+	var designs := Armies.default_designs()
+	var decoded := Armies.decode_designs(Armies.encode_designs(designs))
+	var same := decoded.size() == designs.size()
+	for i in mini(decoded.size(), designs.size()):
+		same = same and decoded[i].animal_a == designs[i].animal_a and decoded[i].animal_b == designs[i].animal_b \
+				and decoded[i].picks == designs[i].picks and decoded[i].display_name() == designs[i].display_name()
+	_check(same, "army rosters survive the trip to the other player")
+	_check(Armies.decode_designs([["../../secret", "wolf", [0, 0, 0, 0, 0, -1], ""], ["wolf", "wolf", [0, 0, 7, 0, 0, -1], ""],
+			"junk", ["wolf", "wolf", [0, 0, 0, 0, 0, 0], ""]]).is_empty(),
+			"rosters with unknown animals, bad picks or wingless wings are refused")
+
+	var sync := NetSync.new()
+	var a := Node3D.new()
+	var b := Node3D.new()
+	add_child(a)
+	add_child(b)
+	a.set_meta(&"net_id", 7)
+	b.set_meta(&"net_id", 70000)
+	a.position = Vector3(12.345, 2.5, -40.01)
+	b.position = Vector3(-47.9, 0.0, 47.9)
+	a.rotation.y = 1.0
+	b.rotation.y = -2.5
+	var creatures := [a, b]
+	var snapshot := NetSync.decode_snapshot(sync.encode_snapshot(3.25, creatures))
+	_check(snapshot.units.size() == 2 and is_equal_approx(snapshot.time, 3.25), "a snapshot keeps its time and every creature")
+	var first: Array = snapshot.units[0]
+	var second: Array = snapshot.units[1]
+	_check(first[0] == 7 and second[0] == 70000, "a snapshot keeps creature ids")
+	_check(first[1].distance_to(a.position) < 0.01 and second[1].distance_to(b.position) < 0.01, "positions arrive to the centimetre")
+	_check(absf(angle_difference(first[2], 1.0)) < 0.03 and absf(angle_difference(second[2], -2.5)) < 0.03, "facing arrives to a degree or two")
+	_check(sync.encode_snapshot(0.0, creatures).size() == 6 + 2 * 11, "a snapshot costs 11 bytes per creature")
+	_check(NetSync.decode_snapshot(PackedByteArray([1, 2, 3])).is_empty(), "a truncated snapshot is ignored")
+	a.free()
+	b.free()
+	sync.free()
+
+	var buffer := [[1.0, Vector3(0, 0, 0), 0.0], [2.0, Vector3(10, 0, 0), 1.0]]
+	_check(NetSync.sample_buffer(buffer, 1.5)[0].is_equal_approx(Vector3(5, 0, 0)), "the joining player sees units halfway between snapshots")
+	_check(NetSync.sample_buffer(buffer, 5.0)[0].is_equal_approx(Vector3(10, 0, 0)), "past the last snapshot a unit holds still rather than guessing")
+	_check(NetSync.sample_buffer(buffer, 0.0)[0].is_equal_approx(Vector3.ZERO), "before the first snapshot a unit waits at the first")
 
 
 func _test_options_and_accessibility() -> void:

@@ -4,6 +4,8 @@ extends Node3D
 ## If the target dies mid-flight the projectile carries on to the last known
 ## position and fizzles.
 
+## Online puppets fire these just for show: the host decides what they hit.
+var visual_only := false
 var _target: Node3D
 var _source: Creature
 var _damage := 0.0
@@ -26,6 +28,9 @@ func _physics_process(delta: float) -> void:
 	var to_target := _aim_point - global_position
 	var step := _speed * delta
 	if to_target.length() <= step:
+		if visual_only:
+			queue_free()
+			return
 		if Creature.is_valid_target(_source):
 			_source.deal_hit(_target)
 		elif Creature.is_valid_target(_target):

@@ -24,6 +24,8 @@ var _last_pile: CoalPile = null
 
 
 func command_gather(pile: CoalPile) -> void:
+	if Net.forward(self, &"command_gather", [pile]):
+		return
 	_stop_work()
 	_clear_target()
 	order = Order.GATHER
@@ -35,6 +37,8 @@ func command_gather(pile: CoalPile) -> void:
 
 ## Builds [param site], or repairs it if it's finished but damaged.
 func command_build(site: Building) -> void:
+	if Net.forward(self, &"command_build", [site]):
+		return
 	if not Creature.is_valid_target(site) or not site.needs_work() or site.team != team:
 		return
 	_stop_work()
