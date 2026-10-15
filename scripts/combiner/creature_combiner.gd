@@ -52,9 +52,22 @@ const MELEE_SHARE := 0.6
 const COAL_PER_POWER := 3.0
 ## Echolocation: bat heads see further.
 const SONIC_SIGHT_BONUS := 4.0
+## Game pace. Everything above is tuned in "design" units; these scale the
+## finished stats so creatures walk slower and fights last longer. Level and
+## price are worked out before scaling, so they don't move with the pace.
+const PACE_SPEED := 0.7
+const PACE_HEALTH := 2.0
 
 
 static func build_stats(design: CreatureDesign) -> CreatureStats:
+	var stats := _design_stats(design)
+	stats.level = level_for(power_rating(stats))
+	_apply_pace(stats)
+	return stats
+
+
+## Stats in design units, before the game pace is applied.
+static func _design_stats(design: CreatureDesign) -> CreatureStats:
 	var head := design.source(CreatureDesign.Slot.HEAD)
 	var torso := design.source(CreatureDesign.Slot.TORSO)
 	var front := design.source(CreatureDesign.Slot.FRONT_LEGS)
@@ -130,8 +143,13 @@ static func build_stats(design: CreatureDesign) -> CreatureStats:
 
 	stats.max_health = roundf(stats.max_health)
 	stats.attack_damage = roundf(stats.attack_damage * 10.0) / 10.0
-	stats.level = level_for(power_rating(stats))
 	return stats
+
+
+static func _apply_pace(stats: CreatureStats) -> void:
+	stats.move_speed *= PACE_SPEED
+	stats.swim_speed *= PACE_SPEED
+	stats.max_health = roundf(stats.max_health * PACE_HEALTH)
 
 
 ## A single number for how strong a creature is; drives level and cost.
@@ -197,9 +215,9 @@ static func too_heavy_to_fly(design: CreatureDesign) -> bool:
 
 
 static func make_recipe(design: CreatureDesign) -> UnitRecipe:
-	var stats := build_stats(design)
-	var power := power_rating(stats)
+	var power := power_rating(_design_stats(design))
 	var recipe := UnitRecipe.new()
+	var stats := build_stats(design)
 	recipe.stats = stats
 	recipe.scene = load("res://scenes/units/creature.tscn")
 	recipe.cost_coal = int(snappedf(power * COAL_PER_POWER, 5.0))

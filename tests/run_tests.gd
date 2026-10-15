@@ -754,7 +754,7 @@ func _test_combiner_rules() -> void:
 	_check(_stats("bat", "bat", [0, 0, 0, 0, 0, 0]).level == 1 and _stats("crocodile", "crocodile", [0, 0, 0, 0, 0, -1]).level == 5,
 			"Bats are level 1 and Crocodiles level 5")
 	var crawler := _stats("elephant", "bat", [0, 0, 1, 1, 0, -1])
-	_check(crawler.move_speed >= CreatureCombiner.MIN_SPEED, "tiny legs under a huge body still walk at %.1f" % crawler.move_speed)
+	_check(crawler.move_speed >= CreatureCombiner.MIN_SPEED * CreatureCombiner.PACE_SPEED, "tiny legs under a huge body still walk at %.1f" % crawler.move_speed)
 	_check(is_equal_approx(Creature.damage_after_armor(10.0, 3.0), 7.0) and is_equal_approx(Creature.damage_after_armor(9.0, 9.0), 9.0 * (1.0 - Creature.MAX_ARMOR_BLOCK)),
 			"armor blocks its value, but never more than %d%% of a hit" % roundi(Creature.MAX_ARMOR_BLOCK * 100.0))
 	var armored := scorpion.duplicate()
@@ -1400,7 +1400,7 @@ func _test_swimmers() -> void:
 	_check(croc.can_swim and not croc.water_only, "crocodile legs make an amphibian")
 	_check(shark.water_only and shark.can_swim and shark.move_speed == shark.swim_speed, "fins front and back: water only")
 	var half := _stats("lion", "shark", [0, 0, 1, 0, 0, -1])
-	_check(half.can_swim and not half.water_only and half.move_speed >= CreatureCombiner.MIN_SPEED, "one pair of fins and one of legs: amphibious")
+	_check(half.can_swim and not half.water_only and half.move_speed >= CreatureCombiner.MIN_SPEED * CreatureCombiner.PACE_SPEED, "one pair of fins and one of legs: amphibious")
 	var winged := _stats("electric_eel", "bat", [0, 0, 0, 0, 0, 1])
 	_check(winged.can_fly and not winged.can_swim, "wings win: a light enough finned flyer flies over the water")
 	_check(_stats("lion", "electric_eel", [0, 1, 0, 0, 0, -1]).has_electric, "an electric eel torso is electric")

@@ -42,7 +42,7 @@ creature combiner**) and 6 (**skirmish**) are working with placeholder art:
   until you look again. The AI plays by the same rules.
 - **Population** (AoE2-style): every creature and Henchman takes one slot. A Lab houses 10 and each
   **House** 5, up to 100. At the cap, production waits and the HUD says to build more Houses.
-- **Labs heal** friendly creatures within 10 m (4 health per second)
+- **Labs heal** friendly creatures within 10 m (8 health per second)
 - **Soundbeam Tower** (research level 2): a defensive tower that zaps enemy creatures within 10 m,
   flyers included
 - **Research Center** (AoE2 Blacksmith-style): tiered creature upgrades — Bite & Claw (melee damage),
@@ -267,6 +267,13 @@ buttons, the combiner rules for every animal pair, rosters and saving, flying, p
 starting armies and the combiner screen. Combat tests use the hand-tuned units in `tests/fixtures/`
 so they don't depend on combiner balance. They exit non-zero on failure, including when the test
 script itself doesn't compile.
+
+For balance checks, `tests/soak.tscn` plays one AI-vs-AI match and prints a `SOAK` line with the
+match length, deaths and how long creatures survive once hit:
+
+```sh
+SOAK_MAP=1 SOAK_MINUTES=25 godot --headless --path . --fixed-fps 30 res://tests/soak.tscn
+```
 
 The online test starts two headless copies of the game, one hosting and one joining over localhost,
 and plays the start of a match: the lobby, both armies appearing on both machines, the host's units

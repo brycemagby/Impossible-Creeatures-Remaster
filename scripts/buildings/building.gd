@@ -93,7 +93,7 @@ func _physics_process(delta: float) -> void:
 	if data.heal_radius > 0.0:
 		_heal_timer += delta
 		if _heal_timer >= HEAL_INTERVAL:
-			_heal_nearby(data.heal_per_second * _heal_timer)
+			_heal_nearby(data.heal_per_second * CreatureCombiner.PACE_HEALTH * _heal_timer)
 			_heal_timer = 0.0
 	if researching > 0:
 		research_time += delta
